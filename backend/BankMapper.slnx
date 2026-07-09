@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="BankMapper.Api/BankMapper.Api.csproj" />
+  <Project Path="BankMapper.Application/BankMapper.Application.csproj" />
+  <Project Path="BankMapper.Domain/BankMapper.Domain.csproj" />
+  <Project Path="BankMapper.Infrastructure/BankMapper.Infrastructure.csproj" />
+</Solution>

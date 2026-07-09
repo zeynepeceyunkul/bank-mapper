@@ -16,5 +16,8 @@ npm-debug.log*
 .vscode/
 *.suo
 
+# Claude Code (kisisel/local config, projenin calismasi icin gerekli degil)
+.claude/
+
 # Misc
 *.log

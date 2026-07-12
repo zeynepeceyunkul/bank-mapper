@@ -1,5 +1,6 @@
 using BankMapper.Application.FileTypes;
 using BankMapper.Application.Products;
+using BankMapper.Application.SourceSchemas;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BankMapper.Application;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IFileTypeService, FileTypeService>();
         services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<ISourceSchemaService, SourceSchemaService>();
 
         return services;
     }

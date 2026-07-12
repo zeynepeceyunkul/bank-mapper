@@ -1,4 +1,6 @@
 using BankMapper.Application.Abstractions;
+using BankMapper.Application.FileParsing;
+using BankMapper.Infrastructure.FileParsing;
 using BankMapper.Infrastructure.Persistence;
 using BankMapper.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +16,8 @@ public static class DependencyInjection
         services.AddSingleton<IMongoDbContext, MongoDbContext>();
         services.AddScoped<IFileTypeRepository, FileTypeRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<ISourceSchemaRepository, SourceSchemaRepository>();
+        services.AddSingleton<IFileParserFactory, FileParserFactory>();
 
         return services;
     }

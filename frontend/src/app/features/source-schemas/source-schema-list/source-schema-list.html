@@ -1,1 +1,132 @@
-<p>source-schema-list works!</p>
+<section class="source-schemas">
+  <h2>Yeni Source Şema</h2>
+
+  <div class="field">
+    <label for="name">Şema Adı</label>
+    <input id="name" type="text" [(ngModel)]="name" placeholder="Örn. Musteri X Bordro Excel" />
+  </div>
+
+  <div class="field">
+    <label for="fileFormat">Dosya Formatı</label>
+    <select id="fileFormat" [(ngModel)]="fileFormat">
+      <option value="Excel">Excel</option>
+      <option value="Csv">CSV</option>
+      <option value="FixedLength">Sabit Uzunluklu (TXT)</option>
+    </select>
+  </div>
+
+  @if (!isFixedLength) {
+    <div class="field checkbox">
+      <label>
+        <input type="checkbox" [(ngModel)]="hasHeader" />
+        Başlık satırı var
+      </label>
+    </div>
+
+    @if (fileFormat === 'Csv') {
+      <div class="field">
+        <label for="delimiter">Ayraç</label>
+        <input id="delimiter" type="text" [(ngModel)]="delimiter" placeholder="," />
+      </div>
+    }
+
+    <div class="field">
+      <label for="file">Dosya</label>
+      <input id="file" type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" />
+    </div>
+  } @else {
+    <div class="manual-fields">
+      <p>Alan pozisyonlarını manuel tanımlayın:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Alan Adı</th>
+            <th>Başlangıç</th>
+            <th>Uzunluk</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (field of manualFields(); track $index) {
+            <tr>
+              <td><input type="text" [(ngModel)]="field.name" /></td>
+              <td><input type="number" [(ngModel)]="field.startIndex" /></td>
+              <td><input type="number" [(ngModel)]="field.length" /></td>
+              <td><button type="button" (click)="removeManualField($index)">Sil</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <button type="button" (click)="addManualField()">+ Alan Ekle</button>
+    </div>
+  }
+
+  @if (createError()) {
+    <p class="error">{{ createError() }}</p>
+  }
+
+  <button type="button" class="save-button" [disabled]="saving()" (click)="submit()">
+    {{ saving() ? 'Kaydediliyor...' : 'Şemayı Kaydet' }}
+  </button>
+
+  @if (created()) {
+    <div class="result">
+      <h3>Kaydedildi: {{ created()!.name }}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Alan</th>
+            <th>Tip</th>
+            <th>Sıra</th>
+            <th>Başlangıç</th>
+            <th>Uzunluk</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of created()!.fields; track f.name) {
+            <tr>
+              <td>{{ f.name }}</td>
+              <td>{{ f.type }}</td>
+              <td>{{ f.order }}</td>
+              <td>{{ f.startIndex ?? '-' }}</td>
+              <td>{{ f.length ?? '-' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <hr />
+
+  <h2>Kayıtlı Source Şemalar</h2>
+
+  @if (listError()) {
+    <p class="error">{{ listError() }}</p>
+  }
+
+  @if (schemas().length === 0 && !listError()) {
+    <p>Henüz kayıtlı source şema yok.</p>
+  } @else {
+    <table class="schema-list">
+      <thead>
+        <tr>
+          <th>Ad</th>
+          <th>Format</th>
+          <th>Başlık Satırı</th>
+          <th>Alan Sayısı</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (schema of schemas(); track schema.id) {
+          <tr>
+            <td>{{ schema.name }}</td>
+            <td>{{ schema.fileFormat }}</td>
+            <td>{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
+            <td>{{ schema.fields.length }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

@@ -1,0 +1,14 @@
+namespace BankMapper.Domain.Functoids;
+
+public class RPadFunctoid : IFunctoid
+{
+    public string Code => "RPad";
+
+    public object? Execute(object?[] inputs, Dictionary<string, object>? parameters)
+    {
+        var value = inputs[0]?.ToString() ?? string.Empty;
+        var length = FunctoidParams.GetInt(parameters, "length", value.Length);
+        var padChar = FunctoidParams.GetString(parameters, "padChar", " ");
+        return value.PadRight(length, padChar.Length > 0 ? padChar[0] : ' ');
+    }
+}

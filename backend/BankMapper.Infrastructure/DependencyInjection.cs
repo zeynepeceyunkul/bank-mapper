@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IFileTypeRepository, FileTypeRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ISourceSchemaRepository, SourceSchemaRepository>();
+        services.AddScoped<IMappingRepository, MappingRepository>();
         services.AddSingleton<IFileParserFactory, FileParserFactory>();
 
         return services;

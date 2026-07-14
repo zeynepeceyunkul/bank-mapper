@@ -1,1 +1,151 @@
-<p>mapping-editor works!</p>
+<section class="mapping-editor">
+  <h2>Yeni Mapping Oluştur</h2>
+
+  <div class="selectors">
+    <div class="field">
+      <label for="product">Ürün</label>
+      <select id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
+        <option value="" disabled>Ürün seçin</option>
+        @for (product of products(); track product.id) {
+          <option [value]="product.id">{{ product.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="fileType">Dosya Tipi</label>
+      <select
+        id="fileType"
+        [(ngModel)]="selectedFileTypeId"
+        (ngModelChange)="onFileTypeChange()"
+        [disabled]="fileTypes().length === 0"
+      >
+        <option value="" disabled>Dosya tipi seçin</option>
+        @for (fileType of fileTypes(); track fileType.id) {
+          <option [value]="fileType.id">{{ fileType.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="sourceSchema">Source Şema</label>
+      <select
+        id="sourceSchema"
+        [(ngModel)]="selectedSourceSchemaId"
+        (ngModelChange)="onSourceSchemaChange()"
+      >
+        <option value="" disabled>Source şema seçin</option>
+        @for (schema of sourceSchemas(); track schema.id) {
+          <option [value]="schema.id">{{ schema.name }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (readyForCanvas) {
+    <p class="hint">Kaynak alanın üzerindeki noktadan sürükleyip hedef alana bırak.</p>
+
+    <div
+      class="canvas-container"
+      #canvasEl
+      [style.height.px]="canvasHeight"
+      (mousemove)="onCanvasMouseMove($event)"
+      (mouseup)="onCanvasMouseUp()"
+      (mouseleave)="onCanvasMouseUp()"
+    >
+      @for (field of sourceFieldsList; track field.name; let i = $index) {
+        <div
+          class="field-box source-box"
+          [style.top.px]="rowCenterY(i) - 18"
+          (mousedown)="onSourceDotMouseDown(field.name, $event)"
+        >
+          <span class="label">{{ field.name }}</span>
+          <span class="dot dot-right" [class.active]="dragFromField === field.name"></span>
+        </div>
+      }
+
+      <svg class="connections-layer" [attr.width]="canvasWidth" [attr.height]="canvasHeight">
+        @for (conn of connections(); track conn.sourceField + '->' + conn.targetField; let i = $index) {
+          <line
+            [attr.x1]="sourceDotX"
+            [attr.y1]="rowCenterY(sourceIndex(conn.sourceField))"
+            [attr.x2]="targetDotX"
+            [attr.y2]="rowCenterY(targetIndex(conn.targetField))"
+            stroke="#1a73e8"
+            stroke-width="2"
+          />
+        }
+        @if (dragFromField && dragPointer) {
+          <line
+            [attr.x1]="sourceDotX"
+            [attr.y1]="rowCenterY(sourceIndex(dragFromField))"
+            [attr.x2]="dragPointer.x"
+            [attr.y2]="dragPointer.y"
+            stroke="#999"
+            stroke-width="2"
+            stroke-dasharray="4 4"
+          />
+        }
+      </svg>
+
+      @for (field of targetFieldsList; track field.name; let i = $index) {
+        <div
+          class="field-box target-box"
+          [style.top.px]="rowCenterY(i) - 18"
+          (mouseup)="onTargetDotMouseUp(field.name, $event)"
+        >
+          <span class="dot dot-left"></span>
+          <span class="label">{{ field.name }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="connection-list">
+      <h3>Bağlantılar ({{ connections().length }})</h3>
+      @if (connections().length === 0) {
+        <p class="hint">Henüz bağlantı yok.</p>
+      } @else {
+        <ul>
+          @for (conn of connections(); track conn.sourceField + '->' + conn.targetField; let i = $index) {
+            <li>
+              {{ conn.sourceField }} → {{ conn.targetField }}
+              <button type="button" (click)="removeConnection(i)">Sil</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <div class="save-section">
+      <div class="field">
+        <label for="mappingName">Mapping Adı</label>
+        <input
+          id="mappingName"
+          type="text"
+          [(ngModel)]="mappingName"
+          placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
+        />
+      </div>
+
+      @if (saveError()) {
+        <p class="error">{{ saveError() }}</p>
+      }
+
+      <button type="button" [disabled]="saving()" (click)="saveMapping()">
+        {{ saving() ? 'Kaydediliyor...' : "Mapping'i Kaydet" }}
+      </button>
+
+      @if (savedMapping()) {
+        <p class="success">
+          Kaydedildi: {{ savedMapping()!.name }} ({{ savedMapping()!.fieldMappings.length }} alan eşleşmesi)
+        </p>
+      }
+    </div>
+  } @else {
+    <p class="hint">Devam etmek için hem dosya tipi hem source şema seçmelisin.</p>
+  }
+</section>

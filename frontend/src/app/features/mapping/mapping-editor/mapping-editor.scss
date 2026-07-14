@@ -1,0 +1,130 @@
+.mapping-editor {
+  .selectors {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 220px;
+
+      select {
+        padding: 0.4rem;
+      }
+    }
+  }
+
+  .error {
+    color: #c62828;
+  }
+
+  .hint {
+    color: #555;
+    font-style: italic;
+  }
+
+  .canvas-container {
+    position: relative;
+    width: 640px;
+    max-width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    background: #fafafa;
+  }
+
+  .connections-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .field-box {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    width: 212px;
+    padding: 0 0.5rem;
+    box-sizing: border-box;
+    user-select: none;
+    cursor: grab;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.85rem;
+
+    .label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #1a73e8;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .dot.active {
+      background: #ff9800;
+    }
+  }
+
+  .source-box {
+    left: 8px;
+
+    .dot-right {
+      margin-left: auto;
+    }
+  }
+
+  .target-box {
+    right: 8px;
+
+    .dot-left {
+      margin-right: 0.5rem;
+    }
+  }
+
+  .connection-list {
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.3rem 0;
+    }
+  }
+
+  .save-section {
+    margin-top: 1.5rem;
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      max-width: 420px;
+      margin-bottom: 0.75rem;
+
+      input {
+        padding: 0.4rem;
+      }
+    }
+
+    .success {
+      color: #2e7d32;
+    }
+  }
+}

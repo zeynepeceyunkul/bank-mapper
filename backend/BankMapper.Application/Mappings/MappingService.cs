@@ -1,3 +1,4 @@
+using System.Text.Json;
 using BankMapper.Application.Abstractions;
 using BankMapper.Domain.Entities;
 
@@ -26,9 +27,46 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
         TargetField = dto.TargetField,
         SourceFields = dto.SourceFields,
         FunctoidChain = dto.FunctoidChain
-            .Select(f => new FunctoidStep { Type = f.Type, Order = f.Order, Params = f.Params, AppliesTo = f.AppliesTo })
+            .Select(f => new FunctoidStep
+            {
+                Type = f.Type,
+                Order = f.Order,
+                Params = NormalizeParams(f.Params),
+                AppliesTo = f.AppliesTo
+            })
             .ToList()
     };
+
+    // System.Text.Json, Dictionary<string, object> icindeki degerleri JsonElement olarak
+    // deserialize eder; MongoDB'nin ObjectSerializer'i JsonElement'i taniyamadigi icin
+    // kaydetmeden once bunlari duz CLR tiplerine (string/int/double/bool) ceviriyoruz.
+    private static Dictionary<string, object>? NormalizeParams(Dictionary<string, object>? parameters)
+    {
+        if (parameters is null)
+        {
+            return null;
+        }
+
+        return parameters.ToDictionary(kvp => kvp.Key, kvp => NormalizeValue(kvp.Value)!);
+    }
+
+    private static object? NormalizeValue(object? value)
+    {
+        if (value is not JsonElement element)
+        {
+            return value;
+        }
+
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt32(out var i) ? i : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => element.GetRawText()
+        };
+    }
 
     private static MappingDto ToDto(Mapping mapping) => new()
     {

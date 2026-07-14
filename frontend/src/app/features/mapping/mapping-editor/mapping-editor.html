@@ -120,6 +120,55 @@
       }
     </div>
 
+    @if (mappedTargetFields.length > 0) {
+      <div class="functoid-section">
+        <h3>Target Alan Functoid'leri</h3>
+        @for (field of mappedTargetFields; track field.name) {
+          <div class="functoid-row">
+            <strong>{{ field.name }}</strong>
+
+            @if (functoidsFor(field.name).length > 0) {
+              <ul class="functoid-chips">
+                @for (step of functoidsFor(field.name); track step.order; let si = $index) {
+                  <li>
+                    {{ step.type }}
+                    @if (formatFunctoidParams(step.params); as paramText) {
+                      ({{ paramText }})
+                    }
+                    <button type="button" (click)="removeFunctoid(field.name, si)">×</button>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (activeFunctoidTarget === field.name) {
+              <div class="functoid-form">
+                <select [(ngModel)]="functoidFormCode">
+                  <option value="" disabled>Functoid seç</option>
+                  @for (def of functoidDefinitions(); track def.code) {
+                    <option [value]="def.code">{{ def.name }}</option>
+                  }
+                </select>
+
+                @for (param of selectedFunctoidParams; track param.key) {
+                  <input
+                    [type]="param.type === 'number' ? 'number' : 'text'"
+                    [placeholder]="param.label"
+                    [(ngModel)]="functoidFormParams[param.key]"
+                  />
+                }
+
+                <button type="button" (click)="addFunctoid(field.name)">Ekle</button>
+                <button type="button" (click)="closeFunctoidForm()">İptal</button>
+              </div>
+            } @else {
+              <button type="button" (click)="openFunctoidForm(field.name)">+ Functoid Ekle</button>
+            }
+          </div>
+        }
+      </div>
+    }
+
     <div class="save-section">
       <div class="field">
         <label for="mappingName">Mapping Adı</label>

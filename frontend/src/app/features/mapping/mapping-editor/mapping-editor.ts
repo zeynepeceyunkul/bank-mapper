@@ -3,8 +3,10 @@ import { FormsModule } from '@angular/forms';
 import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
+import { FunctoidService } from '../../../core/services/functoid.service';
 import { FileType, TargetField } from '../../../core/models/file-type.model';
-import { FieldMapping, Mapping } from '../../../core/models/mapping.model';
+import { FieldMapping, FunctoidStep, Mapping } from '../../../core/models/mapping.model';
+import { FunctoidDefinition, FunctoidParameterDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
 import { SourceField, SourceSchema } from '../../../core/models/source-schema.model';
 
@@ -23,6 +25,7 @@ export class MappingEditor implements OnInit {
   private readonly productService = inject(ProductService);
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly mappingService = inject(MappingService);
+  private readonly functoidService = inject(FunctoidService);
 
   @ViewChild('canvasEl') canvasElRef!: ElementRef<HTMLDivElement>;
 
@@ -38,6 +41,12 @@ export class MappingEditor implements OnInit {
   readonly connections = signal<FieldConnection[]>([]);
   dragFromField: string | null = null;
   dragPointer: { x: number; y: number } | null = null;
+
+  readonly functoidDefinitions = signal<FunctoidDefinition[]>([]);
+  readonly targetFunctoids = signal<Record<string, FunctoidStep[]>>({});
+  activeFunctoidTarget: string | null = null;
+  functoidFormCode = '';
+  functoidFormParams: Record<string, string> = {};
 
   mappingName = '';
   readonly saving = signal(false);
@@ -59,12 +68,18 @@ export class MappingEditor implements OnInit {
       next: (schemas) => this.sourceSchemas.set(schemas),
       error: () => this.error.set('Source şemalar yüklenemedi. API çalışıyor mu?'),
     });
+
+    this.functoidService.getAll().subscribe({
+      next: (definitions) => this.functoidDefinitions.set(definitions),
+      error: () => this.error.set('Functoid listesi yüklenemedi. API çalışıyor mu?'),
+    });
   }
 
   onProductChange(): void {
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
     this.connections.set([]);
+    this.targetFunctoids.set({});
 
     if (!this.selectedProductId) {
       return;
@@ -78,10 +93,12 @@ export class MappingEditor implements OnInit {
 
   onFileTypeChange(): void {
     this.connections.set([]);
+    this.targetFunctoids.set({});
   }
 
   onSourceSchemaChange(): void {
     this.connections.set([]);
+    this.targetFunctoids.set({});
   }
 
   get selectedFileType(): FileType | undefined {
@@ -165,7 +182,77 @@ export class MappingEditor implements OnInit {
   }
 
   removeConnection(index: number): void {
+    const removed = this.connections()[index];
     this.connections.update((list) => list.filter((_, i) => i !== index));
+
+    const stillMapped = this.connections().some((c) => c.targetField === removed.targetField);
+    if (!stillMapped) {
+      this.targetFunctoids.update((map) => {
+        const { [removed.targetField]: _removedChain, ...rest } = map;
+        return rest;
+      });
+    }
+  }
+
+  get mappedTargetFields(): TargetField[] {
+    const targetNames = new Set(this.connections().map((c) => c.targetField));
+    return this.targetFieldsList.filter((f) => targetNames.has(f.name));
+  }
+
+  functoidsFor(targetField: string): FunctoidStep[] {
+    return this.targetFunctoids()[targetField] ?? [];
+  }
+
+  get selectedFunctoidParams(): FunctoidParameterDefinition[] {
+    return this.functoidDefinitions().find((f) => f.code === this.functoidFormCode)?.parameters ?? [];
+  }
+
+  openFunctoidForm(targetField: string): void {
+    this.activeFunctoidTarget = targetField;
+    this.functoidFormCode = '';
+    this.functoidFormParams = {};
+  }
+
+  closeFunctoidForm(): void {
+    this.activeFunctoidTarget = null;
+  }
+
+  addFunctoid(targetField: string): void {
+    if (!this.functoidFormCode) {
+      return;
+    }
+
+    const definition = this.functoidDefinitions().find((f) => f.code === this.functoidFormCode);
+    const params: Record<string, string | number> = {};
+
+    for (const paramDef of definition?.parameters ?? []) {
+      const raw = this.functoidFormParams[paramDef.key] ?? '';
+      params[paramDef.key] = paramDef.type === 'number' ? Number(raw) : raw;
+    }
+
+    this.targetFunctoids.update((map) => {
+      const existing = map[targetField] ?? [];
+      const step: FunctoidStep = { type: this.functoidFormCode, order: existing.length + 1, params };
+      return { ...map, [targetField]: [...existing, step] };
+    });
+
+    this.closeFunctoidForm();
+  }
+
+  removeFunctoid(targetField: string, index: number): void {
+    this.targetFunctoids.update((map) => {
+      const existing = map[targetField] ?? [];
+      const updated = existing.filter((_, i) => i !== index).map((step, i) => ({ ...step, order: i + 1 }));
+      return { ...map, [targetField]: updated };
+    });
+  }
+
+  formatFunctoidParams(params?: Record<string, unknown> | null): string {
+    if (!params) {
+      return '';
+    }
+    const entries = Object.entries(params);
+    return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join(', ') : '';
   }
 
   private updateDragPointer(event: MouseEvent): void {
@@ -220,7 +307,7 @@ export class MappingEditor implements OnInit {
     return Array.from(sourceFieldsByTarget.entries()).map(([targetField, sourceFields]) => ({
       targetField,
       sourceFields,
-      functoidChain: [],
+      functoidChain: this.functoidsFor(targetField),
     }));
   }
 }

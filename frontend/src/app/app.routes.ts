@@ -21,4 +21,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/mapping/mapping-list/mapping-list').then((m) => m.MappingList),
   },
+  {
+    path: 'mapping/new',
+    loadComponent: () =>
+      import('./features/mapping/mapping-editor/mapping-editor').then((m) => m.MappingEditor),
+  },
 ];

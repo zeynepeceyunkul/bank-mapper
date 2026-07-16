@@ -6,5 +6,7 @@ public interface ISourceSchemaRepository
 {
     Task<List<SourceSchema>> GetAllAsync();
 
+    Task<SourceSchema?> GetByIdAsync(string id);
+
     Task<SourceSchema> CreateAsync(SourceSchema schema);
 }

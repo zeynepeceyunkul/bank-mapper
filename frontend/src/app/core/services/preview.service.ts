@@ -14,4 +14,12 @@ export class PreviewService {
 
     return this.http.post<Record<string, unknown>[]>(`${environment.apiUrl}/preview/execute`, formData);
   }
+
+  convert(mappingId: string, file: File): Observable<Blob> {
+    const formData = new FormData();
+    formData.append('MappingId', mappingId);
+    formData.append('File', file);
+
+    return this.http.post(`${environment.apiUrl}/preview/convert`, formData, { responseType: 'blob' });
+  }
 }

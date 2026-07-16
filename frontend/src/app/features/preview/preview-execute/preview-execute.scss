@@ -17,6 +17,11 @@
     }
   }
 
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
   .preview-table-wrapper {
     margin-top: 1.5rem;
     overflow-x: auto;

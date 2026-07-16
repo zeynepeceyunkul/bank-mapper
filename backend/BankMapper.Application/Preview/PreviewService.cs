@@ -1,3 +1,4 @@
+using System.Text;
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.FileParsing;
 using BankMapper.Domain.Execution;
@@ -14,6 +15,18 @@ public class PreviewService(
 
     public async Task<List<Dictionary<string, object?>>> ExecuteAsync(string mappingId, Stream file)
     {
+        var rows = await RunMappingAsync(mappingId, file);
+        return rows.Take(MaxPreviewRows).ToList();
+    }
+
+    public async Task<string> ConvertToCsvAsync(string mappingId, Stream file)
+    {
+        var rows = await RunMappingAsync(mappingId, file);
+        return BuildCsv(rows);
+    }
+
+    private async Task<List<Dictionary<string, object?>>> RunMappingAsync(string mappingId, Stream file)
+    {
         var mapping = await mappingRepository.GetByIdAsync(mappingId)
             ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
 
@@ -23,9 +36,31 @@ public class PreviewService(
         var parser = fileParserFactory.GetParser(sourceSchema.FileFormat);
         var parsed = parser.Parse(file, sourceSchema);
 
-        return parsed.Rows
-            .Take(MaxPreviewRows)
-            .Select(row => mappingExecutor.Apply(mapping, row))
-            .ToList();
+        return parsed.Rows.Select(row => mappingExecutor.Apply(mapping, row)).ToList();
     }
+
+    private static string BuildCsv(List<Dictionary<string, object?>> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var columns = rows[0].Keys.ToList();
+        var builder = new StringBuilder();
+        builder.AppendLine(string.Join(",", columns.Select(EscapeCsvValue)));
+
+        foreach (var row in rows)
+        {
+            var values = columns.Select(c => EscapeCsvValue(row.GetValueOrDefault(c)?.ToString() ?? string.Empty));
+            builder.AppendLine(string.Join(",", values));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string EscapeCsvValue(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
 }

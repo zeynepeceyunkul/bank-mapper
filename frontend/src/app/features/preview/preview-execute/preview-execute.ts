@@ -19,6 +19,7 @@ export class PreviewExecute implements OnInit {
   readonly rows = signal<Record<string, unknown>[]>([]);
   readonly error = signal<string | null>(null);
   readonly loading = signal(false);
+  readonly downloading = signal(false);
 
   selectedMappingId = '';
   selectedFile: File | null = null;
@@ -64,6 +65,42 @@ export class PreviewExecute implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.error.set(typeof err.error === 'string' ? err.error : 'Önizleme başarısız. API çalışıyor mu?');
         this.loading.set(false);
+      },
+    });
+  }
+
+  downloadCsv(): void {
+    this.error.set(null);
+
+    if (!this.selectedMappingId) {
+      this.error.set('Bir mapping seçmelisin.');
+      return;
+    }
+
+    if (!this.selectedFile) {
+      this.error.set('Bir dosya seçmelisin.');
+      return;
+    }
+
+    this.downloading.set(true);
+
+    this.previewService.convert(this.selectedMappingId, this.selectedFile).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'donusturulen-dosya.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+        this.downloading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.downloading.set(false);
+        if (err.error instanceof Blob) {
+          err.error.text().then((message) => this.error.set(message || 'Dönüştürme başarısız.'));
+        } else {
+          this.error.set('Dönüştürme başarısız. API çalışıyor mu?');
+        }
       },
     });
   }

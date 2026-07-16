@@ -22,9 +22,15 @@
     <p class="error">{{ error() }}</p>
   }
 
-  <button type="button" [disabled]="loading()" (click)="runPreview()">
-    {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
-  </button>
+  <div class="actions">
+    <button type="button" [disabled]="loading()" (click)="runPreview()">
+      {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
+    </button>
+
+    <button type="button" [disabled]="downloading()" (click)="downloadCsv()">
+      {{ downloading() ? 'Hazırlanıyor...' : 'CSV Olarak İndir' }}
+    </button>
+  </div>
 
   @if (rows().length > 0) {
     <div class="preview-table-wrapper">

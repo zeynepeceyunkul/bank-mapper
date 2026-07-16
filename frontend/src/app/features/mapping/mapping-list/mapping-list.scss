@@ -1,0 +1,44 @@
+.mapping-list {
+  max-width: 640px;
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+
+    .new-button {
+      background: #1a73e8;
+      color: #fff;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+  }
+
+  .error {
+    color: #c62828;
+  }
+
+  .hint {
+    color: #555;
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 0.4rem 0.6rem;
+      text-align: left;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+  }
+}

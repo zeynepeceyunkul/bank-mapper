@@ -6,6 +6,18 @@ namespace BankMapper.Application.Mappings;
 
 public class MappingService(IMappingRepository mappingRepository) : IMappingService
 {
+    public async Task<List<MappingDto>> GetAllAsync()
+    {
+        var mappings = await mappingRepository.GetAllAsync();
+        return mappings.Select(ToDto).ToList();
+    }
+
+    public async Task<MappingDto?> GetByIdAsync(string id)
+    {
+        var mapping = await mappingRepository.GetByIdAsync(id);
+        return mapping is null ? null : ToDto(mapping);
+    }
+
     public async Task<MappingDto> CreateAsync(CreateMappingRequest request)
     {
         var mapping = new Mapping
@@ -20,6 +32,24 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
         var created = await mappingRepository.CreateAsync(mapping);
         return ToDto(created);
+    }
+
+    public async Task<MappingDto?> UpdateAsync(string id, CreateMappingRequest request)
+    {
+        var existing = await mappingRepository.GetByIdAsync(id);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        existing.Name = request.Name;
+        existing.SourceSchemaId = request.SourceSchemaId;
+        existing.FileTypeId = request.FileTypeId;
+        existing.FieldMappings = request.FieldMappings.Select(ToEntity).ToList();
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        var updated = await mappingRepository.UpdateAsync(existing);
+        return updated is null ? null : ToDto(updated);
     }
 
     private static FieldMapping ToEntity(FieldMappingDto dto) => new()

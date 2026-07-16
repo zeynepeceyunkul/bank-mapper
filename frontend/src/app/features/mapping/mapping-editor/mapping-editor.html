@@ -1,5 +1,9 @@
 <section class="mapping-editor">
-  <h2>Yeni Mapping Oluştur</h2>
+  <h2>{{ isEditMode ? 'Mapping Düzenle' : 'Yeni Mapping Oluştur' }}</h2>
+
+  @if (loadingExisting()) {
+    <p class="hint">Mapping yükleniyor...</p>
+  }
 
   <div class="selectors">
     <div class="field">
@@ -185,12 +189,13 @@
       }
 
       <button type="button" [disabled]="saving()" (click)="saveMapping()">
-        {{ saving() ? 'Kaydediliyor...' : "Mapping'i Kaydet" }}
+        {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
       </button>
 
       @if (savedMapping()) {
         <p class="success">
-          Kaydedildi: {{ savedMapping()!.name }} ({{ savedMapping()!.fieldMappings.length }} alan eşleşmesi)
+          {{ isEditMode ? 'Güncellendi' : 'Kaydedildi' }}: {{ savedMapping()!.name }}
+          ({{ savedMapping()!.fieldMappings.length }} alan eşleşmesi)
         </p>
       }
     </div>

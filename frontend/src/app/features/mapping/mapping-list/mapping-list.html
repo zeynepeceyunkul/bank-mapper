@@ -1,1 +1,37 @@
-<p>mapping-list works!</p>
+<section class="mapping-list">
+  <div class="header">
+    <h2>Kayıtlı Mapping'ler</h2>
+    <a routerLink="/mapping/new" class="new-button">+ Yeni Mapping</a>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (mappings().length === 0 && !error()) {
+    <p class="hint">Henüz kayıtlı mapping yok.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Ad</th>
+          <th>Alan Sayısı</th>
+          <th>Güncellenme</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (mapping of mappings(); track mapping.id) {
+          <tr>
+            <td>{{ mapping.name }}</td>
+            <td>{{ mapping.fieldMappings.length }}</td>
+            <td>{{ mapping.updatedAt | date: 'short' }}</td>
+            <td>
+              <a [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

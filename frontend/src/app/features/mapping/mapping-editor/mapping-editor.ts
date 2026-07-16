@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
@@ -26,6 +27,10 @@ export class MappingEditor implements OnInit {
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly mappingService = inject(MappingService);
   private readonly functoidService = inject(FunctoidService);
+  private readonly route = inject(ActivatedRoute);
+
+  mappingId: string | null = null;
+  readonly loadingExisting = signal(false);
 
   @ViewChild('canvasEl') canvasElRef!: ElementRef<HTMLDivElement>;
 
@@ -73,6 +78,61 @@ export class MappingEditor implements OnInit {
       next: (definitions) => this.functoidDefinitions.set(definitions),
       error: () => this.error.set('Functoid listesi yüklenemedi. API çalışıyor mu?'),
     });
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.mappingId = id;
+      this.loadExistingMapping(id);
+    }
+  }
+
+  private loadExistingMapping(id: string): void {
+    this.loadingExisting.set(true);
+
+    this.mappingService.getById(id).subscribe({
+      next: (mapping) => {
+        this.mappingName = mapping.name;
+        this.selectedSourceSchemaId = mapping.sourceSchemaId;
+
+        this.connections.set(
+          mapping.fieldMappings.flatMap((fm) =>
+            fm.sourceFields.map((sourceField) => ({ sourceField, targetField: fm.targetField }))
+          )
+        );
+
+        const functoidsByTarget: Record<string, FunctoidStep[]> = {};
+        for (const fm of mapping.fieldMappings) {
+          functoidsByTarget[fm.targetField] = fm.functoidChain;
+        }
+        this.targetFunctoids.set(functoidsByTarget);
+
+        this.productService.getFileTypeById(mapping.fileTypeId).subscribe({
+          next: (fileType) => {
+            this.selectedProductId = fileType.productId;
+
+            this.productService.getFileTypesByProductId(fileType.productId).subscribe({
+              next: (fileTypes) => {
+                this.fileTypes.set(fileTypes);
+                this.selectedFileTypeId = mapping.fileTypeId;
+                this.loadingExisting.set(false);
+              },
+              error: () => {
+                this.error.set('Dosya tipleri yüklenemedi. API çalışıyor mu?');
+                this.loadingExisting.set(false);
+              },
+            });
+          },
+          error: () => {
+            this.error.set('Dosya tipi bilgisi yüklenemedi. API çalışıyor mu?');
+            this.loadingExisting.set(false);
+          },
+        });
+      },
+      error: () => {
+        this.error.set('Mapping yüklenemedi. API çalışıyor mu?');
+        this.loadingExisting.set(false);
+      },
+    });
   }
 
   onProductChange(): void {
@@ -111,6 +171,10 @@ export class MappingEditor implements OnInit {
 
   get readyForCanvas(): boolean {
     return !!this.selectedFileType && !!this.selectedSourceSchema;
+  }
+
+  get isEditMode(): boolean {
+    return !!this.mappingId;
   }
 
   get sourceFieldsList(): SourceField[] {
@@ -276,23 +340,27 @@ export class MappingEditor implements OnInit {
 
     this.saving.set(true);
 
-    this.mappingService
-      .create({
-        name: this.mappingName.trim(),
-        sourceSchemaId: this.selectedSourceSchemaId,
-        fileTypeId: this.selectedFileTypeId,
-        fieldMappings: this.buildFieldMappings(),
-      })
-      .subscribe({
-        next: (mapping) => {
-          this.savedMapping.set(mapping);
-          this.saving.set(false);
-        },
-        error: () => {
-          this.saveError.set('Mapping kaydedilemedi. API çalışıyor mu?');
-          this.saving.set(false);
-        },
-      });
+    const request = {
+      name: this.mappingName.trim(),
+      sourceSchemaId: this.selectedSourceSchemaId,
+      fileTypeId: this.selectedFileTypeId,
+      fieldMappings: this.buildFieldMappings(),
+    };
+
+    const save$ = this.mappingId
+      ? this.mappingService.update(this.mappingId, request)
+      : this.mappingService.create(request);
+
+    save$.subscribe({
+      next: (mapping) => {
+        this.savedMapping.set(mapping);
+        this.saving.set(false);
+      },
+      error: () => {
+        this.saveError.set('Mapping kaydedilemedi. API çalışıyor mu?');
+        this.saving.set(false);
+      },
+    });
   }
 
   private buildFieldMappings(): FieldMapping[] {

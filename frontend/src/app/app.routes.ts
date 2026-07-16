@@ -26,4 +26,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/mapping/mapping-editor/mapping-editor').then((m) => m.MappingEditor),
   },
+  {
+    path: 'mapping/edit/:id',
+    loadComponent: () =>
+      import('./features/mapping/mapping-editor/mapping-editor').then((m) => m.MappingEditor),
+  },
 ];

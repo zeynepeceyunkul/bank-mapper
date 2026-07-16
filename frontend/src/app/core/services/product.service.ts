@@ -16,4 +16,8 @@ export class ProductService {
   getFileTypesByProductId(productId: string): Observable<FileType[]> {
     return this.http.get<FileType[]>(`${environment.apiUrl}/products/${productId}/file-types`);
   }
+
+  getFileTypeById(id: string): Observable<FileType> {
+    return this.http.get<FileType>(`${environment.apiUrl}/file-types/${id}`);
+  }
 }

@@ -3,4 +3,5 @@
   <Project Path="BankMapper.Application/BankMapper.Application.csproj" />
   <Project Path="BankMapper.Domain/BankMapper.Domain.csproj" />
   <Project Path="BankMapper.Infrastructure/BankMapper.Infrastructure.csproj" />
+  <Project Path="BankMapper.Tests/BankMapper.Tests.csproj" />
 </Solution>

@@ -17,15 +17,6 @@
     }
   }
 
-  .error {
-    color: #c62828;
-  }
-
-  .hint {
-    color: #555;
-    font-style: italic;
-  }
-
   .canvas-container {
     position: relative;
     width: 640px;
@@ -184,10 +175,6 @@
       input {
         padding: 0.4rem;
       }
-    }
-
-    .success {
-      color: #2e7d32;
     }
   }
 }

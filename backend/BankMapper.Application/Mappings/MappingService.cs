@@ -20,6 +20,8 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
     public async Task<MappingDto> CreateAsync(CreateMappingRequest request)
     {
+        Validate(request);
+
         var mapping = new Mapping
         {
             Name = request.Name,
@@ -36,6 +38,8 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
     public async Task<MappingDto?> UpdateAsync(string id, CreateMappingRequest request)
     {
+        Validate(request);
+
         var existing = await mappingRepository.GetByIdAsync(id);
         if (existing is null)
         {
@@ -50,6 +54,34 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
         var updated = await mappingRepository.UpdateAsync(existing);
         return updated is null ? null : ToDto(updated);
+    }
+
+    private static void Validate(CreateMappingRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("Mapping adı zorunludur.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SourceSchemaId))
+        {
+            throw new ArgumentException("Source şema seçilmelidir.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FileTypeId))
+        {
+            throw new ArgumentException("Dosya tipi seçilmelidir.");
+        }
+
+        if (request.FieldMappings.Count == 0)
+        {
+            throw new ArgumentException("En az bir alan eşleşmesi olmalıdır.");
+        }
+
+        if (request.FieldMappings.Any(fm => fm.SourceFields.Count == 0))
+        {
+            throw new ArgumentException("Her alan eşleşmesinin en az bir kaynak alanı olmalıdır.");
+        }
     }
 
     private static FieldMapping ToEntity(FieldMappingDto dto) => new()

@@ -16,6 +16,11 @@ public class SourceSchemaService(ISourceSchemaRepository repository, IFileParser
 
     public async Task<SourceSchemaDto> CreateAsync(CreateSourceSchemaRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("Şema adı zorunludur.");
+        }
+
         var formatOptions = new SourceFormatOptions
         {
             HasHeader = request.HasHeader,
@@ -38,8 +43,14 @@ public class SourceSchemaService(ISourceSchemaRepository repository, IFileParser
         return ToDto(created);
     }
 
-    private static List<SourceField> BuildManualFields(List<SourceFieldDto>? fields) =>
-        (fields ?? [])
+    private static List<SourceField> BuildManualFields(List<SourceFieldDto>? fields)
+    {
+        if (fields is null || fields.Count == 0)
+        {
+            throw new ArgumentException("Sabit uzunluklu şema için en az bir alan tanımlamalısınız.");
+        }
+
+        return fields
             .Select(f => new SourceField
             {
                 Name = f.Name,
@@ -49,6 +60,7 @@ public class SourceSchemaService(ISourceSchemaRepository repository, IFileParser
                 Length = f.Length
             })
             .ToList();
+    }
 
     private List<SourceField> DetectFieldsFromFile(CreateSourceSchemaRequest request, SourceFormatOptions formatOptions)
     {

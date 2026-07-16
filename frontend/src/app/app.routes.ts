@@ -31,4 +31,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/mapping/mapping-editor/mapping-editor').then((m) => m.MappingEditor),
   },
+  {
+    path: 'preview',
+    loadComponent: () =>
+      import('./features/preview/preview-execute/preview-execute').then((m) => m.PreviewExecute),
+  },
 ];

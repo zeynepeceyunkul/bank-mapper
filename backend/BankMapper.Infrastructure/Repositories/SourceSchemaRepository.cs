@@ -14,6 +14,9 @@ public class SourceSchemaRepository(IMongoDbContext context) : ISourceSchemaRepo
     public async Task<List<SourceSchema>> GetAllAsync() =>
         await _collection.Find(FilterDefinition<SourceSchema>.Empty).ToListAsync();
 
+    public async Task<SourceSchema?> GetByIdAsync(string id) =>
+        await _collection.Find(s => s.Id == id).FirstOrDefaultAsync();
+
     public async Task<SourceSchema> CreateAsync(SourceSchema schema)
     {
         schema.Id = ObjectId.GenerateNewId().ToString();

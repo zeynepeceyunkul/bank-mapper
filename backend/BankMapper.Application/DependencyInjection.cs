@@ -1,8 +1,10 @@
 using BankMapper.Application.FileTypes;
 using BankMapper.Application.Functoids;
 using BankMapper.Application.Mappings;
+using BankMapper.Application.Preview;
 using BankMapper.Application.Products;
 using BankMapper.Application.SourceSchemas;
+using BankMapper.Domain.Execution;
 using BankMapper.Domain.Functoids;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<ISourceSchemaService, SourceSchemaService>();
         services.AddScoped<IMappingService, MappingService>();
         services.AddScoped<IFunctoidService, FunctoidService>();
+        services.AddScoped<IPreviewService, PreviewService>();
 
         services.AddSingleton<IFunctoid, TrimFunctoid>();
         services.AddSingleton<IFunctoid, LPadFunctoid>();
@@ -25,6 +28,7 @@ public static class DependencyInjection
         services.AddSingleton<IFunctoid, UpperFunctoid>();
         services.AddSingleton<IFunctoid, LowerFunctoid>();
         services.AddSingleton<FunctoidRegistry>();
+        services.AddSingleton<MappingExecutor>();
 
         return services;
     }

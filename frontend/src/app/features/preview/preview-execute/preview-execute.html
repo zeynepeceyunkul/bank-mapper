@@ -1,0 +1,51 @@
+<section class="preview-execute">
+  <h2>Dosya Önizleme / Dönüştürme</h2>
+
+  <div class="selectors">
+    <div class="field">
+      <label for="mapping">Mapping</label>
+      <select id="mapping" [(ngModel)]="selectedMappingId">
+        <option value="" disabled>Mapping seçin</option>
+        @for (mapping of mappings(); track mapping.id) {
+          <option [value]="mapping.id">{{ mapping.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="file">Dosya</label>
+      <input id="file" type="file" (change)="onFileSelected($event)" />
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <button type="button" [disabled]="loading()" (click)="runPreview()">
+    {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
+  </button>
+
+  @if (rows().length > 0) {
+    <div class="preview-table-wrapper">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            @for (col of columns; track col) {
+              <th>{{ col }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track $index) {
+            <tr>
+              @for (col of columns; track col) {
+                <td>{{ row[col] }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

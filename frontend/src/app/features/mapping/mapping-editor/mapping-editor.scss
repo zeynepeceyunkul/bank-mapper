@@ -17,6 +17,29 @@
     }
   }
 
+  .editor-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .canvas-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .add-constant {
+    align-self: flex-start;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #43a047;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
   .canvas-container {
     position: relative;
     width: 960px;
@@ -85,8 +108,45 @@
     }
   }
 
+  .functoid-node,
+  .constant-node {
+    .label {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .dot {
+      position: absolute;
+    }
+
+    .dot-node-in {
+      left: -6px;
+    }
+
+    .dot-node-out {
+      right: -6px;
+    }
+
+    .node-remove {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 16px;
+      height: 16px;
+      line-height: 14px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid #c62828;
+      background: #fff;
+      color: #c62828;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+  }
+
   .functoid-node {
-    justify-content: space-between;
     background: #fff3e0;
     border-color: #fb8c00;
     cursor: grab;
@@ -95,15 +155,58 @@
       cursor: grabbing;
     }
 
-    .label {
-      flex: 1;
-      text-align: center;
-      font-weight: 600;
-    }
-
     .dot-node-in,
     .dot-node-out {
       background: #fb8c00;
+    }
+  }
+
+  .constant-node {
+    background: #e8f5e9;
+    border-color: #43a047;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    .dot-node-out {
+      background: #43a047;
+    }
+
+    .constant-input {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: center;
+      font-size: 0.8rem;
+      outline: none;
+    }
+  }
+
+  .param-panel {
+    position: absolute;
+    z-index: 5;
+    background: #fff;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    min-width: 140px;
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    input {
+      padding: 0.2rem;
     }
   }
 
@@ -119,69 +222,6 @@
       align-items: center;
       gap: 0.75rem;
       padding: 0.3rem 0;
-    }
-  }
-
-  .functoid-section {
-    margin-top: 1.5rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    max-width: 960px;
-
-    .functoid-row {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #eee;
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-
-    .functoid-chips {
-      list-style: none;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      padding: 0;
-      margin: 0;
-
-      li {
-        background: #e8f0fe;
-        border-radius: 4px;
-        padding: 0.2rem 0.5rem;
-        font-size: 0.8rem;
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-
-        button {
-          border: none;
-          background: none;
-          cursor: pointer;
-          color: #c62828;
-          font-weight: bold;
-        }
-      }
-    }
-
-    .functoid-form {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-
-      select,
-      input {
-        padding: 0.3rem;
-      }
-
-      input {
-        width: 100px;
-      }
     }
   }
 

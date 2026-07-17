@@ -30,41 +30,40 @@
         }
       </select>
     </div>
-
-    <div class="field">
-      <label for="sourceSchema">Source Şema</label>
-      <select
-        id="sourceSchema"
-        [(ngModel)]="selectedSourceSchemaId"
-        (ngModelChange)="onSourceSchemaChange()"
-      >
-        <option value="" disabled>Source şema seçin</option>
-        @for (schema of sourceSchemas(); track schema.id) {
-          <option [value]="schema.id">{{ schema.name }}</option>
-        }
-      </select>
-    </div>
   </div>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
-  @if (readyForCanvas) {
+  @if (!!selectedFileType) {
     <p class="hint">
       Kaynak/hedef alanları veya node çıkış-giriş noktalarını sürükleyerek bağla. Functoid eklemek için
-      soldaki paletten canvas'a sürükle.
+      soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
+      taşınabilir.
     </p>
 
     <div class="editor-layout">
       <app-functoid-picker [definitions]="functoidDefinitions()" />
 
       <div class="canvas-wrapper">
-        <button type="button" class="add-constant" (click)="addConstant()">+ Sabit Değer Ekle</button>
+        <div class="canvas-toolbar">
+          <div class="add-source-schema">
+            <select [(ngModel)]="newSourceSchemaId">
+              <option value="" disabled>Kaynak şema seçin</option>
+              @for (schema of availableSourceSchemasToAdd; track schema.id) {
+                <option [value]="schema.id">{{ schema.name }}</option>
+              }
+            </select>
+            <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
+          </div>
+          <button type="button" class="add-constant" (click)="addConstant()">+ Sabit Değer Ekle</button>
+        </div>
 
         <div
           class="canvas-container"
           #canvasEl
+          [style.width.px]="canvasWidth"
           [style.height.px]="canvasHeight"
           (mousemove)="onCanvasMouseMove($event)"
           (mouseup)="onCanvasMouseUp()"
@@ -72,17 +71,6 @@
           (dragover)="onCanvasDragOver($event)"
           (drop)="onCanvasDrop($event)"
         >
-          @for (field of sourceFieldsList; track field.name; let i = $index) {
-            <div
-              class="field-box source-box"
-              [style.top.px]="rowCenterY(i) - 18"
-              (mousedown)="onSourceDotMouseDown(field.name, $event)"
-            >
-              <span class="label">{{ field.name }}</span>
-              <span class="dot dot-right" [class.active]="isDraggingFromSourceField(field.name)"></span>
-            </div>
-          }
-
           <svg class="connections-layer" [attr.width]="canvasWidth" [attr.height]="canvasHeight">
             @for (segment of connectionSegments; track segment.key) {
               <line
@@ -106,6 +94,78 @@
               />
             }
           </svg>
+
+          @if (readyForCanvas) {
+            @for (ref of selectedSourceSchemas; track ref.sourceSchemaId) {
+              <div
+                class="schema-box"
+                [style.left.px]="ref.positionX"
+                [style.top.px]="ref.positionY"
+                [style.width.px]="schemaBoxWidth"
+                [style.height.px]="schemaBoxHeight(ref.sourceSchemaId)"
+                (mousedown)="onNodeBodyMouseDown('sourceSchema', ref.sourceSchemaId, ref.positionX, ref.positionY, $event)"
+              >
+                <div class="schema-box-title">
+                  <span class="schema-box-name" [title]="schemaById(ref.sourceSchemaId)?.name">
+                    {{ schemaById(ref.sourceSchemaId)?.name }}
+                  </span>
+
+                  @if (selectedSourceSchemas.length > 1) {
+                    <select
+                      class="join-key-select"
+                      [ngModel]="ref.joinKeyField"
+                      (ngModelChange)="setJoinKeyField(ref.sourceSchemaId, $event)"
+                      (mousedown)="$event.stopPropagation()"
+                    >
+                      <option value="" disabled>Anahtar</option>
+                      @for (field of schemaFields(ref.sourceSchemaId); track field.name) {
+                        <option [value]="field.name">{{ field.name }}</option>
+                      }
+                    </select>
+                  }
+
+                  <button
+                    type="button"
+                    class="node-remove"
+                    (mousedown)="$event.stopPropagation()"
+                    (click)="removeSourceSchema(ref.sourceSchemaId)"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                @for (field of schemaFields(ref.sourceSchemaId); track field.name; let fi = $index) {
+                  <div class="schema-field-row" [style.top.px]="schemaTitleHeight + fi * schemaFieldRowHeight">
+                    <span class="label">{{ field.name }}</span>
+                    <span
+                      class="dot dot-right"
+                      [class.active]="isDraggingFromSourceField(ref.sourceSchemaId, field.name)"
+                      (mousedown)="onSourceFieldDotMouseDown(ref.sourceSchemaId, field.name, $event)"
+                    ></span>
+                  </div>
+                }
+              </div>
+            }
+
+            <div
+              class="schema-box target-schema-box"
+              [style.left.px]="targetBoxX"
+              [style.top.px]="targetBoxY"
+              [style.width.px]="schemaBoxWidth"
+              [style.height.px]="targetBoxHeight"
+            >
+              <div class="schema-box-title">
+                <span class="schema-box-name" [title]="selectedFileType?.name">{{ selectedFileType?.name }}</span>
+              </div>
+
+              @for (field of targetFieldsList; track field.name; let fi = $index) {
+                <div class="schema-field-row target-field-row" [style.top.px]="schemaTitleHeight + fi * schemaFieldRowHeight">
+                  <span class="dot dot-left" (mouseup)="onTargetDotMouseUp(field.name, $event)"></span>
+                  <span class="label">{{ field.name }}</span>
+                </div>
+              }
+            </div>
+          }
 
           @for (view of functoidNodeViews; track view.node.id) {
             <div
@@ -178,17 +238,6 @@
             </div>
           }
 
-          @for (field of targetFieldsList; track field.name; let i = $index) {
-            <div
-              class="field-box target-box"
-              [style.top.px]="rowCenterY(i) - 18"
-              (mouseup)="onTargetDotMouseUp(field.name, $event)"
-            >
-              <span class="dot dot-left"></span>
-              <span class="label">{{ field.name }}</span>
-            </div>
-          }
-
           @if (activeParamView; as view) {
             <div
               class="param-panel"
@@ -214,6 +263,10 @@
         </div>
       </div>
     </div>
+
+    @if (!readyForCanvas) {
+      <p class="hint">Devam etmek için en az bir kaynak şema eklemelisin.</p>
+    }
 
     <div class="connection-list">
       <h3>Bağlantılar ({{ edges().length }})</h3>
@@ -258,6 +311,6 @@
       }
     </div>
   } @else {
-    <p class="hint">Devam etmek için hem dosya tipi hem source şema seçmelisin.</p>
+    <p class="hint">Devam etmek için önce dosya tipi seçmelisin.</p>
   }
 </section>

@@ -58,7 +58,7 @@ describe('MappingEditor', () => {
   function selectSourceAndTarget(): void {
     component.sourceSchemas.set([sampleSourceSchema]);
     component.fileTypes.set([sampleFileType]);
-    component.selectedSourceSchemaId = sampleSourceSchema.id;
+    component.selectedSourceSchemas = [{ sourceSchemaId: sampleSourceSchema.id, joinKeyField: null, positionX: 20, positionY: 20 }];
     component.selectedFileTypeId = sampleFileType.id;
     fixture.detectChanges();
   }
@@ -70,7 +70,7 @@ describe('MappingEditor', () => {
   it('creates a direct source-field-to-target-field edge when dragging', () => {
     selectSourceAndTarget();
 
-    component.onSourceDotMouseDown('Ad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
     component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
 
     expect(component.edges()).toEqual([
@@ -91,9 +91,9 @@ describe('MappingEditor', () => {
   it('replaces the existing edge instead of duplicating it when a target field is rewired', () => {
     selectSourceAndTarget();
 
-    component.onSourceDotMouseDown('Ad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
     component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
-    component.onSourceDotMouseDown('Soyad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Soyad', fakeMouseEvent());
     component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
 
     expect(component.edges().length).toBe(1);
@@ -105,7 +105,7 @@ describe('MappingEditor', () => {
     component.addFunctoidNode('Trim', 300, 80);
     const nodeId = component.functoidNodes()[0].id;
 
-    component.onSourceDotMouseDown('Ad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
     component.onNodeInputMouseUp(nodeId, 'value', fakeMouseEvent());
     component.onNodeOutputMouseDown(nodeId, fakeMouseEvent());
     component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
@@ -124,7 +124,7 @@ describe('MappingEditor', () => {
     component.addFunctoidNode('Trim', 300, 80);
     const nodeId = component.functoidNodes()[0].id;
 
-    component.onSourceDotMouseDown('Ad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
     component.onNodeInputMouseUp(nodeId, 'value', fakeMouseEvent());
 
     expect(component.edges().length).toBe(1);
@@ -151,7 +151,7 @@ describe('MappingEditor', () => {
   it('sends the graph shape when saving', () => {
     selectSourceAndTarget();
 
-    component.onSourceDotMouseDown('Ad', fakeMouseEvent());
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
     component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
 
     component.mappingName = 'Test Mapping';
@@ -159,7 +159,9 @@ describe('MappingEditor', () => {
 
     const request = httpMock.expectOne((req) => req.url.endsWith('/mappings'));
     expect(request.request.method).toBe('POST');
-    expect(request.request.body.sourceSchemas).toEqual([{ sourceSchemaId: 'src-1', alias: 'Test Source' }]);
+    expect(request.request.body.sourceSchemas).toEqual([
+      { sourceSchemaId: 'src-1', alias: 'Test Source', joinKeyField: null, positionX: 20, positionY: 20 },
+    ]);
     expect(request.request.body.edges.length).toBe(1);
 
     request.flush({
@@ -184,5 +186,55 @@ describe('MappingEditor', () => {
 
     expect(component.saveError()).toBe('En az bir hedef alan bağlantısı olmalı.');
     httpMock.expectNone((req) => req.url.endsWith('/mappings'));
+  });
+
+  it('adds a second source schema and requires a join key from every schema before saving', () => {
+    const secondSchema: SourceSchema = {
+      id: 'src-2',
+      name: 'Second Source',
+      fileFormat: 'Csv',
+      fields: [{ name: 'Id', type: 'string', order: 1, startIndex: null, length: null }],
+      formatOptions: { hasHeader: true, delimiter: ',' },
+    };
+
+    selectSourceAndTarget();
+    component.sourceSchemas.set([sampleSourceSchema, secondSchema]);
+    component.newSourceSchemaId = secondSchema.id;
+    component.addSourceSchema();
+
+    expect(component.selectedSourceSchemas.length).toBe(2);
+    expect(component.availableSourceSchemasToAdd).toEqual([]);
+
+    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
+    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
+    component.mappingName = 'Multi Schema Mapping';
+    component.saveMapping();
+
+    expect(component.saveError()).toBe(
+      'Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.'
+    );
+    httpMock.expectNone((req) => req.url.endsWith('/mappings'));
+
+    component.setJoinKeyField(sampleSourceSchema.id, 'Ad');
+    component.setJoinKeyField(secondSchema.id, 'Id');
+    component.saveMapping();
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/mappings'));
+    expect(request.request.body.sourceSchemas).toEqual([
+      { sourceSchemaId: 'src-1', alias: 'Test Source', joinKeyField: 'Ad', positionX: 20, positionY: 20 },
+      { sourceSchemaId: 'src-2', alias: 'Second Source', joinKeyField: 'Id', positionX: 50, positionY: 50 },
+    ]);
+    request.flush({
+      id: 'm-2',
+      name: 'Multi Schema Mapping',
+      sourceSchemas: request.request.body.sourceSchemas,
+      fileTypeId: sampleFileType.id,
+      functoidNodes: [],
+      constantNodes: [],
+      edges: request.request.body.edges,
+      createdAt: '',
+      updatedAt: '',
+      createdBy: null,
+    });
   });
 });

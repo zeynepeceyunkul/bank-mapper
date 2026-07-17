@@ -11,4 +11,8 @@ public class MappingSourceSchema
     public string Alias { get; set; } = string.Empty;
 
     public string? JoinKeyField { get; set; }
+
+    public double PositionX { get; set; }
+
+    public double PositionY { get; set; }
 }

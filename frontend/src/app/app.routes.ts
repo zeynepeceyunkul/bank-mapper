@@ -1,14 +1,7 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'products' },
-  {
-    path: 'products',
-    loadComponent: () =>
-      import('./features/products/product-file-types/product-file-types').then(
-        (m) => m.ProductFileTypes
-      ),
-  },
+  { path: '', pathMatch: 'full', redirectTo: 'source-schemas' },
   {
     path: 'source-schemas',
     loadComponent: () =>

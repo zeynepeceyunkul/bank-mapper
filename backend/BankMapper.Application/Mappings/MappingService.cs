@@ -146,7 +146,9 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
     {
         SourceSchemaId = dto.SourceSchemaId,
         Alias = dto.Alias,
-        JoinKeyField = dto.JoinKeyField
+        JoinKeyField = dto.JoinKeyField,
+        PositionX = dto.PositionX,
+        PositionY = dto.PositionY
     };
 
     private static FunctoidNode ToEntity(FunctoidNodeDto dto) => new()
@@ -215,7 +217,14 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
         Id = mapping.Id,
         Name = mapping.Name,
         SourceSchemas = mapping.SourceSchemas
-            .Select(s => new MappingSourceSchemaDto { SourceSchemaId = s.SourceSchemaId, Alias = s.Alias, JoinKeyField = s.JoinKeyField })
+            .Select(s => new MappingSourceSchemaDto
+            {
+                SourceSchemaId = s.SourceSchemaId,
+                Alias = s.Alias,
+                JoinKeyField = s.JoinKeyField,
+                PositionX = s.PositionX,
+                PositionY = s.PositionY
+            })
             .ToList(),
         FileTypeId = mapping.FileTypeId,
         FunctoidNodes = mapping.FunctoidNodes

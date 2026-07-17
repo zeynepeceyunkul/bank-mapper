@@ -9,4 +9,8 @@ public class FunctoidStepDto
     public Dictionary<string, object>? Params { get; set; }
 
     public List<string>? AppliesTo { get; set; }
+
+    public double? PositionX { get; set; }
+
+    public double? PositionY { get; set; }
 }

@@ -3,6 +3,8 @@ export interface FunctoidStep {
   order: number;
   params?: Record<string, unknown> | null;
   appliesTo?: string[] | null;
+  positionX?: number | null;
+  positionY?: number | null;
 }
 
 export interface FieldMapping {

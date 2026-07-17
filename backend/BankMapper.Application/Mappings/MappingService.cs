@@ -94,7 +94,9 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
                 Type = f.Type,
                 Order = f.Order,
                 Params = NormalizeParams(f.Params),
-                AppliesTo = f.AppliesTo
+                AppliesTo = f.AppliesTo,
+                PositionX = f.PositionX,
+                PositionY = f.PositionY
             })
             .ToList()
     };
@@ -142,7 +144,15 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
                 TargetField = fm.TargetField,
                 SourceFields = fm.SourceFields,
                 FunctoidChain = fm.FunctoidChain
-                    .Select(fc => new FunctoidStepDto { Type = fc.Type, Order = fc.Order, Params = fc.Params, AppliesTo = fc.AppliesTo })
+                    .Select(fc => new FunctoidStepDto
+                    {
+                        Type = fc.Type,
+                        Order = fc.Order,
+                        Params = fc.Params,
+                        AppliesTo = fc.AppliesTo,
+                        PositionX = fc.PositionX,
+                        PositionY = fc.PositionY
+                    })
                     .ToList()
             })
             .ToList(),

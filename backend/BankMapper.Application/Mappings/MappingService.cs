@@ -1,6 +1,8 @@
 using System.Text.Json;
 using BankMapper.Application.Abstractions;
 using BankMapper.Domain.Entities;
+using BankMapper.Domain.Enums;
+using BankMapper.Domain.Execution;
 
 namespace BankMapper.Application.Mappings;
 
@@ -20,17 +22,11 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
     public async Task<MappingDto> CreateAsync(CreateMappingRequest request)
     {
-        Validate(request);
+        var mapping = BuildEntity(request);
+        mapping.CreatedAt = DateTime.UtcNow;
+        mapping.UpdatedAt = DateTime.UtcNow;
 
-        var mapping = new Mapping
-        {
-            Name = request.Name,
-            SourceSchemaId = request.SourceSchemaId,
-            FileTypeId = request.FileTypeId,
-            FieldMappings = request.FieldMappings.Select(ToEntity).ToList(),
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+        Validate(mapping);
 
         var created = await mappingRepository.CreateAsync(mapping);
         return ToDto(created);
@@ -38,67 +34,149 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
 
     public async Task<MappingDto?> UpdateAsync(string id, CreateMappingRequest request)
     {
-        Validate(request);
-
         var existing = await mappingRepository.GetByIdAsync(id);
         if (existing is null)
         {
             return null;
         }
 
-        existing.Name = request.Name;
-        existing.SourceSchemaId = request.SourceSchemaId;
-        existing.FileTypeId = request.FileTypeId;
-        existing.FieldMappings = request.FieldMappings.Select(ToEntity).ToList();
-        existing.UpdatedAt = DateTime.UtcNow;
+        var updatedMapping = BuildEntity(request);
+        updatedMapping.Id = existing.Id;
+        updatedMapping.CreatedAt = existing.CreatedAt;
+        updatedMapping.CreatedBy = existing.CreatedBy;
+        updatedMapping.UpdatedAt = DateTime.UtcNow;
 
-        var updated = await mappingRepository.UpdateAsync(existing);
+        Validate(updatedMapping);
+
+        var updated = await mappingRepository.UpdateAsync(updatedMapping);
         return updated is null ? null : ToDto(updated);
     }
 
-    private static void Validate(CreateMappingRequest request)
+    private static Mapping BuildEntity(CreateMappingRequest request) => new()
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
+        Name = request.Name,
+        SourceSchemas = request.SourceSchemas.Select(ToEntity).ToList(),
+        FileTypeId = request.FileTypeId,
+        FunctoidNodes = request.FunctoidNodes.Select(ToEntity).ToList(),
+        ConstantNodes = request.ConstantNodes.Select(ToEntity).ToList(),
+        Edges = request.Edges.Select(ToEntity).ToList()
+    };
+
+    private static void Validate(Mapping mapping)
+    {
+        if (string.IsNullOrWhiteSpace(mapping.Name))
         {
             throw new ArgumentException("Mapping adı zorunludur.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.SourceSchemaId))
+        if (mapping.SourceSchemas.Count == 0)
         {
-            throw new ArgumentException("Source şema seçilmelidir.");
+            throw new ArgumentException("En az bir source şema seçilmelidir.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.FileTypeId))
+        if (mapping.SourceSchemas.Count > 1 && mapping.SourceSchemas.Any(s => string.IsNullOrWhiteSpace(s.JoinKeyField)))
+        {
+            throw new ArgumentException("Birden fazla source şema kullanılıyorsa her biri için birleştirme anahtarı (join key) seçilmelidir.");
+        }
+
+        if (string.IsNullOrWhiteSpace(mapping.FileTypeId))
         {
             throw new ArgumentException("Dosya tipi seçilmelidir.");
         }
 
-        if (request.FieldMappings.Count == 0)
+        var sourceSchemaIds = mapping.SourceSchemas.Select(s => s.SourceSchemaId).ToHashSet();
+        var nodeIds = mapping.FunctoidNodes.Select(n => n.Id)
+            .Concat(mapping.ConstantNodes.Select(c => c.Id))
+            .ToHashSet();
+
+        foreach (var edge in mapping.Edges)
         {
-            throw new ArgumentException("En az bir alan eşleşmesi olmalıdır.");
+            if (edge.FromKind == EdgeEndpointKind.SourceField && !sourceSchemaIds.Contains(edge.FromSourceSchemaId ?? string.Empty))
+            {
+                throw new ArgumentException($"Bağlantı bilinmeyen bir source şemaya işaret ediyor: {edge.FromSourceSchemaId}");
+            }
+
+            if (edge.FromKind is EdgeEndpointKind.NodeOutput or EdgeEndpointKind.ConstantOutput && !nodeIds.Contains(edge.FromNodeId ?? string.Empty))
+            {
+                throw new ArgumentException($"Bağlantı bilinmeyen bir node'a işaret ediyor: {edge.FromNodeId}");
+            }
+
+            if (edge.ToKind == EdgeEndpointKind.NodeInput && !nodeIds.Contains(edge.ToNodeId ?? string.Empty))
+            {
+                throw new ArgumentException($"Bağlantı bilinmeyen bir node'a işaret ediyor: {edge.ToNodeId}");
+            }
         }
 
-        if (request.FieldMappings.Any(fm => fm.SourceFields.Count == 0))
+        var duplicateNodeInput = mapping.Edges
+            .Where(e => e.ToKind == EdgeEndpointKind.NodeInput)
+            .GroupBy(e => (e.ToNodeId, e.ToPort))
+            .Any(g => g.Count() > 1);
+
+        if (duplicateNodeInput)
         {
-            throw new ArgumentException("Her alan eşleşmesinin en az bir kaynak alanı olmalıdır.");
+            throw new ArgumentException("Bir giriş portuna en fazla bir bağlantı çekilebilir.");
+        }
+
+        var duplicateTargetField = mapping.Edges
+            .Where(e => e.ToKind == EdgeEndpointKind.TargetField)
+            .GroupBy(e => e.ToFieldName)
+            .Any(g => g.Count() > 1);
+
+        if (duplicateTargetField)
+        {
+            throw new ArgumentException("Bir hedef alana en fazla bir bağlantı çekilebilir.");
+        }
+
+        if (!mapping.Edges.Any(e => e.ToKind == EdgeEndpointKind.TargetField))
+        {
+            throw new ArgumentException("En az bir hedef alan bağlantısı olmalıdır.");
+        }
+
+        try
+        {
+            GraphTopologicalSorter.Sort(mapping);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new ArgumentException(ex.Message);
         }
     }
 
-    private static FieldMapping ToEntity(FieldMappingDto dto) => new()
+    private static MappingSourceSchema ToEntity(MappingSourceSchemaDto dto) => new()
     {
-        TargetField = dto.TargetField,
-        SourceFields = dto.SourceFields,
-        FunctoidChain = dto.FunctoidChain
-            .Select(f => new FunctoidStep
-            {
-                Type = f.Type,
-                Order = f.Order,
-                Params = NormalizeParams(f.Params),
-                AppliesTo = f.AppliesTo,
-                PositionX = f.PositionX,
-                PositionY = f.PositionY
-            })
-            .ToList()
+        SourceSchemaId = dto.SourceSchemaId,
+        Alias = dto.Alias,
+        JoinKeyField = dto.JoinKeyField
+    };
+
+    private static FunctoidNode ToEntity(FunctoidNodeDto dto) => new()
+    {
+        Id = dto.Id,
+        FunctoidCode = dto.FunctoidCode,
+        Params = NormalizeParams(dto.Params),
+        PositionX = dto.PositionX,
+        PositionY = dto.PositionY
+    };
+
+    private static ConstantNode ToEntity(ConstantNodeDto dto) => new()
+    {
+        Id = dto.Id,
+        Value = dto.Value,
+        PositionX = dto.PositionX,
+        PositionY = dto.PositionY
+    };
+
+    private static GraphEdge ToEntity(GraphEdgeDto dto) => new()
+    {
+        Id = dto.Id,
+        FromKind = dto.FromKind,
+        FromSourceSchemaId = dto.FromSourceSchemaId,
+        FromFieldName = dto.FromFieldName,
+        FromNodeId = dto.FromNodeId,
+        ToKind = dto.ToKind,
+        ToNodeId = dto.ToNodeId,
+        ToPort = dto.ToPort,
+        ToFieldName = dto.ToFieldName
     };
 
     // System.Text.Json, Dictionary<string, object> icindeki degerleri JsonElement olarak
@@ -136,24 +214,28 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
     {
         Id = mapping.Id,
         Name = mapping.Name,
-        SourceSchemaId = mapping.SourceSchemaId,
+        SourceSchemas = mapping.SourceSchemas
+            .Select(s => new MappingSourceSchemaDto { SourceSchemaId = s.SourceSchemaId, Alias = s.Alias, JoinKeyField = s.JoinKeyField })
+            .ToList(),
         FileTypeId = mapping.FileTypeId,
-        FieldMappings = mapping.FieldMappings
-            .Select(fm => new FieldMappingDto
+        FunctoidNodes = mapping.FunctoidNodes
+            .Select(n => new FunctoidNodeDto { Id = n.Id, FunctoidCode = n.FunctoidCode, Params = n.Params, PositionX = n.PositionX, PositionY = n.PositionY })
+            .ToList(),
+        ConstantNodes = mapping.ConstantNodes
+            .Select(c => new ConstantNodeDto { Id = c.Id, Value = c.Value, PositionX = c.PositionX, PositionY = c.PositionY })
+            .ToList(),
+        Edges = mapping.Edges
+            .Select(e => new GraphEdgeDto
             {
-                TargetField = fm.TargetField,
-                SourceFields = fm.SourceFields,
-                FunctoidChain = fm.FunctoidChain
-                    .Select(fc => new FunctoidStepDto
-                    {
-                        Type = fc.Type,
-                        Order = fc.Order,
-                        Params = fc.Params,
-                        AppliesTo = fc.AppliesTo,
-                        PositionX = fc.PositionX,
-                        PositionY = fc.PositionY
-                    })
-                    .ToList()
+                Id = e.Id,
+                FromKind = e.FromKind,
+                FromSourceSchemaId = e.FromSourceSchemaId,
+                FromFieldName = e.FromFieldName,
+                FromNodeId = e.FromNodeId,
+                ToKind = e.ToKind,
+                ToNodeId = e.ToNodeId,
+                ToPort = e.ToPort,
+                ToFieldName = e.ToFieldName
             })
             .ToList(),
         CreatedAt = mapping.CreatedAt,

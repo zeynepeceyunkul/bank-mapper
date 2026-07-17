@@ -4,6 +4,8 @@ public class RPadFunctoid : IFunctoid
 {
     public string Code => "RPad";
 
+    public IReadOnlyList<string> InputPorts => ["value"];
+
     public object? Execute(object?[] inputs, Dictionary<string, object>? parameters)
     {
         var value = inputs[0]?.ToString() ?? string.Empty;

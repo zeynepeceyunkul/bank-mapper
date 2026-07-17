@@ -30,13 +30,20 @@ public class PreviewService(
         var mapping = await mappingRepository.GetByIdAsync(mappingId)
             ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
 
-        var sourceSchema = await sourceSchemaRepository.GetByIdAsync(mapping.SourceSchemaId)
-            ?? throw new ArgumentException($"Source sema bulunamadi: {mapping.SourceSchemaId}");
+        // Faz 9: mapping her zaman tam olarak 1 source semaya sahip; coklu kaynak
+        // birlestirme (join-key ile) Faz 11'de gelecek.
+        var mappingSourceSchema = mapping.SourceSchemas.First();
+        var sourceSchema = await sourceSchemaRepository.GetByIdAsync(mappingSourceSchema.SourceSchemaId)
+            ?? throw new ArgumentException($"Source sema bulunamadi: {mappingSourceSchema.SourceSchemaId}");
 
         var parser = fileParserFactory.GetParser(sourceSchema.FileFormat);
         var parsed = parser.Parse(file, sourceSchema);
 
-        return parsed.Rows.Select(row => mappingExecutor.Apply(mapping, row)).ToList();
+        var namespacedRows = parsed.Rows.Select(row => row.ToDictionary(
+            kvp => SourceFieldKey.Build(mappingSourceSchema.SourceSchemaId, kvp.Key),
+            kvp => kvp.Value));
+
+        return namespacedRows.Select(row => mappingExecutor.Apply(mapping, row)).ToList();
     }
 
     private static string BuildCsv(List<Dictionary<string, object?>> rows)

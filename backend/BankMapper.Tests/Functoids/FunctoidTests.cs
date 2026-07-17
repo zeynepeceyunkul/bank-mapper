@@ -64,6 +64,22 @@ public class FunctoidTests
     }
 
     [Fact]
+    public void Single_input_functoids_declare_one_value_port()
+    {
+        Assert.Equal(["value"], new TrimFunctoid().InputPorts);
+        Assert.Equal(["value"], new UpperFunctoid().InputPorts);
+        Assert.Equal(["value"], new LowerFunctoid().InputPorts);
+        Assert.Equal(["value"], new LPadFunctoid().InputPorts);
+        Assert.Equal(["value"], new RPadFunctoid().InputPorts);
+    }
+
+    [Fact]
+    public void Concat_declares_two_named_input_ports()
+    {
+        Assert.Equal(["value1", "value2"], new ConcatFunctoid().InputPorts);
+    }
+
+    [Fact]
     public void Registry_resolves_functoid_by_code()
     {
         var registry = new FunctoidRegistry([new TrimFunctoid(), new UpperFunctoid()]);

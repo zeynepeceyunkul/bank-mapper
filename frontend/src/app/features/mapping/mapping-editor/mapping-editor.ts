@@ -6,22 +6,31 @@ import { SourceSchemaService } from '../../../core/services/source-schema.servic
 import { MappingService } from '../../../core/services/mapping.service';
 import { FunctoidService } from '../../../core/services/functoid.service';
 import { FileType, TargetField } from '../../../core/models/file-type.model';
-import { FieldMapping, FunctoidStep, Mapping } from '../../../core/models/mapping.model';
-import { FunctoidDefinition, FunctoidParameterDefinition } from '../../../core/models/functoid.model';
+import { ConstantNode, EdgeEndpointKind, FunctoidNode, GraphEdge, Mapping } from '../../../core/models/mapping.model';
+import { FunctoidDefinition, FunctoidParameterDefinition, FunctoidPortDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
 import { SourceField, SourceSchema } from '../../../core/models/source-schema.model';
+import { FunctoidPicker } from '../functoid-picker/functoid-picker';
 
-interface FieldConnection {
-  sourceField: string;
-  targetField: string;
+interface OutputPortRef {
+  kind: 'SourceField' | 'NodeOutput' | 'ConstantOutput';
+  fieldName?: string;
+  sourceSchemaId?: string;
+  nodeId?: string;
+}
+
+interface InputPortRef {
+  kind: 'NodeInput' | 'TargetField';
+  nodeId?: string;
+  port?: string;
+  fieldName?: string;
 }
 
 interface FunctoidNodeView {
-  targetField: string;
-  step: FunctoidStep;
-  index: number;
-  x: number;
-  y: number;
+  node: FunctoidNode;
+  definition: FunctoidDefinition | undefined;
+  ports: FunctoidPortDefinition[];
+  height: number;
 }
 
 interface LineSegment {
@@ -32,9 +41,13 @@ interface LineSegment {
   y2: number;
 }
 
+function randomId(): string {
+  return crypto.randomUUID();
+}
+
 @Component({
   selector: 'app-mapping-editor',
-  imports: [FormsModule],
+  imports: [FormsModule, FunctoidPicker],
   templateUrl: './mapping-editor.html',
   styleUrl: './mapping-editor.scss',
 })
@@ -59,15 +72,20 @@ export class MappingEditor implements OnInit {
   selectedFileTypeId = '';
   selectedSourceSchemaId = '';
 
-  readonly connections = signal<FieldConnection[]>([]);
-  dragFromField: string | null = null;
-  dragPointer: { x: number; y: number } | null = null;
+  readonly functoidNodes = signal<FunctoidNode[]>([]);
+  readonly constantNodes = signal<ConstantNode[]>([]);
+  readonly edges = signal<GraphEdge[]>([]);
 
   readonly functoidDefinitions = signal<FunctoidDefinition[]>([]);
-  readonly targetFunctoids = signal<Record<string, FunctoidStep[]>>({});
-  activeFunctoidTarget: string | null = null;
-  functoidFormCode = '';
-  functoidFormParams: Record<string, string> = {};
+  activeParamNodeId: string | null = null;
+
+  dragFromPort: OutputPortRef | null = null;
+  dragPointer: { x: number; y: number } | null = null;
+
+  dragNode: { type: 'functoid' | 'constant'; id: string } | null = null;
+  private dragNodeOffset = { dx: 0, dy: 0 };
+  private dragNodeStart = { x: 0, y: 0 };
+  private dragNodeMoved = false;
 
   mappingName = '';
   readonly saving = signal(false);
@@ -80,9 +98,7 @@ export class MappingEditor implements OnInit {
   readonly columnWidth = 220;
   readonly nodeWidth = 140;
   readonly nodeHeight = 36;
-
-  dragNode: { targetField: string; index: number } | null = null;
-  private dragNodeOffset = { dx: 0, dy: 0 };
+  readonly constantNodeHeight = 36;
 
   ngOnInit(): void {
     this.productService.getProducts().subscribe({
@@ -113,19 +129,10 @@ export class MappingEditor implements OnInit {
     this.mappingService.getById(id).subscribe({
       next: (mapping) => {
         this.mappingName = mapping.name;
-        this.selectedSourceSchemaId = mapping.sourceSchemaId;
-
-        this.connections.set(
-          mapping.fieldMappings.flatMap((fm) =>
-            fm.sourceFields.map((sourceField) => ({ sourceField, targetField: fm.targetField }))
-          )
-        );
-
-        const functoidsByTarget: Record<string, FunctoidStep[]> = {};
-        for (const fm of mapping.fieldMappings) {
-          functoidsByTarget[fm.targetField] = fm.functoidChain;
-        }
-        this.targetFunctoids.set(functoidsByTarget);
+        this.selectedSourceSchemaId = mapping.sourceSchemas[0]?.sourceSchemaId ?? '';
+        this.functoidNodes.set(mapping.functoidNodes);
+        this.constantNodes.set(mapping.constantNodes);
+        this.edges.set(mapping.edges);
 
         this.productService.getFileTypeById(mapping.fileTypeId).subscribe({
           next: (fileType) => {
@@ -159,8 +166,7 @@ export class MappingEditor implements OnInit {
   onProductChange(): void {
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
-    this.connections.set([]);
-    this.targetFunctoids.set({});
+    this.resetGraph();
 
     if (!this.selectedProductId) {
       return;
@@ -173,13 +179,18 @@ export class MappingEditor implements OnInit {
   }
 
   onFileTypeChange(): void {
-    this.connections.set([]);
-    this.targetFunctoids.set({});
+    this.resetGraph();
   }
 
   onSourceSchemaChange(): void {
-    this.connections.set([]);
-    this.targetFunctoids.set({});
+    this.resetGraph();
+  }
+
+  private resetGraph(): void {
+    this.functoidNodes.set([]);
+    this.constantNodes.set([]);
+    this.edges.set([]);
+    this.activeParamNodeId = null;
   }
 
   get selectedFileType(): FileType | undefined {
@@ -206,9 +217,25 @@ export class MappingEditor implements OnInit {
     return [...(this.selectedFileType?.targetFields ?? [])].sort((a, b) => a.order - b.order);
   }
 
+  get functoidNodeViews(): FunctoidNodeView[] {
+    return this.functoidNodes().map((node) => {
+      const definition = this.functoidDefinitions().find((d) => d.code === node.functoidCode);
+      const ports = definition?.inputPorts?.length ? definition.inputPorts : [{ name: 'value', label: 'Değer' }];
+      return { node, definition, ports, height: this.nodeHeightFor(ports.length) };
+    });
+  }
+
   get canvasHeight(): number {
     const rows = Math.max(this.sourceFieldsList.length, this.targetFieldsList.length, 1);
-    return rows * this.rowHeight + this.rowTop * 2;
+    const fieldsHeight = rows * this.rowHeight + this.rowTop * 2;
+
+    const nodeBottoms = [
+      ...this.functoidNodeViews.map((v) => v.node.positionY + v.height),
+      ...this.constantNodes().map((c) => c.positionY + this.constantNodeHeight),
+    ];
+    const maxNodeBottom = nodeBottoms.length > 0 ? Math.max(...nodeBottoms) : 0;
+
+    return Math.max(fieldsHeight, maxNodeBottom + 60);
   }
 
   get sourceDotX(): number {
@@ -231,253 +258,300 @@ export class MappingEditor implements OnInit {
     return this.targetFieldsList.findIndex((f) => f.name === fieldName);
   }
 
-  onSourceDotMouseDown(fieldName: string, event: MouseEvent): void {
+  nodeHeightFor(portCount: number): number {
+    return portCount <= 1 ? this.nodeHeight : portCount * 30;
+  }
+
+  portOffsetY(index: number, portCount: number, height: number): number {
+    return ((index + 0.5) * height) / portCount;
+  }
+
+  // --- Sürükleme: mevcut node'u taşıma (tıklama ile parametre panelini ayırt eder) ---
+
+  onNodeBodyMouseDown(type: 'functoid' | 'constant', id: string, currentX: number, currentY: number, event: MouseEvent): void {
     event.preventDefault();
-    this.dragFromField = fieldName;
-    this.updateDragPointer(event);
+    const pointer = this.pointerPosition(event);
+    this.dragNode = { type, id };
+    this.dragNodeOffset = { dx: pointer.x - currentX, dy: pointer.y - currentY };
+    this.dragNodeStart = pointer;
+    this.dragNodeMoved = false;
   }
 
   onCanvasMouseMove(event: MouseEvent): void {
-    if (this.dragFromField) {
-      this.updateDragPointer(event);
+    if (this.dragFromPort) {
+      this.dragPointer = this.pointerPosition(event);
     }
 
     if (this.dragNode) {
-      const { x, y } = this.pointerPosition(event);
-      this.updateNodePosition(
-        this.dragNode.targetField,
-        this.dragNode.index,
-        x - this.dragNodeOffset.dx,
-        y - this.dragNodeOffset.dy
-      );
+      const pointer = this.pointerPosition(event);
+      if (Math.abs(pointer.x - this.dragNodeStart.x) > 4 || Math.abs(pointer.y - this.dragNodeStart.y) > 4) {
+        this.dragNodeMoved = true;
+      }
+      this.updateNodePosition(this.dragNode.type, this.dragNode.id, pointer.x - this.dragNodeOffset.dx, pointer.y - this.dragNodeOffset.dy);
     }
   }
 
   onCanvasMouseUp(): void {
-    this.dragFromField = null;
+    if (this.dragNode && !this.dragNodeMoved && this.dragNode.type === 'functoid') {
+      this.activeParamNodeId = this.activeParamNodeId === this.dragNode.id ? null : this.dragNode.id;
+    }
+
+    this.dragFromPort = null;
     this.dragPointer = null;
     this.dragNode = null;
   }
 
-  onNodeMouseDown(node: FunctoidNodeView, event: MouseEvent): void {
+  private updateNodePosition(type: 'functoid' | 'constant', id: string, x: number, y: number): void {
+    if (type === 'functoid') {
+      this.functoidNodes.update((list) => list.map((n) => (n.id === id ? { ...n, positionX: x, positionY: y } : n)));
+    } else {
+      this.constantNodes.update((list) => list.map((n) => (n.id === id ? { ...n, positionX: x, positionY: y } : n)));
+    }
+  }
+
+  // --- Bağlantı (edge) kurma: port'tan port'a sürükleme ---
+
+  onSourceDotMouseDown(fieldName: string, event: MouseEvent): void {
+    event.preventDefault();
+    this.dragFromPort = { kind: 'SourceField', fieldName, sourceSchemaId: this.selectedSourceSchemaId };
+    this.dragPointer = this.pointerPosition(event);
+  }
+
+  onNodeOutputMouseDown(nodeId: string, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-
-    const pointer = this.pointerPosition(event);
-    this.dragNode = { targetField: node.targetField, index: node.index };
-    this.dragNodeOffset = { dx: pointer.x - node.x, dy: pointer.y - node.y };
+    this.dragFromPort = { kind: 'NodeOutput', nodeId };
+    this.dragPointer = this.pointerPosition(event);
   }
 
-  nodeKey(node: FunctoidNodeView): string {
-    return `${node.targetField}::${node.index}`;
+  onConstantOutputMouseDown(nodeId: string, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragFromPort = { kind: 'ConstantOutput', nodeId };
+    this.dragPointer = this.pointerPosition(event);
   }
 
-  get functoidNodes(): FunctoidNodeView[] {
-    const nodes: FunctoidNodeView[] = [];
+  onTargetDotMouseUp(fieldName: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.finishWiring({ kind: 'TargetField', fieldName });
+  }
 
-    for (const field of this.mappedTargetFields) {
-      const chain = [...this.functoidsFor(field.name)].sort((a, b) => a.order - b.order);
-      chain.forEach((step, index) => {
-        nodes.push({
-          targetField: field.name,
-          step,
-          index,
-          x: step.positionX ?? this.defaultNodeX(index),
-          y: step.positionY ?? this.defaultNodeY(field.name),
-        });
-      });
+  onNodeInputMouseUp(nodeId: string, port: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.finishWiring({ kind: 'NodeInput', nodeId, port });
+  }
+
+  private finishWiring(to: InputPortRef): void {
+    if (this.dragFromPort) {
+      this.wireEdge(this.dragFromPort, to);
+    }
+    this.dragFromPort = null;
+    this.dragPointer = null;
+  }
+
+  private wireEdge(from: OutputPortRef, to: InputPortRef): void {
+    const newEdge: GraphEdge = {
+      id: randomId(),
+      fromKind: from.kind as EdgeEndpointKind,
+      fromSourceSchemaId: from.kind === 'SourceField' ? (from.sourceSchemaId ?? null) : null,
+      fromFieldName: from.kind === 'SourceField' ? (from.fieldName ?? null) : null,
+      fromNodeId: from.kind !== 'SourceField' ? (from.nodeId ?? null) : null,
+      toKind: to.kind as EdgeEndpointKind,
+      toNodeId: to.kind === 'NodeInput' ? (to.nodeId ?? null) : null,
+      toPort: to.kind === 'NodeInput' ? (to.port ?? null) : null,
+      toFieldName: to.kind === 'TargetField' ? (to.fieldName ?? null) : null,
+    };
+
+    this.edges.update((list) => [...list.filter((e) => !this.sameInput(e, to)), newEdge]);
+  }
+
+  private sameInput(edge: GraphEdge, to: InputPortRef): boolean {
+    if (to.kind === 'NodeInput') {
+      return edge.toKind === 'NodeInput' && edge.toNodeId === to.nodeId && edge.toPort === to.port;
+    }
+    return edge.toKind === 'TargetField' && edge.toFieldName === to.fieldName;
+  }
+
+  isDraggingFromSourceField(fieldName: string): boolean {
+    return this.dragFromPort?.kind === 'SourceField' && this.dragFromPort.fieldName === fieldName;
+  }
+
+  isDraggingFromNode(nodeId: string): boolean {
+    return (this.dragFromPort?.kind === 'NodeOutput' || this.dragFromPort?.kind === 'ConstantOutput') && this.dragFromPort.nodeId === nodeId;
+  }
+
+  removeEdge(id: string): void {
+    this.edges.update((list) => list.filter((e) => e.id !== id));
+  }
+
+  describeFrom(edge: GraphEdge): string {
+    if (edge.fromKind === 'SourceField') {
+      return edge.fromFieldName ?? '?';
+    }
+    if (edge.fromKind === 'NodeOutput') {
+      const node = this.functoidNodes().find((n) => n.id === edge.fromNodeId);
+      return node ? node.functoidCode : '?';
+    }
+    const constant = this.constantNodes().find((c) => c.id === edge.fromNodeId);
+    return constant ? `"${constant.value}"` : '?';
+  }
+
+  describeTo(edge: GraphEdge): string {
+    if (edge.toKind === 'TargetField') {
+      return edge.toFieldName ?? '?';
+    }
+    const node = this.functoidNodes().find((n) => n.id === edge.toNodeId);
+    return node ? `${node.functoidCode}.${edge.toPort}` : '?';
+  }
+
+  // --- Palet ten sürükle-bırak ile functoid node oluşturma ---
+
+  onCanvasDragOver(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  onCanvasDrop(event: DragEvent): void {
+    event.preventDefault();
+    const code = event.dataTransfer?.getData('text/functoid-code');
+    if (!code) {
+      return;
     }
 
-    return nodes;
+    const pointer = this.pointerPosition(event);
+    this.addFunctoidNode(code, pointer.x, pointer.y);
   }
+
+  addFunctoidNode(functoidCode: string, x: number, y: number): void {
+    this.functoidNodes.update((list) => [...list, { id: randomId(), functoidCode, params: null, positionX: x, positionY: y }]);
+  }
+
+  removeFunctoidNode(id: string): void {
+    this.functoidNodes.update((list) => list.filter((n) => n.id !== id));
+    this.edges.update((list) =>
+      list.filter((e) => !(e.fromKind === 'NodeOutput' && e.fromNodeId === id) && !(e.toKind === 'NodeInput' && e.toNodeId === id))
+    );
+    if (this.activeParamNodeId === id) {
+      this.activeParamNodeId = null;
+    }
+  }
+
+  addConstant(): void {
+    const offset = this.constantNodes().length * 24;
+    this.constantNodes.update((list) => [
+      ...list,
+      { id: randomId(), value: '', positionX: this.sourceDotX + 40 + offset, positionY: 20 + offset },
+    ]);
+  }
+
+  removeConstantNode(id: string): void {
+    this.constantNodes.update((list) => list.filter((n) => n.id !== id));
+    this.edges.update((list) => list.filter((e) => !(e.fromKind === 'ConstantOutput' && e.fromNodeId === id)));
+  }
+
+  setConstantValue(id: string, value: string): void {
+    this.constantNodes.update((list) => list.map((n) => (n.id === id ? { ...n, value } : n)));
+  }
+
+  // --- Functoid parametre paneli ---
+
+  get activeParamView(): FunctoidNodeView | undefined {
+    return this.activeParamNodeId ? this.functoidNodeViews.find((v) => v.node.id === this.activeParamNodeId) : undefined;
+  }
+
+  paramValue(node: FunctoidNode, key: string): string {
+    const raw = node.params?.[key];
+    return raw === undefined || raw === null ? '' : String(raw);
+  }
+
+  setParamValue(node: FunctoidNode, param: FunctoidParameterDefinition, raw: string): void {
+    this.functoidNodes.update((list) =>
+      list.map((n) => {
+        if (n.id !== node.id) {
+          return n;
+        }
+        const value: unknown = param.type === 'number' ? Number(raw) : raw;
+        return { ...n, params: { ...(n.params ?? {}), [param.key]: value } };
+      })
+    );
+  }
+
+  closeParamPanel(): void {
+    this.activeParamNodeId = null;
+  }
+
+  // --- Bağlantı çizgileri ---
 
   get connectionSegments(): LineSegment[] {
     const segments: LineSegment[] = [];
-    const allNodes = this.functoidNodes;
 
-    const sourceFieldsByTarget = new Map<string, string[]>();
-    for (const conn of this.connections()) {
-      const list = sourceFieldsByTarget.get(conn.targetField) ?? [];
-      list.push(conn.sourceField);
-      sourceFieldsByTarget.set(conn.targetField, list);
-    }
-
-    for (const [targetField, sourceFields] of sourceFieldsByTarget) {
-      const chain = allNodes.filter((n) => n.targetField === targetField);
-      const targetY = this.rowCenterY(this.targetIndex(targetField));
-
-      if (chain.length === 0) {
-        for (const sourceField of sourceFields) {
-          segments.push({
-            key: `${sourceField}->${targetField}`,
-            x1: this.sourceDotX,
-            y1: this.rowCenterY(this.sourceIndex(sourceField)),
-            x2: this.targetDotX,
-            y2: targetY,
-          });
-        }
-        continue;
+    for (const edge of this.edges()) {
+      const from = this.resolveOutputPoint(this.edgeFromRef(edge));
+      const to = this.resolveInputPoint(this.edgeToRef(edge));
+      if (from && to) {
+        segments.push({ key: edge.id, x1: from.x, y1: from.y, x2: to.x, y2: to.y });
       }
-
-      const first = chain[0];
-      for (const sourceField of sourceFields) {
-        segments.push({
-          key: `${sourceField}->${targetField}::in`,
-          x1: this.sourceDotX,
-          y1: this.rowCenterY(this.sourceIndex(sourceField)),
-          x2: first.x,
-          y2: first.y + this.nodeHeight / 2,
-        });
-      }
-
-      for (let i = 0; i < chain.length - 1; i++) {
-        segments.push({
-          key: `${targetField}::${i}->${i + 1}`,
-          x1: chain[i].x + this.nodeWidth,
-          y1: chain[i].y + this.nodeHeight / 2,
-          x2: chain[i + 1].x,
-          y2: chain[i + 1].y + this.nodeHeight / 2,
-        });
-      }
-
-      const last = chain[chain.length - 1];
-      segments.push({
-        key: `${targetField}::last->target`,
-        x1: last.x + this.nodeWidth,
-        y1: last.y + this.nodeHeight / 2,
-        x2: this.targetDotX,
-        y2: targetY,
-      });
     }
 
     return segments;
   }
 
-  private defaultNodeX(index: number): number {
-    return this.sourceDotX + 50 + index * (this.nodeWidth + 30);
+  private edgeFromRef(edge: GraphEdge): OutputPortRef {
+    if (edge.fromKind === 'SourceField') {
+      return { kind: 'SourceField', fieldName: edge.fromFieldName ?? undefined };
+    }
+    return { kind: edge.fromKind as 'NodeOutput' | 'ConstantOutput', nodeId: edge.fromNodeId ?? undefined };
   }
 
-  private defaultNodeY(targetField: string): number {
-    return this.rowCenterY(this.targetIndex(targetField)) - this.nodeHeight / 2;
+  private edgeToRef(edge: GraphEdge): InputPortRef {
+    if (edge.toKind === 'TargetField') {
+      return { kind: 'TargetField', fieldName: edge.toFieldName ?? undefined };
+    }
+    return { kind: 'NodeInput', nodeId: edge.toNodeId ?? undefined, port: edge.toPort ?? undefined };
   }
 
-  private updateNodePosition(targetField: string, index: number, x: number, y: number): void {
-    this.targetFunctoids.update((map) => {
-      const chain = map[targetField];
-      if (!chain) {
-        return map;
-      }
+  private resolveOutputPoint(ref: OutputPortRef): { x: number; y: number } | null {
+    if (ref.kind === 'SourceField') {
+      const idx = this.sourceIndex(ref.fieldName ?? '');
+      return idx < 0 ? null : { x: this.sourceDotX, y: this.rowCenterY(idx) };
+    }
 
-      const sorted = [...chain].sort((a, b) => a.order - b.order);
-      const step = sorted[index];
-      if (!step) {
-        return map;
-      }
+    if (ref.kind === 'NodeOutput') {
+      const view = this.functoidNodeViews.find((v) => v.node.id === ref.nodeId);
+      return view ? { x: view.node.positionX + this.nodeWidth, y: view.node.positionY + view.height / 2 } : null;
+    }
 
-      const updatedChain = chain.map((s) => (s === step ? { ...s, positionX: x, positionY: y } : s));
-      return { ...map, [targetField]: updatedChain };
-    });
+    const constant = this.constantNodes().find((c) => c.id === ref.nodeId);
+    return constant ? { x: constant.positionX + this.nodeWidth, y: constant.positionY + this.constantNodeHeight / 2 } : null;
   }
 
-  private pointerPosition(event: MouseEvent): { x: number; y: number } {
+  private resolveInputPoint(ref: InputPortRef): { x: number; y: number } | null {
+    if (ref.kind === 'TargetField') {
+      const idx = this.targetIndex(ref.fieldName ?? '');
+      return idx < 0 ? null : { x: this.targetDotX, y: this.rowCenterY(idx) };
+    }
+
+    const view = this.functoidNodeViews.find((v) => v.node.id === ref.nodeId);
+    if (!view) {
+      return null;
+    }
+    const portIndex = view.ports.findIndex((p) => p.name === ref.port);
+    if (portIndex < 0) {
+      return null;
+    }
+    return { x: view.node.positionX, y: view.node.positionY + this.portOffsetY(portIndex, view.ports.length, view.height) };
+  }
+
+  get dragPreviewLine(): { x1: number; y1: number; x2: number; y2: number } | null {
+    if (!this.dragFromPort || !this.dragPointer) {
+      return null;
+    }
+    const from = this.resolveOutputPoint(this.dragFromPort);
+    return from ? { x1: from.x, y1: from.y, x2: this.dragPointer.x, y2: this.dragPointer.y } : null;
+  }
+
+  private pointerPosition(event: { clientX: number; clientY: number }): { x: number; y: number } {
     const rect = this.canvasElRef.nativeElement.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  }
-
-  onTargetDotMouseUp(fieldName: string, event: MouseEvent): void {
-    event.stopPropagation();
-
-    if (this.dragFromField) {
-      const from = this.dragFromField;
-      const alreadyExists = this.connections().some(
-        (c) => c.sourceField === from && c.targetField === fieldName
-      );
-
-      if (!alreadyExists) {
-        this.connections.update((list) => [...list, { sourceField: from, targetField: fieldName }]);
-      }
-    }
-
-    this.dragFromField = null;
-    this.dragPointer = null;
-  }
-
-  removeConnection(index: number): void {
-    const removed = this.connections()[index];
-    this.connections.update((list) => list.filter((_, i) => i !== index));
-
-    const stillMapped = this.connections().some((c) => c.targetField === removed.targetField);
-    if (!stillMapped) {
-      this.targetFunctoids.update((map) => {
-        const { [removed.targetField]: _removedChain, ...rest } = map;
-        return rest;
-      });
-    }
-  }
-
-  get mappedTargetFields(): TargetField[] {
-    const targetNames = new Set(this.connections().map((c) => c.targetField));
-    return this.targetFieldsList.filter((f) => targetNames.has(f.name));
-  }
-
-  functoidsFor(targetField: string): FunctoidStep[] {
-    return this.targetFunctoids()[targetField] ?? [];
-  }
-
-  get selectedFunctoidParams(): FunctoidParameterDefinition[] {
-    return this.functoidDefinitions().find((f) => f.code === this.functoidFormCode)?.parameters ?? [];
-  }
-
-  openFunctoidForm(targetField: string): void {
-    this.activeFunctoidTarget = targetField;
-    this.functoidFormCode = '';
-    this.functoidFormParams = {};
-  }
-
-  closeFunctoidForm(): void {
-    this.activeFunctoidTarget = null;
-  }
-
-  addFunctoid(targetField: string): void {
-    if (!this.functoidFormCode) {
-      return;
-    }
-
-    const definition = this.functoidDefinitions().find((f) => f.code === this.functoidFormCode);
-    const params: Record<string, string | number> = {};
-
-    for (const paramDef of definition?.parameters ?? []) {
-      const raw = this.functoidFormParams[paramDef.key] ?? '';
-      params[paramDef.key] = paramDef.type === 'number' ? Number(raw) : raw;
-    }
-
-    this.targetFunctoids.update((map) => {
-      const existing = map[targetField] ?? [];
-      const step: FunctoidStep = { type: this.functoidFormCode, order: existing.length + 1, params };
-      return { ...map, [targetField]: [...existing, step] };
-    });
-
-    this.closeFunctoidForm();
-  }
-
-  removeFunctoid(targetField: string, index: number): void {
-    this.targetFunctoids.update((map) => {
-      const existing = map[targetField] ?? [];
-      const updated = existing.filter((_, i) => i !== index).map((step, i) => ({ ...step, order: i + 1 }));
-      return { ...map, [targetField]: updated };
-    });
-  }
-
-  formatFunctoidParams(params?: Record<string, unknown> | null): string {
-    if (!params) {
-      return '';
-    }
-    const entries = Object.entries(params);
-    return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join(', ') : '';
-  }
-
-  private updateDragPointer(event: MouseEvent): void {
-    this.dragPointer = this.pointerPosition(event);
   }
 
   saveMapping(): void {
@@ -489,8 +563,8 @@ export class MappingEditor implements OnInit {
       return;
     }
 
-    if (this.connections().length === 0) {
-      this.saveError.set('En az bir bağlantı çizmelisin.');
+    if (!this.edges().some((e) => e.toKind === 'TargetField')) {
+      this.saveError.set('En az bir hedef alan bağlantısı olmalı.');
       return;
     }
 
@@ -498,9 +572,11 @@ export class MappingEditor implements OnInit {
 
     const request = {
       name: this.mappingName.trim(),
-      sourceSchemaId: this.selectedSourceSchemaId,
+      sourceSchemas: [{ sourceSchemaId: this.selectedSourceSchemaId, alias: this.selectedSourceSchema?.name ?? '' }],
       fileTypeId: this.selectedFileTypeId,
-      fieldMappings: this.buildFieldMappings(),
+      functoidNodes: this.functoidNodes(),
+      constantNodes: this.constantNodes(),
+      edges: this.edges(),
     };
 
     const save$ = this.mappingId
@@ -519,19 +595,7 @@ export class MappingEditor implements OnInit {
     });
   }
 
-  private buildFieldMappings(): FieldMapping[] {
-    const sourceFieldsByTarget = new Map<string, string[]>();
-
-    for (const conn of this.connections()) {
-      const sourceFields = sourceFieldsByTarget.get(conn.targetField) ?? [];
-      sourceFields.push(conn.sourceField);
-      sourceFieldsByTarget.set(conn.targetField, sourceFields);
-    }
-
-    return Array.from(sourceFieldsByTarget.entries()).map(([targetField, sourceFields]) => ({
-      targetField,
-      sourceFields,
-      functoidChain: this.functoidsFor(targetField),
-    }));
+  targetFieldEdgeCount(mapping: Mapping): number {
+    return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
   }
 }

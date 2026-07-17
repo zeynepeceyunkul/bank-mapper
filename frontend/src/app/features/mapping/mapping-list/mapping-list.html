@@ -24,7 +24,7 @@
         @for (mapping of mappings(); track mapping.id) {
           <tr>
             <td>{{ mapping.name }}</td>
-            <td>{{ mapping.fieldMappings.length }}</td>
+            <td>{{ targetFieldEdgeCount(mapping) }}</td>
             <td>{{ mapping.updatedAt | date: 'short' }}</td>
             <td>
               <a [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>

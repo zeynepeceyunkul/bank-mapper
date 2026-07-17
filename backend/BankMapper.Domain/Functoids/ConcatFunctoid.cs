@@ -4,6 +4,8 @@ public class ConcatFunctoid : IFunctoid
 {
     public string Code => "Concat";
 
+    public IReadOnlyList<string> InputPorts => ["value1", "value2"];
+
     public object? Execute(object?[] inputs, Dictionary<string, object>? parameters)
     {
         var separator = FunctoidParams.GetString(parameters, "separator", string.Empty);

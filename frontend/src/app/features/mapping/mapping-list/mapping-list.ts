@@ -27,4 +27,8 @@ export class MappingList implements OnInit {
       error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
     });
   }
+
+  targetFieldEdgeCount(mapping: Mapping): number {
+    return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
+  }
 }

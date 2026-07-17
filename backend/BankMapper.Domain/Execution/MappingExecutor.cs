@@ -1,4 +1,5 @@
 using BankMapper.Domain.Entities;
+using BankMapper.Domain.Enums;
 using BankMapper.Domain.Functoids;
 
 namespace BankMapper.Domain.Execution;
@@ -7,39 +8,53 @@ public class MappingExecutor(FunctoidRegistry registry)
 {
     public Dictionary<string, object?> Apply(Mapping mapping, Dictionary<string, string?> sourceRecord)
     {
-        var result = new Dictionary<string, object?>();
+        var order = GraphTopologicalSorter.Sort(mapping);
+        var nodeOutputs = new Dictionary<string, object?>();
 
-        foreach (var fieldMapping in mapping.FieldMappings)
+        foreach (var nodeId in order)
         {
-            result[fieldMapping.TargetField] = ApplyFieldMapping(fieldMapping, sourceRecord);
+            var node = mapping.FunctoidNodes.First(n => n.Id == nodeId);
+            var functoid = registry.Get(node.FunctoidCode);
+
+            var inputs = functoid.InputPorts
+                .Select(port => ResolveNodeInput(mapping, nodeId, port, sourceRecord, nodeOutputs))
+                .ToArray();
+
+            nodeOutputs[nodeId] = functoid.Execute(inputs, node.Params);
+        }
+
+        var result = new Dictionary<string, object?>();
+        foreach (var edge in mapping.Edges.Where(e => e.ToKind == EdgeEndpointKind.TargetField))
+        {
+            result[edge.ToFieldName!] = ResolveEdgeSourceValue(edge, sourceRecord, nodeOutputs, mapping);
         }
 
         return result;
     }
 
-    private object? ApplyFieldMapping(FieldMapping fieldMapping, Dictionary<string, string?> sourceRecord)
+    private static object? ResolveNodeInput(
+        Mapping mapping,
+        string nodeId,
+        string port,
+        Dictionary<string, string?> sourceRecord,
+        Dictionary<string, object?> nodeOutputs)
     {
-        var inputs = fieldMapping.SourceFields
-            .Select(f => sourceRecord.GetValueOrDefault(f))
-            .Cast<object?>()
-            .ToArray();
+        var edge = mapping.Edges.FirstOrDefault(e =>
+            e.ToKind == EdgeEndpointKind.NodeInput && e.ToNodeId == nodeId && e.ToPort == port);
 
-        object? value = inputs.Length == 1 ? inputs[0] : string.Join(" ", inputs);
-
-        var orderedChain = fieldMapping.FunctoidChain.OrderBy(f => f.Order).ToList();
-
-        for (var i = 0; i < orderedChain.Count; i++)
-        {
-            var step = orderedChain[i];
-            var functoid = registry.Get(step.Type);
-
-            // Zincirin ilk adimi ham kaynak alanlarin hepsini alir (Concat gibi coklu
-            // girisli functoid'ler bunu kullanir); sonraki adimlar bir onceki adimin
-            // ciktisini tek girdi olarak alir (Trim, Upper gibi tekli functoid'ler icin).
-            var stepInputs = i == 0 ? inputs : [value];
-            value = functoid.Execute(stepInputs, step.Params);
-        }
-
-        return value;
+        return edge is null ? null : ResolveEdgeSourceValue(edge, sourceRecord, nodeOutputs, mapping);
     }
+
+    private static object? ResolveEdgeSourceValue(
+        GraphEdge edge,
+        Dictionary<string, string?> sourceRecord,
+        Dictionary<string, object?> nodeOutputs,
+        Mapping mapping) => edge.FromKind switch
+    {
+        EdgeEndpointKind.SourceField => sourceRecord.GetValueOrDefault(
+            SourceFieldKey.Build(edge.FromSourceSchemaId!, edge.FromFieldName!)),
+        EdgeEndpointKind.NodeOutput => nodeOutputs.GetValueOrDefault(edge.FromNodeId!),
+        EdgeEndpointKind.ConstantOutput => mapping.ConstantNodes.First(c => c.Id == edge.FromNodeId).Value,
+        _ => null,
+    };
 }

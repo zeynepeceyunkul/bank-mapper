@@ -39,6 +39,18 @@ public class FunctoidService(FunctoidRegistry registry) : IFunctoidService
 
     public List<FunctoidDto> GetAll() =>
         registry.AvailableCodes
-            .Select(code => Definitions.TryGetValue(code, out var dto) ? dto : new FunctoidDto { Code = code, Name = code })
+            .Select(code =>
+            {
+                var dto = Definitions.TryGetValue(code, out var definition) ? definition : new FunctoidDto { Code = code, Name = code };
+                dto.InputPorts = BuildPorts(registry.Get(code).InputPorts);
+                return dto;
+            })
             .ToList();
+
+    // Domain (IFunctoid.InputPorts) is the source of truth for arity; burada sadece
+    // Türkçe etiket üretiliyor, tek port varsa "Değer", birden fazlaysa "Değer 1", "Değer 2"...
+    private static List<FunctoidPortDto> BuildPorts(IReadOnlyList<string> portNames) =>
+        portNames.Count == 1
+            ? [new FunctoidPortDto { Name = portNames[0], Label = "Değer" }]
+            : portNames.Select((name, index) => new FunctoidPortDto { Name = name, Label = $"Değer {index + 1}" }).ToList();
 }

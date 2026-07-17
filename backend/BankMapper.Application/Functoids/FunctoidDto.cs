@@ -7,4 +7,6 @@ public class FunctoidDto
     public string Name { get; set; } = string.Empty;
 
     public List<FunctoidParameterDto> Parameters { get; set; } = [];
+
+    public List<FunctoidPortDto> InputPorts { get; set; } = [];
 }

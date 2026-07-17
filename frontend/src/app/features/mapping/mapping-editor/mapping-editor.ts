@@ -16,6 +16,22 @@ interface FieldConnection {
   targetField: string;
 }
 
+interface FunctoidNodeView {
+  targetField: string;
+  step: FunctoidStep;
+  index: number;
+  x: number;
+  y: number;
+}
+
+interface LineSegment {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 @Component({
   selector: 'app-mapping-editor',
   imports: [FormsModule],
@@ -60,8 +76,13 @@ export class MappingEditor implements OnInit {
 
   readonly rowHeight = 44;
   readonly rowTop = 12;
-  readonly canvasWidth = 640;
+  readonly canvasWidth = 960;
   readonly columnWidth = 220;
+  readonly nodeWidth = 140;
+  readonly nodeHeight = 36;
+
+  dragNode: { targetField: string; index: number } | null = null;
+  private dragNodeOffset = { dx: 0, dy: 0 };
 
   ngOnInit(): void {
     this.productService.getProducts().subscribe({
@@ -220,11 +241,147 @@ export class MappingEditor implements OnInit {
     if (this.dragFromField) {
       this.updateDragPointer(event);
     }
+
+    if (this.dragNode) {
+      const { x, y } = this.pointerPosition(event);
+      this.updateNodePosition(
+        this.dragNode.targetField,
+        this.dragNode.index,
+        x - this.dragNodeOffset.dx,
+        y - this.dragNodeOffset.dy
+      );
+    }
   }
 
   onCanvasMouseUp(): void {
     this.dragFromField = null;
     this.dragPointer = null;
+    this.dragNode = null;
+  }
+
+  onNodeMouseDown(node: FunctoidNodeView, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const pointer = this.pointerPosition(event);
+    this.dragNode = { targetField: node.targetField, index: node.index };
+    this.dragNodeOffset = { dx: pointer.x - node.x, dy: pointer.y - node.y };
+  }
+
+  nodeKey(node: FunctoidNodeView): string {
+    return `${node.targetField}::${node.index}`;
+  }
+
+  get functoidNodes(): FunctoidNodeView[] {
+    const nodes: FunctoidNodeView[] = [];
+
+    for (const field of this.mappedTargetFields) {
+      const chain = [...this.functoidsFor(field.name)].sort((a, b) => a.order - b.order);
+      chain.forEach((step, index) => {
+        nodes.push({
+          targetField: field.name,
+          step,
+          index,
+          x: step.positionX ?? this.defaultNodeX(index),
+          y: step.positionY ?? this.defaultNodeY(field.name),
+        });
+      });
+    }
+
+    return nodes;
+  }
+
+  get connectionSegments(): LineSegment[] {
+    const segments: LineSegment[] = [];
+    const allNodes = this.functoidNodes;
+
+    const sourceFieldsByTarget = new Map<string, string[]>();
+    for (const conn of this.connections()) {
+      const list = sourceFieldsByTarget.get(conn.targetField) ?? [];
+      list.push(conn.sourceField);
+      sourceFieldsByTarget.set(conn.targetField, list);
+    }
+
+    for (const [targetField, sourceFields] of sourceFieldsByTarget) {
+      const chain = allNodes.filter((n) => n.targetField === targetField);
+      const targetY = this.rowCenterY(this.targetIndex(targetField));
+
+      if (chain.length === 0) {
+        for (const sourceField of sourceFields) {
+          segments.push({
+            key: `${sourceField}->${targetField}`,
+            x1: this.sourceDotX,
+            y1: this.rowCenterY(this.sourceIndex(sourceField)),
+            x2: this.targetDotX,
+            y2: targetY,
+          });
+        }
+        continue;
+      }
+
+      const first = chain[0];
+      for (const sourceField of sourceFields) {
+        segments.push({
+          key: `${sourceField}->${targetField}::in`,
+          x1: this.sourceDotX,
+          y1: this.rowCenterY(this.sourceIndex(sourceField)),
+          x2: first.x,
+          y2: first.y + this.nodeHeight / 2,
+        });
+      }
+
+      for (let i = 0; i < chain.length - 1; i++) {
+        segments.push({
+          key: `${targetField}::${i}->${i + 1}`,
+          x1: chain[i].x + this.nodeWidth,
+          y1: chain[i].y + this.nodeHeight / 2,
+          x2: chain[i + 1].x,
+          y2: chain[i + 1].y + this.nodeHeight / 2,
+        });
+      }
+
+      const last = chain[chain.length - 1];
+      segments.push({
+        key: `${targetField}::last->target`,
+        x1: last.x + this.nodeWidth,
+        y1: last.y + this.nodeHeight / 2,
+        x2: this.targetDotX,
+        y2: targetY,
+      });
+    }
+
+    return segments;
+  }
+
+  private defaultNodeX(index: number): number {
+    return this.sourceDotX + 50 + index * (this.nodeWidth + 30);
+  }
+
+  private defaultNodeY(targetField: string): number {
+    return this.rowCenterY(this.targetIndex(targetField)) - this.nodeHeight / 2;
+  }
+
+  private updateNodePosition(targetField: string, index: number, x: number, y: number): void {
+    this.targetFunctoids.update((map) => {
+      const chain = map[targetField];
+      if (!chain) {
+        return map;
+      }
+
+      const sorted = [...chain].sort((a, b) => a.order - b.order);
+      const step = sorted[index];
+      if (!step) {
+        return map;
+      }
+
+      const updatedChain = chain.map((s) => (s === step ? { ...s, positionX: x, positionY: y } : s));
+      return { ...map, [targetField]: updatedChain };
+    });
+  }
+
+  private pointerPosition(event: MouseEvent): { x: number; y: number } {
+    const rect = this.canvasElRef.nativeElement.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
   onTargetDotMouseUp(fieldName: string, event: MouseEvent): void {
@@ -320,8 +477,7 @@ export class MappingEditor implements OnInit {
   }
 
   private updateDragPointer(event: MouseEvent): void {
-    const rect = this.canvasElRef.nativeElement.getBoundingClientRect();
-    this.dragPointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    this.dragPointer = this.pointerPosition(event);
   }
 
   saveMapping(): void {

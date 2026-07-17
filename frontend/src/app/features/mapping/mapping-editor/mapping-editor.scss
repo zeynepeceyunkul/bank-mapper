@@ -19,12 +19,13 @@
 
   .canvas-container {
     position: relative;
-    width: 640px;
+    width: 960px;
     max-width: 100%;
     border: 1px solid #ddd;
     border-radius: 6px;
     margin-bottom: 1rem;
     background: #fafafa;
+    overflow-x: auto;
   }
 
   .connections-layer {
@@ -84,6 +85,28 @@
     }
   }
 
+  .functoid-node {
+    justify-content: space-between;
+    background: #fff3e0;
+    border-color: #fb8c00;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    .label {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .dot-node-in,
+    .dot-node-out {
+      background: #fb8c00;
+    }
+  }
+
   .connection-list {
     ul {
       list-style: none;
@@ -104,7 +127,7 @@
     padding: 0.75rem 1rem;
     border: 1px solid #ddd;
     border-radius: 6px;
-    max-width: 640px;
+    max-width: 960px;
 
     .functoid-row {
       display: flex;

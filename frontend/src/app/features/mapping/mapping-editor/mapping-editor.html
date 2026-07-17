@@ -73,12 +73,12 @@
       }
 
       <svg class="connections-layer" [attr.width]="canvasWidth" [attr.height]="canvasHeight">
-        @for (conn of connections(); track conn.sourceField + '->' + conn.targetField; let i = $index) {
+        @for (segment of connectionSegments; track segment.key) {
           <line
-            [attr.x1]="sourceDotX"
-            [attr.y1]="rowCenterY(sourceIndex(conn.sourceField))"
-            [attr.x2]="targetDotX"
-            [attr.y2]="rowCenterY(targetIndex(conn.targetField))"
+            [attr.x1]="segment.x1"
+            [attr.y1]="segment.y1"
+            [attr.x2]="segment.x2"
+            [attr.y2]="segment.y2"
             stroke="#1a73e8"
             stroke-width="2"
           />
@@ -95,6 +95,20 @@
           />
         }
       </svg>
+
+      @for (node of functoidNodes; track nodeKey(node)) {
+        <div
+          class="field-box functoid-node"
+          [style.top.px]="node.y"
+          [style.left.px]="node.x"
+          [style.width.px]="nodeWidth"
+          (mousedown)="onNodeMouseDown(node, $event)"
+        >
+          <span class="dot dot-node-in"></span>
+          <span class="label">{{ node.step.type }}</span>
+          <span class="dot dot-node-out"></span>
+        </div>
+      }
 
       @for (field of targetFieldsList; track field.name; let i = $index) {
         <div

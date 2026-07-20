@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MappingService } from '../../../core/services/mapping.service';
-import { PreviewService } from '../../../core/services/preview.service';
+import { PreviewService, PreviewSourceFileUpload } from '../../../core/services/preview.service';
 import { Mapping } from '../../../core/models/mapping.model';
 
 @Component({
@@ -17,12 +17,13 @@ export class PreviewExecute implements OnInit {
 
   readonly mappings = signal<Mapping[]>([]);
   readonly rows = signal<Record<string, unknown>[]>([]);
+  readonly warnings = signal<string[]>([]);
   readonly error = signal<string | null>(null);
   readonly loading = signal(false);
   readonly downloading = signal(false);
 
   selectedMappingId = '';
-  selectedFile: File | null = null;
+  selectedFiles: Record<string, File | null> = {};
 
   ngOnInit(): void {
     this.mappingService.getAll().subscribe({
@@ -31,9 +32,20 @@ export class PreviewExecute implements OnInit {
     });
   }
 
-  onFileSelected(event: Event): void {
+  get selectedMapping(): Mapping | undefined {
+    return this.mappings().find((m) => m.id === this.selectedMappingId);
+  }
+
+  onMappingChange(): void {
+    this.selectedFiles = {};
+    this.rows.set([]);
+    this.warnings.set([]);
+    this.error.set(null);
+  }
+
+  onFileSelected(schemaId: string, event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] ?? null;
+    this.selectedFiles = { ...this.selectedFiles, [schemaId]: input.files?.[0] ?? null };
   }
 
   get columns(): string[] {
@@ -41,25 +53,41 @@ export class PreviewExecute implements OnInit {
     return first ? Object.keys(first) : [];
   }
 
+  private buildFileUploads(): PreviewSourceFileUpload[] | null {
+    const mapping = this.selectedMapping;
+    if (!mapping) {
+      this.error.set('Bir mapping seçmelisin.');
+      return null;
+    }
+
+    const uploads: PreviewSourceFileUpload[] = [];
+    for (const ref of mapping.sourceSchemas) {
+      const file = this.selectedFiles[ref.sourceSchemaId];
+      if (!file) {
+        this.error.set(`'${ref.alias}' için bir dosya seçmelisin.`);
+        return null;
+      }
+      uploads.push({ schemaId: ref.sourceSchemaId, file });
+    }
+    return uploads;
+  }
+
   runPreview(): void {
     this.error.set(null);
     this.rows.set([]);
+    this.warnings.set([]);
 
-    if (!this.selectedMappingId) {
-      this.error.set('Bir mapping seçmelisin.');
-      return;
-    }
-
-    if (!this.selectedFile) {
-      this.error.set('Bir dosya seçmelisin.');
+    const uploads = this.buildFileUploads();
+    if (!uploads) {
       return;
     }
 
     this.loading.set(true);
 
-    this.previewService.execute(this.selectedMappingId, this.selectedFile).subscribe({
-      next: (rows) => {
-        this.rows.set(rows);
+    this.previewService.execute(this.selectedMappingId, uploads).subscribe({
+      next: (result) => {
+        this.rows.set(result.rows);
+        this.warnings.set(result.warnings);
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
@@ -72,19 +100,14 @@ export class PreviewExecute implements OnInit {
   downloadCsv(): void {
     this.error.set(null);
 
-    if (!this.selectedMappingId) {
-      this.error.set('Bir mapping seçmelisin.');
-      return;
-    }
-
-    if (!this.selectedFile) {
-      this.error.set('Bir dosya seçmelisin.');
+    const uploads = this.buildFileUploads();
+    if (!uploads) {
       return;
     }
 
     this.downloading.set(true);
 
-    this.previewService.convert(this.selectedMappingId, this.selectedFile).subscribe({
+    this.previewService.convert(this.selectedMappingId, uploads).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

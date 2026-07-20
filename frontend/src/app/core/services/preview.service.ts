@@ -3,23 +3,39 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export interface PreviewSourceFileUpload {
+  schemaId: string;
+  file: File;
+}
+
+export interface PreviewExecuteResult {
+  rows: Record<string, unknown>[];
+  warnings: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PreviewService {
   private readonly http = inject(HttpClient);
 
-  execute(mappingId: string, file: File): Observable<Record<string, unknown>[]> {
-    const formData = new FormData();
-    formData.append('MappingId', mappingId);
-    formData.append('File', file);
-
-    return this.http.post<Record<string, unknown>[]>(`${environment.apiUrl}/preview/execute`, formData);
+  execute(mappingId: string, files: PreviewSourceFileUpload[]): Observable<PreviewExecuteResult> {
+    return this.http.post<PreviewExecuteResult>(`${environment.apiUrl}/preview/execute`, this.buildFormData(mappingId, files));
   }
 
-  convert(mappingId: string, file: File): Observable<Blob> {
+  convert(mappingId: string, files: PreviewSourceFileUpload[]): Observable<Blob> {
+    return this.http.post(`${environment.apiUrl}/preview/convert`, this.buildFormData(mappingId, files), {
+      responseType: 'blob',
+    });
+  }
+
+  private buildFormData(mappingId: string, files: PreviewSourceFileUpload[]): FormData {
     const formData = new FormData();
     formData.append('MappingId', mappingId);
-    formData.append('File', file);
 
-    return this.http.post(`${environment.apiUrl}/preview/convert`, formData, { responseType: 'blob' });
+    for (const { schemaId, file } of files) {
+      formData.append('Files', file);
+      formData.append('SourceSchemaIds', schemaId);
+    }
+
+    return formData;
   }
 }

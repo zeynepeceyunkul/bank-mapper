@@ -4,22 +4,36 @@
   <div class="selectors">
     <div class="field">
       <label for="mapping">Mapping</label>
-      <select id="mapping" [(ngModel)]="selectedMappingId">
+      <select id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
         <option value="" disabled>Mapping seçin</option>
         @for (mapping of mappings(); track mapping.id) {
           <option [value]="mapping.id">{{ mapping.name }}</option>
         }
       </select>
     </div>
-
-    <div class="field">
-      <label for="file">Dosya</label>
-      <input id="file" type="file" (change)="onFileSelected($event)" />
-    </div>
   </div>
+
+  @if (selectedMapping; as mapping) {
+    <div class="selectors file-inputs">
+      @for (ref of mapping.sourceSchemas; track ref.sourceSchemaId) {
+        <div class="field">
+          <label>{{ ref.alias }} dosyası</label>
+          <input type="file" (change)="onFileSelected(ref.sourceSchemaId, $event)" />
+        </div>
+      }
+    </div>
+  }
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
+  }
+
+  @if (warnings().length > 0) {
+    <ul class="warnings">
+      @for (warning of warnings(); track warning) {
+        <li>{{ warning }}</li>
+      }
+    </ul>
   }
 
   <div class="actions">

@@ -41,6 +41,15 @@ interface LineSegment {
   y2: number;
 }
 
+interface SelectedSourceSchema {
+  sourceSchemaId: string;
+  joinKeyField: string | null;
+  positionX: number;
+  positionY: number;
+}
+
+type DraggableNodeType = 'functoid' | 'constant' | 'sourceSchema';
+
 function randomId(): string {
   return crypto.randomUUID();
 }
@@ -70,7 +79,8 @@ export class MappingEditor implements OnInit {
 
   selectedProductId = '';
   selectedFileTypeId = '';
-  selectedSourceSchemaId = '';
+  selectedSourceSchemas: SelectedSourceSchema[] = [];
+  newSourceSchemaId = '';
 
   readonly functoidNodes = signal<FunctoidNode[]>([]);
   readonly constantNodes = signal<ConstantNode[]>([]);
@@ -82,7 +92,7 @@ export class MappingEditor implements OnInit {
   dragFromPort: OutputPortRef | null = null;
   dragPointer: { x: number; y: number } | null = null;
 
-  dragNode: { type: 'functoid' | 'constant'; id: string } | null = null;
+  dragNode: { type: DraggableNodeType; id: string } | null = null;
   private dragNodeOffset = { dx: 0, dy: 0 };
   private dragNodeStart = { x: 0, y: 0 };
   private dragNodeMoved = false;
@@ -92,13 +102,17 @@ export class MappingEditor implements OnInit {
   readonly saveError = signal<string | null>(null);
   readonly savedMapping = signal<Mapping | null>(null);
 
-  readonly rowHeight = 44;
-  readonly rowTop = 12;
-  readonly canvasWidth = 960;
-  readonly columnWidth = 220;
+  readonly canvasWidth = 1000;
   readonly nodeWidth = 140;
   readonly nodeHeight = 36;
   readonly constantNodeHeight = 36;
+
+  // Kaynak/hedef semalar MapForce'taki gibi basliga sahip, alan listesi iceren
+  // kutular olarak render edilir; bu sabitler kutunun ic satir duzenini belirler.
+  readonly schemaBoxWidth = 220;
+  readonly schemaTitleHeight = 30;
+  readonly schemaFieldRowHeight = 28;
+  readonly targetBoxY = 20;
 
   ngOnInit(): void {
     this.productService.getProducts().subscribe({
@@ -129,7 +143,12 @@ export class MappingEditor implements OnInit {
     this.mappingService.getById(id).subscribe({
       next: (mapping) => {
         this.mappingName = mapping.name;
-        this.selectedSourceSchemaId = mapping.sourceSchemas[0]?.sourceSchemaId ?? '';
+        this.selectedSourceSchemas = mapping.sourceSchemas.map((s, index) => ({
+          sourceSchemaId: s.sourceSchemaId,
+          joinKeyField: s.joinKeyField ?? null,
+          positionX: s.positionX || this.defaultSchemaX(index),
+          positionY: s.positionY || this.defaultSchemaY(index),
+        }));
         this.functoidNodes.set(mapping.functoidNodes);
         this.constantNodes.set(mapping.constantNodes);
         this.edges.set(mapping.edges);
@@ -182,8 +201,58 @@ export class MappingEditor implements OnInit {
     this.resetGraph();
   }
 
-  onSourceSchemaChange(): void {
-    this.resetGraph();
+  get availableSourceSchemasToAdd(): SourceSchema[] {
+    const usedIds = new Set(this.selectedSourceSchemas.map((s) => s.sourceSchemaId));
+    return this.sourceSchemas().filter((s) => !usedIds.has(s.id));
+  }
+
+  schemaById(id: string): SourceSchema | undefined {
+    return this.sourceSchemas().find((s) => s.id === id);
+  }
+
+  schemaFields(schemaId: string): SourceField[] {
+    return [...(this.schemaById(schemaId)?.fields ?? [])].sort((a, b) => a.order - b.order);
+  }
+
+  schemaBoxHeight(schemaId: string): number {
+    const count = Math.max(this.schemaFields(schemaId).length, 1);
+    return this.schemaTitleHeight + count * this.schemaFieldRowHeight + 6;
+  }
+
+  private defaultSchemaX(index: number): number {
+    return 20 + index * 30;
+  }
+
+  private defaultSchemaY(index: number): number {
+    return 20 + index * 30;
+  }
+
+  addSourceSchema(): void {
+    if (!this.newSourceSchemaId) {
+      return;
+    }
+    const index = this.selectedSourceSchemas.length;
+    this.selectedSourceSchemas = [
+      ...this.selectedSourceSchemas,
+      {
+        sourceSchemaId: this.newSourceSchemaId,
+        joinKeyField: null,
+        positionX: this.defaultSchemaX(index),
+        positionY: this.defaultSchemaY(index),
+      },
+    ];
+    this.newSourceSchemaId = '';
+  }
+
+  removeSourceSchema(schemaId: string): void {
+    this.selectedSourceSchemas = this.selectedSourceSchemas.filter((s) => s.sourceSchemaId !== schemaId);
+    this.edges.update((list) => list.filter((e) => !(e.fromKind === 'SourceField' && e.fromSourceSchemaId === schemaId)));
+  }
+
+  setJoinKeyField(schemaId: string, field: string): void {
+    this.selectedSourceSchemas = this.selectedSourceSchemas.map((s) =>
+      s.sourceSchemaId === schemaId ? { ...s, joinKeyField: field } : s
+    );
   }
 
   private resetGraph(): void {
@@ -197,24 +266,25 @@ export class MappingEditor implements OnInit {
     return this.fileTypes().find((ft) => ft.id === this.selectedFileTypeId);
   }
 
-  get selectedSourceSchema(): SourceSchema | undefined {
-    return this.sourceSchemas().find((s) => s.id === this.selectedSourceSchemaId);
-  }
-
   get readyForCanvas(): boolean {
-    return !!this.selectedFileType && !!this.selectedSourceSchema;
+    return !!this.selectedFileType && this.selectedSourceSchemas.length > 0;
   }
 
   get isEditMode(): boolean {
     return !!this.mappingId;
   }
 
-  get sourceFieldsList(): SourceField[] {
-    return [...(this.selectedSourceSchema?.fields ?? [])].sort((a, b) => a.order - b.order);
-  }
-
   get targetFieldsList(): TargetField[] {
     return [...(this.selectedFileType?.targetFields ?? [])].sort((a, b) => a.order - b.order);
+  }
+
+  get targetBoxX(): number {
+    return this.canvasWidth - this.schemaBoxWidth - 40;
+  }
+
+  get targetBoxHeight(): number {
+    const count = Math.max(this.targetFieldsList.length, 1);
+    return this.schemaTitleHeight + count * this.schemaFieldRowHeight + 6;
   }
 
   get functoidNodeViews(): FunctoidNodeView[] {
@@ -226,36 +296,14 @@ export class MappingEditor implements OnInit {
   }
 
   get canvasHeight(): number {
-    const rows = Math.max(this.sourceFieldsList.length, this.targetFieldsList.length, 1);
-    const fieldsHeight = rows * this.rowHeight + this.rowTop * 2;
-
-    const nodeBottoms = [
+    const bottoms = [
+      ...this.selectedSourceSchemas.map((s) => s.positionY + this.schemaBoxHeight(s.sourceSchemaId)),
+      this.targetBoxY + this.targetBoxHeight,
       ...this.functoidNodeViews.map((v) => v.node.positionY + v.height),
       ...this.constantNodes().map((c) => c.positionY + this.constantNodeHeight),
     ];
-    const maxNodeBottom = nodeBottoms.length > 0 ? Math.max(...nodeBottoms) : 0;
-
-    return Math.max(fieldsHeight, maxNodeBottom + 60);
-  }
-
-  get sourceDotX(): number {
-    return this.columnWidth;
-  }
-
-  get targetDotX(): number {
-    return this.canvasWidth - this.columnWidth;
-  }
-
-  rowCenterY(index: number): number {
-    return this.rowTop + index * this.rowHeight + this.rowHeight / 2;
-  }
-
-  sourceIndex(fieldName: string): number {
-    return this.sourceFieldsList.findIndex((f) => f.name === fieldName);
-  }
-
-  targetIndex(fieldName: string): number {
-    return this.targetFieldsList.findIndex((f) => f.name === fieldName);
+    const maxBottom = bottoms.length > 0 ? Math.max(...bottoms) : 200;
+    return Math.max(maxBottom + 40, 320);
   }
 
   nodeHeightFor(portCount: number): number {
@@ -266,9 +314,9 @@ export class MappingEditor implements OnInit {
     return ((index + 0.5) * height) / portCount;
   }
 
-  // --- Sürükleme: mevcut node'u taşıma (tıklama ile parametre panelini ayırt eder) ---
+  // --- Sürükleme: mevcut kutuyu/node'u taşıma (tıklama ile parametre panelini ayırt eder) ---
 
-  onNodeBodyMouseDown(type: 'functoid' | 'constant', id: string, currentX: number, currentY: number, event: MouseEvent): void {
+  onNodeBodyMouseDown(type: DraggableNodeType, id: string, currentX: number, currentY: number, event: MouseEvent): void {
     event.preventDefault();
     const pointer = this.pointerPosition(event);
     this.dragNode = { type, id };
@@ -301,19 +349,24 @@ export class MappingEditor implements OnInit {
     this.dragNode = null;
   }
 
-  private updateNodePosition(type: 'functoid' | 'constant', id: string, x: number, y: number): void {
+  private updateNodePosition(type: DraggableNodeType, id: string, x: number, y: number): void {
     if (type === 'functoid') {
       this.functoidNodes.update((list) => list.map((n) => (n.id === id ? { ...n, positionX: x, positionY: y } : n)));
-    } else {
+    } else if (type === 'constant') {
       this.constantNodes.update((list) => list.map((n) => (n.id === id ? { ...n, positionX: x, positionY: y } : n)));
+    } else {
+      this.selectedSourceSchemas = this.selectedSourceSchemas.map((s) =>
+        s.sourceSchemaId === id ? { ...s, positionX: x, positionY: y } : s
+      );
     }
   }
 
   // --- Bağlantı (edge) kurma: port'tan port'a sürükleme ---
 
-  onSourceDotMouseDown(fieldName: string, event: MouseEvent): void {
+  onSourceFieldDotMouseDown(schemaId: string, fieldName: string, event: MouseEvent): void {
     event.preventDefault();
-    this.dragFromPort = { kind: 'SourceField', fieldName, sourceSchemaId: this.selectedSourceSchemaId };
+    event.stopPropagation();
+    this.dragFromPort = { kind: 'SourceField', fieldName, sourceSchemaId: schemaId };
     this.dragPointer = this.pointerPosition(event);
   }
 
@@ -372,8 +425,12 @@ export class MappingEditor implements OnInit {
     return edge.toKind === 'TargetField' && edge.toFieldName === to.fieldName;
   }
 
-  isDraggingFromSourceField(fieldName: string): boolean {
-    return this.dragFromPort?.kind === 'SourceField' && this.dragFromPort.fieldName === fieldName;
+  isDraggingFromSourceField(schemaId: string, fieldName: string): boolean {
+    return (
+      this.dragFromPort?.kind === 'SourceField' &&
+      this.dragFromPort.fieldName === fieldName &&
+      this.dragFromPort.sourceSchemaId === schemaId
+    );
   }
 
   isDraggingFromNode(nodeId: string): boolean {
@@ -386,7 +443,8 @@ export class MappingEditor implements OnInit {
 
   describeFrom(edge: GraphEdge): string {
     if (edge.fromKind === 'SourceField') {
-      return edge.fromFieldName ?? '?';
+      const schema = this.schemaById(edge.fromSourceSchemaId ?? '');
+      return schema && this.selectedSourceSchemas.length > 1 ? `${schema.name}: ${edge.fromFieldName}` : (edge.fromFieldName ?? '?');
     }
     if (edge.fromKind === 'NodeOutput') {
       const node = this.functoidNodes().find((n) => n.id === edge.fromNodeId);
@@ -439,7 +497,7 @@ export class MappingEditor implements OnInit {
     const offset = this.constantNodes().length * 24;
     this.constantNodes.update((list) => [
       ...list,
-      { id: randomId(), value: '', positionX: this.sourceDotX + 40 + offset, positionY: 20 + offset },
+      { id: randomId(), value: '', positionX: 260 + offset, positionY: 240 + offset },
     ]);
   }
 
@@ -497,7 +555,11 @@ export class MappingEditor implements OnInit {
 
   private edgeFromRef(edge: GraphEdge): OutputPortRef {
     if (edge.fromKind === 'SourceField') {
-      return { kind: 'SourceField', fieldName: edge.fromFieldName ?? undefined };
+      return {
+        kind: 'SourceField',
+        fieldName: edge.fromFieldName ?? undefined,
+        sourceSchemaId: edge.fromSourceSchemaId ?? undefined,
+      };
     }
     return { kind: edge.fromKind as 'NodeOutput' | 'ConstantOutput', nodeId: edge.fromNodeId ?? undefined };
   }
@@ -511,8 +573,19 @@ export class MappingEditor implements OnInit {
 
   private resolveOutputPoint(ref: OutputPortRef): { x: number; y: number } | null {
     if (ref.kind === 'SourceField') {
-      const idx = this.sourceIndex(ref.fieldName ?? '');
-      return idx < 0 ? null : { x: this.sourceDotX, y: this.rowCenterY(idx) };
+      const schemaRef = this.selectedSourceSchemas.find((s) => s.sourceSchemaId === ref.sourceSchemaId);
+      if (!schemaRef) {
+        return null;
+      }
+      const fields = this.schemaFields(ref.sourceSchemaId ?? '');
+      const fieldIndex = fields.findIndex((f) => f.name === ref.fieldName);
+      if (fieldIndex < 0) {
+        return null;
+      }
+      return {
+        x: schemaRef.positionX + this.schemaBoxWidth,
+        y: schemaRef.positionY + this.schemaTitleHeight + (fieldIndex + 0.5) * this.schemaFieldRowHeight,
+      };
     }
 
     if (ref.kind === 'NodeOutput') {
@@ -526,8 +599,15 @@ export class MappingEditor implements OnInit {
 
   private resolveInputPoint(ref: InputPortRef): { x: number; y: number } | null {
     if (ref.kind === 'TargetField') {
-      const idx = this.targetIndex(ref.fieldName ?? '');
-      return idx < 0 ? null : { x: this.targetDotX, y: this.rowCenterY(idx) };
+      const fields = this.targetFieldsList;
+      const fieldIndex = fields.findIndex((f) => f.name === ref.fieldName);
+      if (fieldIndex < 0) {
+        return null;
+      }
+      return {
+        x: this.targetBoxX,
+        y: this.targetBoxY + this.schemaTitleHeight + (fieldIndex + 0.5) * this.schemaFieldRowHeight,
+      };
     }
 
     const view = this.functoidNodeViews.find((v) => v.node.id === ref.nodeId);
@@ -568,11 +648,22 @@ export class MappingEditor implements OnInit {
       return;
     }
 
+    if (this.selectedSourceSchemas.length > 1 && this.selectedSourceSchemas.some((s) => !s.joinKeyField)) {
+      this.saveError.set('Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.');
+      return;
+    }
+
     this.saving.set(true);
 
     const request = {
       name: this.mappingName.trim(),
-      sourceSchemas: [{ sourceSchemaId: this.selectedSourceSchemaId, alias: this.selectedSourceSchema?.name ?? '' }],
+      sourceSchemas: this.selectedSourceSchemas.map((s) => ({
+        sourceSchemaId: s.sourceSchemaId,
+        alias: this.schemaById(s.sourceSchemaId)?.name ?? '',
+        joinKeyField: s.joinKeyField,
+        positionX: s.positionX,
+        positionY: s.positionY,
+      })),
       fileTypeId: this.selectedFileTypeId,
       functoidNodes: this.functoidNodes(),
       constantNodes: this.constantNodes(),

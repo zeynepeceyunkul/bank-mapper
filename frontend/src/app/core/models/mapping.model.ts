@@ -31,6 +31,8 @@ export interface MappingSourceSchemaRef {
   sourceSchemaId: string;
   alias: string;
   joinKeyField?: string | null;
+  positionX: number;
+  positionY: number;
 }
 
 export interface Mapping {

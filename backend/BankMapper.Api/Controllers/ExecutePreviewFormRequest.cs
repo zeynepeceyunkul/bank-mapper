@@ -6,5 +6,7 @@ public class ExecutePreviewFormRequest
 {
     public string MappingId { get; set; } = string.Empty;
 
-    public IFormFile? File { get; set; }
+    public List<IFormFile> Files { get; set; } = [];
+
+    public List<string> SourceSchemaIds { get; set; } = [];
 }

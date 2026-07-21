@@ -1,14 +1,14 @@
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 
 import { MappingEditor } from './mapping-editor';
+import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
 import { FileType } from '../../../core/models/file-type.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
-
-const fakeMouseEvent = () =>
-  ({ preventDefault: () => {}, stopPropagation: () => {}, clientX: 0, clientY: 0 }) as unknown as MouseEvent;
 
 const sampleSourceSchema: SourceSchema = {
   id: 'src-1',
@@ -29,16 +29,75 @@ const sampleFileType: FileType = {
   targetFields: [{ name: 'AdSoyad', type: 'string', order: 1, length: 50 }],
 };
 
+const emptySnapshot = (): MappingCanvasSnapshot => ({ sourceSchemas: [], functoidNodes: [], constantNodes: [], edges: [] });
+
+// mapping-editor artık canvas'ın kendisini değil, orkestrasyonu (ürün/dosya
+// tipi seçimi, kaydetme, snapshot gate'i) test ediyor. Gerçek X6 canvas'ı
+// mapping-canvas.spec.ts'de ayrıca test ediliyor; burada onun yerine ince bir
+// sahte (fake) canvas kullanılıyor.
+@Component({ selector: 'app-mapping-canvas', template: '' })
+class FakeMappingCanvas {
+  @Input() functoidDefinitions: unknown[] = [];
+  @Input() targetFileType: FileType | null = null;
+  @Input() allSourceSchemas: SourceSchema[] = [];
+  @Input() initialSnapshot: MappingCanvasSnapshot | null = null;
+  @Output() readonly graphChanged = new EventEmitter<void>();
+
+  snapshot: MappingCanvasSnapshot = emptySnapshot();
+
+  getSnapshot(): MappingCanvasSnapshot {
+    return this.snapshot;
+  }
+
+  getSourceSchemaIds(): string[] {
+    return this.snapshot.sourceSchemas.map((s) => s.sourceSchemaId);
+  }
+
+  describeEdges(): { id: string; from: string; to: string }[] {
+    return this.snapshot.edges.map((e) => ({ id: e.id, from: e.fromFieldName ?? '?', to: e.toFieldName ?? '?' }));
+  }
+
+  addSourceSchema(schema: SourceSchema, x: number, y: number): void {
+    this.snapshot = {
+      ...this.snapshot,
+      sourceSchemas: [...this.snapshot.sourceSchemas, { sourceSchemaId: schema.id, joinKeyField: null, positionX: x, positionY: y }],
+    };
+    this.graphChanged.emit();
+  }
+
+  addConstant(x: number, y: number): void {
+    this.snapshot = {
+      ...this.snapshot,
+      constantNodes: [...this.snapshot.constantNodes, { id: 'const-1', value: '', positionX: x, positionY: y }],
+    };
+    this.graphChanged.emit();
+  }
+
+  removeEdge(id: string): void {
+    this.snapshot = { ...this.snapshot, edges: this.snapshot.edges.filter((e) => e.id !== id) };
+    this.graphChanged.emit();
+  }
+}
+
 describe('MappingEditor', () => {
   let component: MappingEditor;
   let fixture: ComponentFixture<MappingEditor>;
   let httpMock: HttpTestingController;
 
+  function fakeCanvas(): FakeMappingCanvas {
+    return fixture.debugElement.query(By.directive(FakeMappingCanvas)).componentInstance as FakeMappingCanvas;
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MappingEditor],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
-    }).compileComponents();
+    })
+      .overrideComponent(MappingEditor, {
+        remove: { imports: [MappingCanvas] },
+        add: { imports: [FakeMappingCanvas] },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(MappingEditor);
     component = fixture.componentInstance;
@@ -47,7 +106,7 @@ describe('MappingEditor', () => {
     fixture.detectChanges();
 
     httpMock.expectOne((req) => req.url.endsWith('/products')).flush([]);
-    httpMock.expectOne((req) => req.url.endsWith('/source-schemas')).flush([]);
+    httpMock.expectOne((req) => req.url.endsWith('/source-schemas')).flush([sampleSourceSchema]);
     httpMock.expectOne((req) => req.url.endsWith('/functoids')).flush([]);
   });
 
@@ -55,10 +114,9 @@ describe('MappingEditor', () => {
     httpMock.verify();
   });
 
-  function selectSourceAndTarget(): void {
+  function selectTarget(): void {
     component.sourceSchemas.set([sampleSourceSchema]);
     component.fileTypes.set([sampleFileType]);
-    component.selectedSourceSchemas = [{ sourceSchemaId: sampleSourceSchema.id, joinKeyField: null, positionX: 20, positionY: 20 }];
     component.selectedFileTypeId = sampleFileType.id;
     fixture.detectChanges();
   }
@@ -67,92 +125,90 @@ describe('MappingEditor', () => {
     expect(component).toBeTruthy();
   });
 
-  it('creates a direct source-field-to-target-field edge when dragging', () => {
-    selectSourceAndTarget();
-
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
-
-    expect(component.edges()).toEqual([
-      {
-        id: expect.any(String),
-        fromKind: 'SourceField',
-        fromSourceSchemaId: 'src-1',
-        fromFieldName: 'Ad',
-        fromNodeId: null,
-        toKind: 'TargetField',
-        toNodeId: null,
-        toPort: null,
-        toFieldName: 'AdSoyad',
-      },
-    ]);
+  it('gates the canvas behind a selected file type', () => {
+    expect(fixture.debugElement.query(By.directive(FakeMappingCanvas))).toBeNull();
+    selectTarget();
+    expect(fixture.debugElement.query(By.directive(FakeMappingCanvas))).not.toBeNull();
   });
 
-  it('replaces the existing edge instead of duplicating it when a target field is rewired', () => {
-    selectSourceAndTarget();
+  it('only reveals the initial snapshot once source schemas and functoid defs have loaded', () => {
+    expect(component.effectiveSnapshot()).toBeNull();
 
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Soyad', fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
+    component.sourceSchemasLoaded.set(true);
+    expect(component.effectiveSnapshot()).toBeNull();
 
-    expect(component.edges().length).toBe(1);
-    expect(component.edges()[0].fromFieldName).toBe('Soyad');
+    component.functoidDefinitionsLoaded.set(true);
+    expect(component.effectiveSnapshot()).toBeNull();
   });
 
-  it('wires a functoid node between a source field and a target field', () => {
-    selectSourceAndTarget();
-    component.addFunctoidNode('Trim', 300, 80);
-    const nodeId = component.functoidNodes()[0].id;
+  it('delegates add-source-schema to the canvas and tracks used schema ids via graphChanged', () => {
+    selectTarget();
+    component.newSourceSchemaId = sampleSourceSchema.id;
 
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onNodeInputMouseUp(nodeId, 'value', fakeMouseEvent());
-    component.onNodeOutputMouseDown(nodeId, fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
+    component.addSourceSchema();
+    fixture.detectChanges();
 
-    expect(component.edges().length).toBe(2);
-    expect(component.edges()[0]).toEqual(
-      expect.objectContaining({ fromKind: 'SourceField', fromFieldName: 'Ad', toKind: 'NodeInput', toNodeId: nodeId, toPort: 'value' })
-    );
-    expect(component.edges()[1]).toEqual(
-      expect.objectContaining({ fromKind: 'NodeOutput', fromNodeId: nodeId, toKind: 'TargetField', toFieldName: 'AdSoyad' })
-    );
+    expect(fakeCanvas().getSourceSchemaIds()).toEqual(['src-1']);
+    expect(component.usedSourceSchemaIds()).toEqual(['src-1']);
+    expect(component.availableSourceSchemasToAdd).toEqual([]);
+    expect(component.newSourceSchemaId).toBe('');
   });
 
-  it('removing a functoid node also removes edges attached to it', () => {
-    selectSourceAndTarget();
-    component.addFunctoidNode('Trim', 300, 80);
-    const nodeId = component.functoidNodes()[0].id;
-
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onNodeInputMouseUp(nodeId, 'value', fakeMouseEvent());
-
-    expect(component.edges().length).toBe(1);
-
-    component.removeFunctoidNode(nodeId);
-
-    expect(component.functoidNodes()).toEqual([]);
-    expect(component.edges()).toEqual([]);
-  });
-
-  it('adds and removes a constant node', () => {
-    selectSourceAndTarget();
+  it('delegates add-constant and remove-edge to the canvas', () => {
+    selectTarget();
     component.addConstant();
-    expect(component.constantNodes().length).toBe(1);
+    expect(fakeCanvas().getSnapshot().constantNodes.length).toBe(1);
 
-    const id = component.constantNodes()[0].id;
-    component.setConstantValue(id, 'ZZZ');
-    expect(component.constantNodes()[0].value).toBe('ZZZ');
-
-    component.removeConstantNode(id);
-    expect(component.constantNodes()).toEqual([]);
+    fakeCanvas().snapshot = {
+      ...fakeCanvas().snapshot,
+      edges: [
+        {
+          id: 'e1',
+          fromKind: 'SourceField',
+          fromSourceSchemaId: 'src-1',
+          fromFieldName: 'Ad',
+          fromNodeId: null,
+          toKind: 'TargetField',
+          toNodeId: null,
+          toPort: null,
+          toFieldName: 'AdSoyad',
+        },
+      ],
+    };
+    component.removeEdge('e1');
+    expect(fakeCanvas().getSnapshot().edges).toEqual([]);
   });
 
-  it('sends the graph shape when saving', () => {
-    selectSourceAndTarget();
+  it('shows an error and does not call the API when saving without any target-field connection', () => {
+    selectTarget();
+    component.mappingName = 'Test Mapping';
 
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
+    component.saveMapping();
+
+    expect(component.saveError()).toBe('En az bir hedef alan bağlantısı olmalı.');
+    httpMock.expectNone((req) => req.url.endsWith('/mappings'));
+  });
+
+  it('sends the graph snapshot from the canvas when saving', () => {
+    selectTarget();
+    fakeCanvas().snapshot = {
+      sourceSchemas: [{ sourceSchemaId: 'src-1', joinKeyField: null, positionX: 20, positionY: 20 }],
+      functoidNodes: [],
+      constantNodes: [],
+      edges: [
+        {
+          id: 'e1',
+          fromKind: 'SourceField',
+          fromSourceSchemaId: 'src-1',
+          fromFieldName: 'Ad',
+          fromNodeId: null,
+          toKind: 'TargetField',
+          toNodeId: null,
+          toPort: null,
+          toFieldName: 'AdSoyad',
+        },
+      ],
+    };
 
     component.mappingName = 'Test Mapping';
     component.saveMapping();
@@ -178,63 +234,36 @@ describe('MappingEditor', () => {
     });
   });
 
-  it('shows an error and does not call the API when saving without any target-field connection', () => {
-    selectSourceAndTarget();
-    component.mappingName = 'Test Mapping';
-
-    component.saveMapping();
-
-    expect(component.saveError()).toBe('En az bir hedef alan bağlantısı olmalı.');
-    httpMock.expectNone((req) => req.url.endsWith('/mappings'));
-  });
-
-  it('adds a second source schema and requires a join key from every schema before saving', () => {
-    const secondSchema: SourceSchema = {
-      id: 'src-2',
-      name: 'Second Source',
-      fileFormat: 'Csv',
-      fields: [{ name: 'Id', type: 'string', order: 1, startIndex: null, length: null }],
-      formatOptions: { hasHeader: true, delimiter: ',' },
+  it('requires a join key from every schema before saving when multiple source schemas are used', () => {
+    selectTarget();
+    fakeCanvas().snapshot = {
+      sourceSchemas: [
+        { sourceSchemaId: 'src-1', joinKeyField: null, positionX: 20, positionY: 20 },
+        { sourceSchemaId: 'src-2', joinKeyField: null, positionX: 50, positionY: 50 },
+      ],
+      functoidNodes: [],
+      constantNodes: [],
+      edges: [
+        {
+          id: 'e1',
+          fromKind: 'SourceField',
+          fromSourceSchemaId: 'src-1',
+          fromFieldName: 'Ad',
+          fromNodeId: null,
+          toKind: 'TargetField',
+          toNodeId: null,
+          toPort: null,
+          toFieldName: 'AdSoyad',
+        },
+      ],
     };
-
-    selectSourceAndTarget();
-    component.sourceSchemas.set([sampleSourceSchema, secondSchema]);
-    component.newSourceSchemaId = secondSchema.id;
-    component.addSourceSchema();
-
-    expect(component.selectedSourceSchemas.length).toBe(2);
-    expect(component.availableSourceSchemasToAdd).toEqual([]);
-
-    component.onSourceFieldDotMouseDown(sampleSourceSchema.id, 'Ad', fakeMouseEvent());
-    component.onTargetDotMouseUp('AdSoyad', fakeMouseEvent());
     component.mappingName = 'Multi Schema Mapping';
+
     component.saveMapping();
 
     expect(component.saveError()).toBe(
       'Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.'
     );
     httpMock.expectNone((req) => req.url.endsWith('/mappings'));
-
-    component.setJoinKeyField(sampleSourceSchema.id, 'Ad');
-    component.setJoinKeyField(secondSchema.id, 'Id');
-    component.saveMapping();
-
-    const request = httpMock.expectOne((req) => req.url.endsWith('/mappings'));
-    expect(request.request.body.sourceSchemas).toEqual([
-      { sourceSchemaId: 'src-1', alias: 'Test Source', joinKeyField: 'Ad', positionX: 20, positionY: 20 },
-      { sourceSchemaId: 'src-2', alias: 'Second Source', joinKeyField: 'Id', positionX: 50, positionY: 50 },
-    ]);
-    request.flush({
-      id: 'm-2',
-      name: 'Multi Schema Mapping',
-      sourceSchemas: request.request.body.sourceSchemas,
-      fileTypeId: sampleFileType.id,
-      functoidNodes: [],
-      constantNodes: [],
-      edges: request.request.body.edges,
-      createdAt: '',
-      updatedAt: '',
-      createdBy: null,
-    });
   });
 });

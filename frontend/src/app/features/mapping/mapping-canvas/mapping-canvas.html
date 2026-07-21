@@ -1,0 +1,59 @@
+<div class="mapping-canvas">
+  <div class="functoid-palette">
+    <h3>Functoid'ler</h3>
+    <p class="hint">Canvas'a sürükleyip bırak.</p>
+    @for (def of functoidDefinitions; track def.code) {
+      <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
+        {{ def.name }}
+      </div>
+    }
+  </div>
+
+  <div class="canvas-host-wrapper">
+    <div class="canvas-host" #canvasHost></div>
+
+    @for (jk of joinKeySelectors(); track jk.schemaId) {
+      <select
+        class="join-key-overlay"
+        [style.left.px]="jk.x"
+        [style.top.px]="jk.y"
+        [ngModel]="jk.value"
+        (ngModelChange)="onJoinKeySelectChange(jk.schemaId, $event)"
+      >
+        <option value="" disabled>Anahtar</option>
+        @for (f of jk.fields; track f) {
+          <option [value]="f">{{ f }}</option>
+        }
+      </select>
+    }
+
+    @if (paramPanel(); as panel) {
+      <div class="floating-panel" [style.left.px]="panel.x" [style.top.px]="panel.y">
+        @if (functoidParams(panel.functoidCode).length === 0) {
+          <span class="hint">Bu functoid'in parametresi yok.</span>
+        }
+        @for (param of functoidParams(panel.functoidCode); track param.key) {
+          <label>
+            {{ param.label }}
+            <input
+              [type]="param.type === 'number' ? 'number' : 'text'"
+              [value]="paramValue(param.key)"
+              (input)="setParamValue(param, $any($event.target).value)"
+            />
+          </label>
+        }
+        <button type="button" (click)="closeParamPanel()">Kapat</button>
+      </div>
+    }
+
+    @if (constantEdit(); as edit) {
+      <div class="floating-panel" [style.left.px]="edit.x" [style.top.px]="edit.y">
+        <label>
+          Sabit değer
+          <input type="text" [value]="edit.value" (input)="setConstantValue($any($event.target).value)" />
+        </label>
+        <button type="button" (click)="closeConstantEdit()">Kapat</button>
+      </div>
+    }
+  </div>
+</div>

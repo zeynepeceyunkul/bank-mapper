@@ -1,0 +1,88 @@
+.mapping-canvas {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+
+  .functoid-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    min-width: 170px;
+    align-self: flex-start;
+
+    h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.95rem;
+    }
+
+    .hint {
+      margin: 0 0 0.5rem;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .functoid-chip {
+      padding: 0.5rem 0.75rem;
+      background: #fff3e0;
+      border: 1px solid #fb8c00;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: grab;
+      user-select: none;
+
+      &:active {
+        cursor: grabbing;
+      }
+    }
+  }
+
+  .canvas-host-wrapper {
+    position: relative;
+    max-width: 100%;
+    max-height: 70vh;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+  }
+
+  .canvas-host {
+    position: relative;
+  }
+
+  .join-key-overlay {
+    position: absolute;
+    z-index: 4;
+    width: 88px;
+    font-size: 0.7rem;
+    padding: 0.15rem;
+  }
+
+  .floating-panel {
+    position: absolute;
+    z-index: 5;
+    background: #fff;
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    min-width: 140px;
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    input {
+      padding: 0.2rem;
+    }
+  }
+}

@@ -1,6 +1,4 @@
 <section class="source-schemas">
-  <h2>Yeni Source Şema</h2>
-
   <div class="field">
     <label for="name">Şema Adı</label>
     <input id="name" type="text" [(ngModel)]="name" placeholder="Örn. Musteri X Bordro Excel" />
@@ -99,34 +97,40 @@
 
   <hr />
 
-  <h2>Kayıtlı Source Şemalar</h2>
+  <button type="button" class="toggle-list-button" (click)="toggleList()">
+    {{ showList() ? 'Kayıtlı Şemaları Gizle' : 'Kayıtlı Şemaları Görüntüle' }}
+  </button>
 
-  @if (listError()) {
-    <p class="error">{{ listError() }}</p>
-  }
+  @if (showList()) {
+    <h3>Kayıtlı Source Şemalar</h3>
 
-  @if (schemas().length === 0 && !listError()) {
-    <p>Henüz kayıtlı source şema yok.</p>
-  } @else {
-    <table class="schema-list">
-      <thead>
-        <tr>
-          <th>Ad</th>
-          <th>Format</th>
-          <th>Başlık Satırı</th>
-          <th>Alan Sayısı</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (schema of schemas(); track schema.id) {
+    @if (listError()) {
+      <p class="error">{{ listError() }}</p>
+    }
+
+    @if (schemas().length === 0 && !listError()) {
+      <p>Henüz kayıtlı source şema yok.</p>
+    } @else {
+      <table class="schema-list">
+        <thead>
           <tr>
-            <td>{{ schema.name }}</td>
-            <td>{{ schema.fileFormat }}</td>
-            <td>{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
-            <td>{{ schema.fields.length }}</td>
+            <th>Ad</th>
+            <th>Format</th>
+            <th>Başlık Satırı</th>
+            <th>Alan Sayısı</th>
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (schema of schemas(); track schema.id) {
+            <tr>
+              <td>{{ schema.name }}</td>
+              <td>{{ schema.fileFormat }}</td>
+              <td>{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
+              <td>{{ schema.fields.length }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
   }
 </section>

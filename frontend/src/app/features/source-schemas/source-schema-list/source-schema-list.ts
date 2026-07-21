@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { FileFormat, SourceSchema } from '../../../core/models/source-schema.model';
@@ -17,6 +17,10 @@ interface ManualFieldRow {
 })
 export class SourceSchemaList implements OnInit {
   private readonly sourceSchemaService = inject(SourceSchemaService);
+
+  @Output() readonly schemaCreated = new EventEmitter<SourceSchema>();
+
+  readonly showList = signal(false);
 
   // Olusturma formu durumu
   name = '';
@@ -61,6 +65,10 @@ export class SourceSchemaList implements OnInit {
 
   removeManualField(index: number): void {
     this.manualFields.update((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  toggleList(): void {
+    this.showList.update((v) => !v);
   }
 
   submit(): void {
@@ -110,6 +118,7 @@ export class SourceSchemaList implements OnInit {
         this.created.set(schema);
         this.saving.set(false);
         this.loadSchemas();
+        this.schemaCreated.emit(schema);
       },
       error: () => {
         this.createError.set('Şema kaydedilemedi. API çalışıyor mu?');

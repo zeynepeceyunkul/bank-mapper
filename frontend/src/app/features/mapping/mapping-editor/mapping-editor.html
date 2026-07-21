@@ -1,11 +1,27 @@
 <section class="mapping-editor">
-  <h2>{{ isEditMode ? 'Mapping Düzenle' : 'Yeni Mapping Oluştur' }}</h2>
+  <div class="page-header">
+    <h2>{{ isEditMode ? 'Mapping Düzenle' : 'Yeni Mapping Oluştur' }}</h2>
+
+    <div class="header-actions">
+      <div class="mappings-panel-anchor">
+        <button type="button" class="ghost-btn" (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler ▾</button>
+
+        @if (showMappingsPanel()) {
+          <div class="mappings-panel">
+            <app-mapping-list />
+          </div>
+        }
+      </div>
+
+      <a routerLink="/mapping" class="ghost-btn">+ Yeni Mapping</a>
+    </div>
+  </div>
 
   @if (loadingExisting()) {
     <p class="hint">Mapping yükleniyor...</p>
   }
 
-  <div class="selectors">
+  <div class="top-toolbar">
     <div class="field">
       <label for="product">Ürün</label>
       <select id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
@@ -30,10 +46,50 @@
         }
       </select>
     </div>
+
+    <button type="button" class="ghost-btn" (click)="toggleSourceSchemaModal()">+ Yeni Source Şema</button>
+
+    @if (!!selectedFileType) {
+      <div class="add-source-schema">
+        <select [(ngModel)]="newSourceSchemaId">
+          <option value="" disabled>Kaynak şema seçin</option>
+          @for (schema of availableSourceSchemasToAdd; track schema.id) {
+            <option [value]="schema.id">{{ schema.name }}</option>
+          }
+        </select>
+        <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
+      </div>
+      <button type="button" class="add-constant" (click)="addConstant()">+ Sabit Değer Ekle</button>
+    }
+
+    <div class="toolbar-spacer"></div>
+
+    <div class="field name-field">
+      <label for="mappingName">Mapping Adı</label>
+      <input
+        id="mappingName"
+        type="text"
+        [(ngModel)]="mappingName"
+        placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
+      />
+    </div>
+
+    <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
+      {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
+    </button>
   </div>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
+  }
+  @if (saveError()) {
+    <p class="error">{{ saveError() }}</p>
+  }
+  @if (savedMapping()) {
+    <p class="success">
+      {{ isEditMode ? 'Güncellendi' : 'Kaydedildi' }}: {{ savedMapping()!.name }}
+      ({{ targetFieldEdgeCount(savedMapping()!) }} hedef alan bağlantısı)
+    </p>
   }
 
   @if (!!selectedFileType) {
@@ -43,274 +99,50 @@
       taşınabilir.
     </p>
 
-    <div class="editor-layout">
-      <app-functoid-picker [definitions]="functoidDefinitions()" />
+    <div class="canvas-and-connections">
+      <app-mapping-canvas
+        #canvas
+        [functoidDefinitions]="functoidDefinitions()"
+        [targetFileType]="selectedFileType ?? null"
+        [allSourceSchemas]="sourceSchemas()"
+        [initialSnapshot]="effectiveSnapshot()"
+        (graphChanged)="onGraphChanged()"
+      />
 
-      <div class="canvas-wrapper">
-        <div class="canvas-toolbar">
-          <div class="add-source-schema">
-            <select [(ngModel)]="newSourceSchemaId">
-              <option value="" disabled>Kaynak şema seçin</option>
-              @for (schema of availableSourceSchemasToAdd; track schema.id) {
-                <option [value]="schema.id">{{ schema.name }}</option>
-              }
-            </select>
-            <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
-          </div>
-          <button type="button" class="add-constant" (click)="addConstant()">+ Sabit Değer Ekle</button>
-        </div>
-
-        <div
-          class="canvas-container"
-          #canvasEl
-          [style.width.px]="canvasWidth"
-          [style.height.px]="canvasHeight"
-          (mousemove)="onCanvasMouseMove($event)"
-          (mouseup)="onCanvasMouseUp()"
-          (mouseleave)="onCanvasMouseUp()"
-          (dragover)="onCanvasDragOver($event)"
-          (drop)="onCanvasDrop($event)"
-        >
-          <svg class="connections-layer" [attr.width]="canvasWidth" [attr.height]="canvasHeight">
-            @for (segment of connectionSegments; track segment.key) {
-              <line
-                [attr.x1]="segment.x1"
-                [attr.y1]="segment.y1"
-                [attr.x2]="segment.x2"
-                [attr.y2]="segment.y2"
-                stroke="#1a73e8"
-                stroke-width="2"
-              />
+      <div class="connection-list">
+        <h3>Bağlantılar ({{ connections().length }})</h3>
+        @if (usedSourceSchemaIds().length === 0) {
+          <p class="hint">Devam etmek için en az bir kaynak şema eklemelisin.</p>
+        }
+        @if (connections().length === 0) {
+          <p class="hint">Henüz bağlantı yok.</p>
+        } @else {
+          <ul>
+            @for (edge of connections(); track edge.id) {
+              <li>
+                <span class="connection-label">{{ edge.from }} → {{ edge.to }}</span>
+                <button type="button" (click)="removeEdge(edge.id)">Sil</button>
+              </li>
             }
-            @if (dragPreviewLine; as preview) {
-              <line
-                [attr.x1]="preview.x1"
-                [attr.y1]="preview.y1"
-                [attr.x2]="preview.x2"
-                [attr.y2]="preview.y2"
-                stroke="#999"
-                stroke-width="2"
-                stroke-dasharray="4 4"
-              />
-            }
-          </svg>
-
-          @if (readyForCanvas) {
-            @for (ref of selectedSourceSchemas; track ref.sourceSchemaId) {
-              <div
-                class="schema-box"
-                [style.left.px]="ref.positionX"
-                [style.top.px]="ref.positionY"
-                [style.width.px]="schemaBoxWidth"
-                [style.height.px]="schemaBoxHeight(ref.sourceSchemaId)"
-                (mousedown)="onNodeBodyMouseDown('sourceSchema', ref.sourceSchemaId, ref.positionX, ref.positionY, $event)"
-              >
-                <div class="schema-box-title">
-                  <span class="schema-box-name" [title]="schemaById(ref.sourceSchemaId)?.name">
-                    {{ schemaById(ref.sourceSchemaId)?.name }}
-                  </span>
-
-                  @if (selectedSourceSchemas.length > 1) {
-                    <select
-                      class="join-key-select"
-                      [ngModel]="ref.joinKeyField"
-                      (ngModelChange)="setJoinKeyField(ref.sourceSchemaId, $event)"
-                      (mousedown)="$event.stopPropagation()"
-                    >
-                      <option value="" disabled>Anahtar</option>
-                      @for (field of schemaFields(ref.sourceSchemaId); track field.name) {
-                        <option [value]="field.name">{{ field.name }}</option>
-                      }
-                    </select>
-                  }
-
-                  <button
-                    type="button"
-                    class="node-remove"
-                    (mousedown)="$event.stopPropagation()"
-                    (click)="removeSourceSchema(ref.sourceSchemaId)"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                @for (field of schemaFields(ref.sourceSchemaId); track field.name; let fi = $index) {
-                  <div class="schema-field-row" [style.top.px]="schemaTitleHeight + fi * schemaFieldRowHeight">
-                    <span class="label">{{ field.name }}</span>
-                    <span
-                      class="dot dot-right"
-                      [class.active]="isDraggingFromSourceField(ref.sourceSchemaId, field.name)"
-                      (mousedown)="onSourceFieldDotMouseDown(ref.sourceSchemaId, field.name, $event)"
-                    ></span>
-                  </div>
-                }
-              </div>
-            }
-
-            <div
-              class="schema-box target-schema-box"
-              [style.left.px]="targetBoxX"
-              [style.top.px]="targetBoxY"
-              [style.width.px]="schemaBoxWidth"
-              [style.height.px]="targetBoxHeight"
-            >
-              <div class="schema-box-title">
-                <span class="schema-box-name" [title]="selectedFileType?.name">{{ selectedFileType?.name }}</span>
-              </div>
-
-              @for (field of targetFieldsList; track field.name; let fi = $index) {
-                <div class="schema-field-row target-field-row" [style.top.px]="schemaTitleHeight + fi * schemaFieldRowHeight">
-                  <span class="dot dot-left" (mouseup)="onTargetDotMouseUp(field.name, $event)"></span>
-                  <span class="label">{{ field.name }}</span>
-                </div>
-              }
-            </div>
-          }
-
-          @for (view of functoidNodeViews; track view.node.id) {
-            <div
-              class="field-box functoid-node"
-              [style.top.px]="view.node.positionY"
-              [style.left.px]="view.node.positionX"
-              [style.width.px]="nodeWidth"
-              [style.height.px]="view.height"
-              (mousedown)="onNodeBodyMouseDown('functoid', view.node.id, view.node.positionX, view.node.positionY, $event)"
-            >
-              <button
-                type="button"
-                class="node-remove"
-                (mousedown)="$event.stopPropagation()"
-                (click)="removeFunctoidNode(view.node.id)"
-              >
-                ×
-              </button>
-              <span class="label">{{ view.definition?.name ?? view.node.functoidCode }}</span>
-
-              @for (port of view.ports; track port.name; let pi = $index) {
-                <span
-                  class="dot dot-node-in"
-                  [style.top.px]="portOffsetY(pi, view.ports.length, view.height) - 6"
-                  (mousedown)="$event.stopPropagation()"
-                  (mouseup)="onNodeInputMouseUp(view.node.id, port.name, $event)"
-                ></span>
-              }
-
-              <span
-                class="dot dot-node-out"
-                [style.top.px]="view.height / 2 - 6"
-                [class.active]="isDraggingFromNode(view.node.id)"
-                (mousedown)="onNodeOutputMouseDown(view.node.id, $event)"
-              ></span>
-            </div>
-          }
-
-          @for (node of constantNodes(); track node.id) {
-            <div
-              class="field-box constant-node"
-              [style.top.px]="node.positionY"
-              [style.left.px]="node.positionX"
-              [style.width.px]="nodeWidth"
-              [style.height.px]="constantNodeHeight"
-              (mousedown)="onNodeBodyMouseDown('constant', node.id, node.positionX, node.positionY, $event)"
-            >
-              <button
-                type="button"
-                class="node-remove"
-                (mousedown)="$event.stopPropagation()"
-                (click)="removeConstantNode(node.id)"
-              >
-                ×
-              </button>
-              <input
-                class="constant-input"
-                type="text"
-                [value]="node.value"
-                placeholder="Sabit değer"
-                (mousedown)="$event.stopPropagation()"
-                (input)="setConstantValue(node.id, $any($event.target).value)"
-              />
-              <span
-                class="dot dot-node-out"
-                [style.top.px]="constantNodeHeight / 2 - 6"
-                [class.active]="isDraggingFromNode(node.id)"
-                (mousedown)="onConstantOutputMouseDown(node.id, $event)"
-              ></span>
-            </div>
-          }
-
-          @if (activeParamView; as view) {
-            <div
-              class="param-panel"
-              [style.top.px]="view.node.positionY + view.height + 4"
-              [style.left.px]="view.node.positionX"
-            >
-              @if ((view.definition?.parameters ?? []).length === 0) {
-                <span class="hint">Bu functoid'in parametresi yok.</span>
-              }
-              @for (param of view.definition?.parameters ?? []; track param.key) {
-                <label>
-                  {{ param.label }}
-                  <input
-                    [type]="param.type === 'number' ? 'number' : 'text'"
-                    [value]="paramValue(view.node, param.key)"
-                    (input)="setParamValue(view.node, param, $any($event.target).value)"
-                  />
-                </label>
-              }
-              <button type="button" (click)="closeParamPanel()">Kapat</button>
-            </div>
-          }
-        </div>
+          </ul>
+        }
       </div>
-    </div>
-
-    @if (!readyForCanvas) {
-      <p class="hint">Devam etmek için en az bir kaynak şema eklemelisin.</p>
-    }
-
-    <div class="connection-list">
-      <h3>Bağlantılar ({{ edges().length }})</h3>
-      @if (edges().length === 0) {
-        <p class="hint">Henüz bağlantı yok.</p>
-      } @else {
-        <ul>
-          @for (edge of edges(); track edge.id) {
-            <li>
-              {{ describeFrom(edge) }} → {{ describeTo(edge) }}
-              <button type="button" (click)="removeEdge(edge.id)">Sil</button>
-            </li>
-          }
-        </ul>
-      }
-    </div>
-
-    <div class="save-section">
-      <div class="field">
-        <label for="mappingName">Mapping Adı</label>
-        <input
-          id="mappingName"
-          type="text"
-          [(ngModel)]="mappingName"
-          placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
-        />
-      </div>
-
-      @if (saveError()) {
-        <p class="error">{{ saveError() }}</p>
-      }
-
-      <button type="button" [disabled]="saving()" (click)="saveMapping()">
-        {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
-      </button>
-
-      @if (savedMapping()) {
-        <p class="success">
-          {{ isEditMode ? 'Güncellendi' : 'Kaydedildi' }}: {{ savedMapping()!.name }}
-          ({{ targetFieldEdgeCount(savedMapping()!) }} hedef alan bağlantısı)
-        </p>
-      }
     </div>
   } @else {
-    <p class="hint">Devam etmek için önce dosya tipi seçmelisin.</p>
+    <div class="canvas-placeholder">
+      <p class="hint">Devam etmek için önce Ürün ve Dosya Tipi seçmelisin.</p>
+    </div>
+  }
+
+  @if (showSourceSchemaModal()) {
+    <div class="modal-backdrop" (click)="toggleSourceSchemaModal()">
+      <div class="modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Yeni Source Şema</h3>
+          <button type="button" class="modal-close" (click)="toggleSourceSchemaModal()">×</button>
+        </div>
+        <app-source-schema-list (schemaCreated)="onSchemaCreated($event)" />
+      </div>
+    </div>
   }
 </section>

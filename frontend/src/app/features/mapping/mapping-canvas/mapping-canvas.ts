@@ -63,6 +63,7 @@ const SCHEMA_BOX_WIDTH = 220;
 const NODE_WIDTH = 140;
 const NODE_HEIGHT = 36;
 const CANVAS_WIDTH = 1400;
+const MIN_CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 900;
 // X6'nin custom `textVerticalAnchor` attr'i, referans (`ref`) verilmezse
 // metni kendi satırına gore degil TUM node'un bbox merkezine gore kaydiriyor
@@ -110,6 +111,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   private pendingSnapshot: MappingCanvasSnapshot | null = null;
   private hydrated = false;
   private suppress = false;
+  private canvasWidth = CANVAS_WIDTH;
+  private readonly onWindowResize = (): void => this.handleWindowResize();
 
   // Signal olarak tutuluyor: X6'nın kendi event bus'ı zone.js tarafından
   // sarmalanmıyor, düz property mutasyonları Angular change detection'ı
@@ -121,9 +124,10 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
 
   ngAfterViewInit(): void {
     this.suppress = true;
+    this.canvasWidth = this.computeCanvasWidth();
     this.graph = new Graph({
       container: this.canvasHostRef.nativeElement,
-      width: CANVAS_WIDTH,
+      width: this.canvasWidth,
       height: CANVAS_HEIGHT,
       panning: false,
       mousewheel: false,
@@ -172,6 +176,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.rebuildTargetNode();
     this.tryHydrate();
 
+    window.addEventListener('resize', this.onWindowResize);
+
     // İlk kurulumda eklenen hedef node/olası hydration, parent'ın @ViewChild
     // referansı henüz atanmadan senkron event fırlatmasın diye bildirim bir
     // sonraki microtask'a erteleniyor (tek seferlik emit burada yapılır).
@@ -179,6 +185,25 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       this.suppress = false;
       this.emitGraphChanged();
     });
+  }
+
+  // Sabit 1400px genişlik, canvas-host-wrapper'ın gerçekte gösterdiği alandan
+  // daha geniş olabiliyor ve hedef şema kutusunu görebilmek için yatay kaydırma
+  // gerektiriyordu. Bunun yerine wrapper'ın (flex ile büyüyen) o anki genişliği
+  // ölçülüp canvas ona göre boyutlandırılıyor.
+  private computeCanvasWidth(): number {
+    const wrapper = this.canvasHostRef.nativeElement.parentElement;
+    const available = wrapper?.clientWidth ?? CANVAS_WIDTH;
+    return Math.max(available, MIN_CANVAS_WIDTH);
+  }
+
+  private handleWindowResize(): void {
+    if (!this.graph) return;
+    const width = this.computeCanvasWidth();
+    if (width === this.canvasWidth) return;
+    this.canvasWidth = width;
+    this.graph.resize(this.canvasWidth, CANVAS_HEIGHT);
+    this.rebuildTargetNode();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -189,6 +214,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('resize', this.onWindowResize);
     this.graph?.dispose();
   }
 
@@ -216,7 +242,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     if (!this.targetFileType) {
       return;
     }
-    const x = CANVAS_WIDTH - SCHEMA_BOX_WIDTH - 60;
+    const x = this.canvasWidth - SCHEMA_BOX_WIDTH - 60;
     this.graph.addNode(this.targetNodeConfig(this.targetFileType, x, 20));
   }
 

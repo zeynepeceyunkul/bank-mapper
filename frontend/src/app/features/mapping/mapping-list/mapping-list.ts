@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MappingService } from '../../../core/services/mapping.service';
 import { Mapping } from '../../../core/models/mapping.model';
@@ -15,6 +15,8 @@ export class MappingList implements OnInit {
 
   readonly mappings = signal<Mapping[]>([]);
   readonly error = signal<string | null>(null);
+
+  @Output() readonly newMapping = new EventEmitter<void>();
 
   ngOnInit(): void {
     this.loadMappings();

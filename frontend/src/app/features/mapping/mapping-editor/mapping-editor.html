@@ -8,12 +8,12 @@
 
         @if (showMappingsPanel()) {
           <div class="mappings-panel">
-            <app-mapping-list />
+            <app-mapping-list (newMapping)="startNewMapping()" />
           </div>
         }
       </div>
 
-      <a routerLink="/mapping" class="ghost-btn">+ Yeni Mapping</a>
+      <a routerLink="/mapping" class="ghost-btn" (click)="startNewMapping()">+ Yeni Mapping</a>
     </div>
   </div>
 

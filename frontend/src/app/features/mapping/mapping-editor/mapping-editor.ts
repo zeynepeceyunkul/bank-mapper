@@ -100,6 +100,17 @@ export class MappingEditor implements OnInit {
     });
   }
 
+  // routerLink="/mapping" zaten /mapping'deyken tıklanırsa Angular Router'ın
+  // varsayılan `onSameUrlNavigation: 'ignore'` davranışı yüzünden hiçbir şey
+  // yapmıyor (paramMap yeniden emit edilmiyor). Bu yüzden "+ Yeni Mapping"
+  // butonları formu doğrudan da sıfırlıyor; edit ekranından geliniyorsa
+  // routerLink'in tetikleyeceği resetForNewMapping() ile bu ikinci çağrı
+  // sorunsuzca çakışıyor (idempotent).
+  startNewMapping(): void {
+    this.showMappingsPanel.set(false);
+    this.resetForNewMapping();
+  }
+
   private resetForNewMapping(): void {
     this.mappingId = null;
     this.mappingName = '';
@@ -119,6 +130,19 @@ export class MappingEditor implements OnInit {
     this.mappingService.getById(id).subscribe({
       next: (mapping) => {
         this.mappingName = mapping.name;
+
+        // selectedFileTypeId/fileTypes'i temizlemek, template'teki
+        // `@if (!!selectedFileType)` bloğunu anlik olarak kapatip
+        // app-mapping-canvas'i yok edip yeniden yaratmasini sagliyor. Bu,
+        // kayitli bir mapping acikken baska bir kayitli mapping'e gecerken
+        // gerekli: MappingCanvas'in tek seferlik `hydrated` bayragi ayni
+        // component instance'i canli kaldigi surece ikinci snapshot'in hic
+        // yuklenmemesine yol aciyordu (eski node/edge'ler ekranda kalip
+        // yenileri hic gelmiyordu).
+        this.selectedFileTypeId = '';
+        this.fileTypes.set([]);
+        this.resetGraphState();
+
         this.rawPendingSnapshot.set({
           sourceSchemas: mapping.sourceSchemas.map((s) => ({
             sourceSchemaId: s.sourceSchemaId,

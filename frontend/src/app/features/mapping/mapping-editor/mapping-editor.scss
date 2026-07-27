@@ -37,9 +37,10 @@
   .mappings-panel {
     position: absolute;
     top: calc(100% + 4px);
-    left: 0;
+    right: 0;
     z-index: 20;
     min-width: 420px;
+    max-width: calc(100vw - 2rem);
     max-height: 60vh;
     overflow-y: auto;
     background: #fff;

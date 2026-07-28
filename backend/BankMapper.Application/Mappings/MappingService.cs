@@ -3,10 +3,11 @@ using BankMapper.Application.Abstractions;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
 using BankMapper.Domain.Execution;
+using Microsoft.Extensions.Logging;
 
 namespace BankMapper.Application.Mappings;
 
-public class MappingService(IMappingRepository mappingRepository) : IMappingService
+public class MappingService(IMappingRepository mappingRepository, ILogger<MappingService> logger) : IMappingService
 {
     public async Task<List<MappingDto>> GetAllAsync()
     {
@@ -29,6 +30,9 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
         Validate(mapping);
 
         var created = await mappingRepository.CreateAsync(mapping);
+        logger.LogInformation(
+            "Mapping {MappingId} olusturuldu, {SourceSchemaCount} source sema kullanildi",
+            created.Id, created.SourceSchemas.Count);
         return ToDto(created);
     }
 
@@ -49,6 +53,12 @@ public class MappingService(IMappingRepository mappingRepository) : IMappingServ
         Validate(updatedMapping);
 
         var updated = await mappingRepository.UpdateAsync(updatedMapping);
+        if (updated is not null)
+        {
+            logger.LogInformation(
+                "Mapping {MappingId} guncellendi, {SourceSchemaCount} source sema kullanildi",
+                updated.Id, updated.SourceSchemas.Count);
+        }
         return updated is null ? null : ToDto(updated);
     }
 

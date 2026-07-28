@@ -24,28 +24,14 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<MappingDto>> Create(CreateMappingRequest request)
     {
-        try
-        {
-            var created = await mappingService.CreateAsync(request);
-            return Ok(created);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var created = await mappingService.CreateAsync(request);
+        return Ok(created);
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<MappingDto>> Update(string id, CreateMappingRequest request)
     {
-        try
-        {
-            var updated = await mappingService.UpdateAsync(id, request);
-            return updated is null ? NotFound() : Ok(updated);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var updated = await mappingService.UpdateAsync(id, request);
+        return updated is null ? NotFound() : Ok(updated);
     }
 }

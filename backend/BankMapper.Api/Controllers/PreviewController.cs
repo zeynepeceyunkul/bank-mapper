@@ -17,15 +17,8 @@ public class PreviewController(IPreviewService previewService) : ControllerBase
             return BadRequest(validationError);
         }
 
-        try
-        {
-            var result = await previewService.ExecuteAsync(form.MappingId, BuildSourceFiles(form));
-            return Ok(result);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var result = await previewService.ExecuteAsync(form.MappingId, BuildSourceFiles(form));
+        return Ok(result);
     }
 
     [HttpPost("convert")]
@@ -37,16 +30,9 @@ public class PreviewController(IPreviewService previewService) : ControllerBase
             return BadRequest(validationError);
         }
 
-        try
-        {
-            var csv = await previewService.ConvertToCsvAsync(form.MappingId, BuildSourceFiles(form));
-            var bytes = Encoding.UTF8.GetBytes(csv);
-            return File(bytes, "text/csv", "donusturulen-dosya.csv");
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var csv = await previewService.ConvertToCsvAsync(form.MappingId, BuildSourceFiles(form));
+        var bytes = Encoding.UTF8.GetBytes(csv);
+        return File(bytes, "text/csv", "donusturulen-dosya.csv");
     }
 
     private static string? Validate(ExecutePreviewFormRequest form)

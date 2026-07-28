@@ -3,6 +3,7 @@ using BankMapper.Application.Abstractions;
 using BankMapper.Application.FileParsing;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Execution;
+using Microsoft.Extensions.Logging;
 
 namespace BankMapper.Application.Preview;
 
@@ -10,19 +11,26 @@ public class PreviewService(
     IMappingRepository mappingRepository,
     ISourceSchemaRepository sourceSchemaRepository,
     IFileParserFactory fileParserFactory,
-    MappingExecutor mappingExecutor) : IPreviewService
+    MappingExecutor mappingExecutor,
+    ILogger<PreviewService> logger) : IPreviewService
 {
     private const int MaxPreviewRows = 50;
 
     public async Task<PreviewExecuteResult> ExecuteAsync(string mappingId, IReadOnlyList<PreviewSourceFile> files)
     {
         var (rows, warnings) = await RunMappingAsync(mappingId, files);
+        logger.LogInformation(
+            "Onizleme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi",
+            mappingId, files.Count, rows.Count);
         return new PreviewExecuteResult { Rows = rows.Take(MaxPreviewRows).ToList(), Warnings = warnings };
     }
 
     public async Task<string> ConvertToCsvAsync(string mappingId, IReadOnlyList<PreviewSourceFile> files)
     {
         var (rows, _) = await RunMappingAsync(mappingId, files);
+        logger.LogInformation(
+            "Donusturme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi",
+            mappingId, files.Count, rows.Count);
         return BuildCsv(rows);
     }
 

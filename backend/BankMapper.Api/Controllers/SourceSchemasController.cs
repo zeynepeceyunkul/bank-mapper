@@ -32,14 +32,7 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
                 : JsonSerializer.Deserialize<List<SourceFieldDto>>(form.FieldsJson, JsonOptions)
         };
 
-        try
-        {
-            var created = await sourceSchemaService.CreateAsync(request);
-            return Ok(created);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var created = await sourceSchemaService.CreateAsync(request);
+        return Ok(created);
     }
 }

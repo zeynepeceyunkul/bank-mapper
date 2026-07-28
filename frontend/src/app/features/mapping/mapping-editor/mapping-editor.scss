@@ -9,6 +9,13 @@
 
     h2 {
       margin: 0;
+
+      .mapping-name-badge {
+        font-weight: 400;
+        font-size: 0.8em;
+        color: #666;
+        margin-left: 0.4rem;
+      }
     }
   }
 
@@ -91,57 +98,161 @@
     padding: 0.25rem 0.5rem;
   }
 
-  .top-toolbar {
+  .field {
     display: flex;
-    align-items: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
-    background: #fafafa;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 180px;
+
+    label {
+      font-size: 0.75rem;
+      color: #555;
+    }
+
+    select,
+    input {
+      padding: 0.4rem;
+    }
+  }
+
+  .name-field {
+    min-width: 260px;
+  }
+
+  .wizard-panel {
     border: 1px solid #e0e0e0;
     border-radius: 6px;
+    margin-bottom: 0.75rem;
+    background: #fff;
+    overflow: hidden;
 
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      min-width: 180px;
-
-      label {
-        font-size: 0.75rem;
-        color: #555;
-      }
-
-      select,
-      input {
-        padding: 0.4rem;
-      }
+    &.locked {
+      opacity: 0.6;
     }
+  }
+
+  .wizard-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .wizard-panel-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .wizard-panel-summary {
+    flex: 1 1 auto;
+    color: #555;
+    font-size: 0.85rem;
+    text-align: right;
+  }
+
+  .chevron {
+    color: #888;
+    font-style: normal;
+
+    &.collapsed {
+      transform: rotate(-90deg);
+    }
+  }
+
+  .lock-icon {
+    color: #999;
+  }
+
+  .wizard-panel-body {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0 1rem 1rem;
+  }
+
+  .wizard-panel-locked-text {
+    margin: 0;
+    padding: 0 1rem 1rem;
+  }
+
+  .save-btn {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid #1a73e8;
+    background: #1a73e8;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .icon-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #1a73e8;
+    background: #1a73e8;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0;
+    text-decoration: none;
+
+    &.ghost {
+      border-color: #ccc;
+      background: #fff;
+      color: #333;
+    }
+  }
+
+  .save-popup-anchor {
+    position: relative;
+  }
+
+  .save-popup {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 0.75rem;
 
     .name-field {
-      min-width: 260px;
+      min-width: 0;
     }
+  }
 
-    .toolbar-spacer {
-      flex: 1 1 auto;
-    }
-
-    .save-btn {
-      padding: 0.5rem 1.25rem;
-      border: 1px solid #1a73e8;
-      background: #1a73e8;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-      white-space: nowrap;
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    }
+  .save-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
   }
 
   .add-source-schema {
@@ -170,18 +281,6 @@
     }
   }
 
-  .add-constant {
-    padding: 0.4rem 0.75rem;
-    border: 1px solid #43a047;
-    background: #e8f5e9;
-    color: #2e7d32;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    white-space: nowrap;
-    align-self: flex-end;
-  }
-
   .canvas-placeholder {
     display: flex;
     align-items: center;
@@ -201,6 +300,20 @@
       display: block;
       flex: 1 1 auto;
       min-width: 0;
+    }
+
+    // Canvas ilk kaynak eklenene kadar gorsel olarak gizli tutuluyor ama
+    // component DOM'dan hic kaldirilmiyor ("+Kaynak Ekle" butonunun
+    // ekleyecegi bir canvas referansi olsun diye). display:none KULLANMA:
+    // X6, kendini olcerken (computeCanvasWidth) container'in clientWidth'ini
+    // okuyor, display:none genisligi de 0 yapip canvas'i bozar. max-height/
+    // overflow ile sadece yukseklik gizleniyor, genislik layout'ta kaliyor.
+    &.canvas-collapsed {
+      max-height: 0;
+      overflow: hidden;
+      visibility: hidden;
+      margin: 0;
+      gap: 0;
     }
   }
 

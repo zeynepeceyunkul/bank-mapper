@@ -37,6 +37,23 @@
         cursor: grabbing;
       }
     }
+
+    .palette-divider {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 0.25rem 0;
+    }
+
+    .constant-chip {
+      padding: 0.5rem 0.75rem;
+      background: #e8f5e9;
+      border: 1px solid #43a047;
+      border-radius: 4px;
+      color: #2e7d32;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+    }
   }
 
   .canvas-host-wrapper {

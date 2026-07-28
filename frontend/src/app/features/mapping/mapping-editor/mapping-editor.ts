@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
@@ -27,6 +27,7 @@ export class MappingEditor implements OnInit {
   private readonly mappingService = inject(MappingService);
   private readonly functoidService = inject(FunctoidService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   mappingId: string | null = null;
@@ -34,6 +35,21 @@ export class MappingEditor implements OnInit {
 
   readonly showMappingsPanel = signal(false);
   readonly showSourceSchemaModal = signal(false);
+  readonly showSavePopup = signal(false);
+  readonly hedefExpanded = signal(true);
+  // hedefExpanded sadece Hedef panelinin GÖRSEL açık/kapalı durumunu tutuyor;
+  // panel tekrar açılıp kapansa bile Kaynaklar/canvas'in bir kere acildiktan
+  // sonra kapanmamasi icin ayri, "yapiskan" (sticky) bir bayrak gerekiyor —
+  // yoksa Hedef'i incelemek icin tekrar acmak canvas'i (ve uzerindeki tum
+  // kaydedilmemis calismayi) yok edip yeniden yaratiyordu.
+  readonly hedefConfirmedOnce = signal(false);
+  // Ayni "yapiskan" mantik bir adim daha ileri tasiniyor: canvas gorsel
+  // olarak sadece ilk kaynak eklendiginde aciliyor, ama <app-mapping-canvas>
+  // component'i hedef onaylanir onaylanmaz DOM'da kalmaya devam ediyor
+  // (yoksa "Kaynak Ekle" butonunun ekleyecegi bir canvas referansi olmazdi).
+  // Bir kaynak eklendikten sonra hepsini silse bile canvas tekrar gizlenmiyor.
+  readonly canvasRevealed = signal(false);
+  readonly newSchemaOption = '__new__';
 
   @ViewChild('canvas') canvas!: MappingCanvas;
 
@@ -121,6 +137,10 @@ export class MappingEditor implements OnInit {
     this.savedMapping.set(null);
     this.saveError.set(null);
     this.error.set(null);
+    this.showSavePopup.set(false);
+    this.hedefExpanded.set(true);
+    this.hedefConfirmedOnce.set(false);
+    this.canvasRevealed.set(false);
     this.resetGraphState();
   }
 
@@ -142,6 +162,7 @@ export class MappingEditor implements OnInit {
         this.selectedFileTypeId = '';
         this.fileTypes.set([]);
         this.resetGraphState();
+        this.canvasRevealed.set(mapping.sourceSchemas.length > 0);
 
         this.rawPendingSnapshot.set({
           sourceSchemas: mapping.sourceSchemas.map((s) => ({
@@ -163,6 +184,8 @@ export class MappingEditor implements OnInit {
               next: (fileTypes) => {
                 this.fileTypes.set(fileTypes);
                 this.selectedFileTypeId = mapping.fileTypeId;
+                this.hedefExpanded.set(false);
+                this.hedefConfirmedOnce.set(true);
                 this.loadingExisting.set(false);
               },
               error: () => {
@@ -188,6 +211,7 @@ export class MappingEditor implements OnInit {
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
     this.resetGraphState();
+    this.hedefExpanded.set(true);
 
     if (!this.selectedProductId) {
       return;
@@ -203,6 +227,23 @@ export class MappingEditor implements OnInit {
     this.resetGraphState();
   }
 
+  // Hedef paneli sadece "Onayla" ile kapanıyor (bkz. mapping-editor.html),
+  // ürün/dosya tipi seçmek tek başına paneli küçültmüyor. hedefConfirmedOnce
+  // "yapışkan" (sticky): Hedef paneli daha sonra tekrar açılıp incelense bile
+  // Kaynaklar/canvas kapanmıyor — sadece ilk açılışı burada tetikleniyor.
+  confirmHedef(): void {
+    if (!this.selectedFileType) return;
+    this.hedefExpanded.set(false);
+    this.hedefConfirmedOnce.set(true);
+  }
+
+  // hedefExpanded artik canvas/Kaynaklar gorunurlugunu etkilemiyor (bkz.
+  // hedefConfirmedOnce), bu yuzden başlığa serbestçe ac/kapa yapmak guvenli —
+  // sadece Onayla'nin tetikledigi ilk acilis kalici.
+  toggleHedefGroup(): void {
+    this.hedefExpanded.update((v) => !v);
+  }
+
   private resetGraphState(): void {
     this.usedSourceSchemaIds.set([]);
     this.connections.set([]);
@@ -210,6 +251,10 @@ export class MappingEditor implements OnInit {
 
   get selectedFileType(): FileType | undefined {
     return this.fileTypes().find((ft) => ft.id === this.selectedFileTypeId);
+  }
+
+  get selectedProduct(): Product | undefined {
+    return this.products().find((p) => p.id === this.selectedProductId);
   }
 
   get isEditMode(): boolean {
@@ -232,6 +277,9 @@ export class MappingEditor implements OnInit {
   onGraphChanged(): void {
     this.usedSourceSchemaIds.set(this.canvas.getSourceSchemaIds());
     this.connections.set(this.canvas.describeEdges());
+    if (this.usedSourceSchemaIds().length > 0) {
+      this.canvasRevealed.set(true);
+    }
   }
 
   toggleMappingsPanel(): void {
@@ -242,8 +290,23 @@ export class MappingEditor implements OnInit {
     this.showSourceSchemaModal.update((v) => !v);
   }
 
+  toggleSavePopup(): void {
+    this.showSavePopup.update((v) => !v);
+  }
+
   onSchemaCreated(schema: SourceSchema): void {
     this.sourceSchemas.update((list) => [...list, schema]);
+  }
+
+  // "+ Kaynak Ekle" seçim kutusundaki "Yeni Şema Oluştur" seçeneği, ayrı bir
+  // "+ Yeni Source Şema" butonu yerine ayni tek giriş noktasindan modali açar.
+  addSourceSchemaOrCreateNew(): void {
+    if (this.newSourceSchemaId === this.newSchemaOption) {
+      this.newSourceSchemaId = '';
+      this.toggleSourceSchemaModal();
+      return;
+    }
+    this.addSourceSchema();
   }
 
   addSourceSchema(): void {
@@ -257,10 +320,6 @@ export class MappingEditor implements OnInit {
     const index = this.usedSourceSchemaIds().length;
     this.canvas.addSourceSchema(schema, this.defaultSchemaX(index), this.defaultSchemaY(index));
     this.newSourceSchemaId = '';
-  }
-
-  addConstant(): void {
-    this.canvas.addConstant(260, 240);
   }
 
   removeEdge(id: string): void {
@@ -305,6 +364,7 @@ export class MappingEditor implements OnInit {
       edges: snapshot.edges,
     };
 
+    const wasNew = !this.mappingId;
     const save$ = this.mappingId
       ? this.mappingService.update(this.mappingId, request)
       : this.mappingService.create(request);
@@ -313,6 +373,14 @@ export class MappingEditor implements OnInit {
       next: (mapping) => {
         this.savedMapping.set(mapping);
         this.saving.set(false);
+        this.showSavePopup.set(false);
+        // İlk kayıtta URL hâlâ /mapping'de kalıyordu (yeni mapping rotası) —
+        // bu yüzden Önizleme'ye gidip geri dönmek ya da sayfayı yenilemek
+        // her şeyi sıfırlıyordu. Kayıt sonrası /mapping/edit/:id'ye
+        // yönlendirerek geri dönüşte aynı mapping'in yüklenmesini sağlıyoruz.
+        if (wasNew) {
+          this.router.navigate(['/mapping/edit', mapping.id]);
+        }
       },
       error: () => {
         this.saveError.set('Mapping kaydedilemedi. API çalışıyor mu?');

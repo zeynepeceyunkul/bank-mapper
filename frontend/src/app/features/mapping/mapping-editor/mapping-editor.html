@@ -1,10 +1,23 @@
 <section class="mapping-editor">
   <div class="page-header">
-    <h2>{{ isEditMode ? 'Mapping Düzenle' : 'Yeni Mapping Oluştur' }}</h2>
+    <h2>
+      {{ isEditMode ? 'Mapping Düzenle' : 'Yeni Mapping Oluştur' }}
+      @if (isEditMode && mappingName) {
+        <span class="mapping-name-badge">— {{ mappingName }}</span>
+      }
+    </h2>
 
     <div class="header-actions">
       <div class="mappings-panel-anchor">
-        <button type="button" class="ghost-btn" (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler ▾</button>
+        <button
+          type="button"
+          class="icon-btn ghost"
+          title="Kayıtlı Mapping'ler"
+          aria-label="Kayıtlı Mapping'ler"
+          (click)="toggleMappingsPanel()"
+        >
+          🗂
+        </button>
 
         @if (showMappingsPanel()) {
           <div class="mappings-panel">
@@ -13,7 +26,42 @@
         }
       </div>
 
-      <a routerLink="/mapping" class="ghost-btn" (click)="startNewMapping()">+ Yeni Mapping</a>
+      <a routerLink="/mapping" class="icon-btn ghost" title="Yeni Mapping" aria-label="Yeni Mapping" (click)="startNewMapping()">+</a>
+
+      <div class="save-popup-anchor">
+        <button
+          type="button"
+          class="icon-btn save-icon-btn"
+          [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+          [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+          (click)="toggleSavePopup()"
+        >
+          💾
+        </button>
+
+        @if (showSavePopup()) {
+          <div class="save-popup">
+            <div class="save-popup-header">
+              <span>Mapping Adı</span>
+              <button type="button" class="modal-close" title="Kapat" (click)="toggleSavePopup()">×</button>
+            </div>
+
+            <div class="field name-field">
+              <input
+                id="mappingName"
+                type="text"
+                aria-label="Mapping Adı"
+                [(ngModel)]="mappingName"
+                placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
+              />
+            </div>
+
+            <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
+              {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
+            </button>
+          </div>
+        }
+      </div>
     </div>
   </div>
 
@@ -21,62 +69,71 @@
     <p class="hint">Mapping yükleniyor...</p>
   }
 
-  <div class="top-toolbar">
-    <div class="field">
-      <label for="product">Ürün</label>
-      <select id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
-        <option value="" disabled>Ürün seçin</option>
-        @for (product of products(); track product.id) {
-          <option [value]="product.id">{{ product.name }}</option>
-        }
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="fileType">Dosya Tipi</label>
-      <select
-        id="fileType"
-        [(ngModel)]="selectedFileTypeId"
-        (ngModelChange)="onFileTypeChange()"
-        [disabled]="fileTypes().length === 0"
-      >
-        <option value="" disabled>Dosya tipi seçin</option>
-        @for (fileType of fileTypes(); track fileType.id) {
-          <option [value]="fileType.id">{{ fileType.name }}</option>
-        }
-      </select>
-    </div>
-
-    <button type="button" class="ghost-btn" (click)="toggleSourceSchemaModal()">+ Yeni Source Şema</button>
-
-    @if (!!selectedFileType) {
-      <div class="add-source-schema">
-        <select [(ngModel)]="newSourceSchemaId">
-          <option value="" disabled>Kaynak şema seçin</option>
-          @for (schema of availableSourceSchemasToAdd; track schema.id) {
-            <option [value]="schema.id">{{ schema.name }}</option>
-          }
-        </select>
-        <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
-      </div>
-      <button type="button" class="add-constant" (click)="addConstant()">+ Sabit Değer Ekle</button>
-    }
-
-    <div class="toolbar-spacer"></div>
-
-    <div class="field name-field">
-      <label for="mappingName">Mapping Adı</label>
-      <input
-        id="mappingName"
-        type="text"
-        [(ngModel)]="mappingName"
-        placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
-      />
-    </div>
-
-    <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
-      {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
+  <div class="wizard-panel">
+    <button type="button" class="wizard-panel-header" (click)="toggleHedefGroup()">
+      <span class="wizard-panel-title">1. Hedef</span>
+      @if (!hedefExpanded() && selectedFileType) {
+        <span class="wizard-panel-summary">{{ selectedProduct?.name }} › {{ selectedFileType?.name }}</span>
+      }
+      <i class="chevron" [class.collapsed]="!hedefExpanded()" aria-hidden="true">⌄</i>
     </button>
+
+    @if (hedefExpanded()) {
+      <div class="wizard-panel-body">
+        <div class="field">
+          <label for="product">Ürün</label>
+          <select id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
+            <option value="" disabled>Ürün seçin</option>
+            @for (product of products(); track product.id) {
+              <option [value]="product.id">{{ product.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="fileType">Dosya Tipi</label>
+          <select
+            id="fileType"
+            [(ngModel)]="selectedFileTypeId"
+            (ngModelChange)="onFileTypeChange()"
+            [disabled]="fileTypes().length === 0"
+          >
+            <option value="" disabled>Dosya tipi seçin</option>
+            @for (fileType of fileTypes(); track fileType.id) {
+              <option [value]="fileType.id">{{ fileType.name }}</option>
+            }
+          </select>
+        </div>
+
+        <button type="button" class="save-btn" [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
+      </div>
+    }
+  </div>
+
+  <div class="wizard-panel" [class.locked]="!hedefConfirmedOnce()">
+    <div class="wizard-panel-header">
+      <span class="wizard-panel-title">2. Kaynaklar</span>
+      @if (!hedefConfirmedOnce()) {
+        <i class="lock-icon" aria-hidden="true">🔒</i>
+      }
+    </div>
+
+    @if (hedefConfirmedOnce()) {
+      <div class="wizard-panel-body">
+        <div class="add-source-schema">
+          <select [(ngModel)]="newSourceSchemaId">
+            <option value="" disabled>Kaynak şema seçin</option>
+            @for (schema of availableSourceSchemasToAdd; track schema.id) {
+              <option [value]="schema.id">{{ schema.name }}</option>
+            }
+            <option [value]="newSchemaOption">+ Yeni Source Şema Oluştur...</option>
+          </select>
+          <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchemaOrCreateNew()">+ Kaynak Ekle</button>
+        </div>
+      </div>
+    } @else {
+      <p class="wizard-panel-locked-text hint">Önce hedefi tamamla.</p>
+    }
   </div>
 
   @if (error()) {
@@ -92,14 +149,20 @@
     </p>
   }
 
-  @if (!!selectedFileType) {
-    <p class="hint">
-      Kaynak/hedef alanları veya node çıkış-giriş noktalarını sürükleyerek bağla. Functoid eklemek için
-      soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
-      taşınabilir.
-    </p>
+  @if (hedefConfirmedOnce()) {
+    @if (canvasRevealed()) {
+      <p class="hint">
+        Kaynak/hedef alanları veya node çıkış-giriş noktalarını sürükleyerek bağla. Functoid eklemek için
+        soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
+        taşınabilir.
+      </p>
+    } @else {
+      <div class="canvas-placeholder">
+        <p class="hint">Bir kaynak şema ekleyince canvas burada görünecek.</p>
+      </div>
+    }
 
-    <div class="canvas-and-connections">
+    <div class="canvas-and-connections" [class.canvas-collapsed]="!canvasRevealed()">
       <app-mapping-canvas
         #canvas
         [functoidDefinitions]="functoidDefinitions()"
@@ -130,7 +193,7 @@
     </div>
   } @else {
     <div class="canvas-placeholder">
-      <p class="hint">Devam etmek için önce Ürün ve Dosya Tipi seçmelisin.</p>
+      <p class="hint">Devam etmek için önce Hedef panelini tamamlayıp Onayla'ya basmalısın.</p>
     </div>
   }
 

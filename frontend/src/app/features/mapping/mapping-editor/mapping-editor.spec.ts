@@ -79,6 +79,12 @@ class FakeMappingCanvas {
   }
 }
 
+// saveMapping() ilk kayittan sonra /mapping/edit/:id'ye yonlendiriyor; bu
+// route'un test router'inda eslesecek bir hedefi olmasi gerekiyor, yoksa
+// Router.navigate "Cannot match any routes" ile reddediyor.
+@Component({ selector: 'app-stub', template: '' })
+class StubRouteTarget {}
+
 describe('MappingEditor', () => {
   let component: MappingEditor;
   let fixture: ComponentFixture<MappingEditor>;
@@ -91,7 +97,11 @@ describe('MappingEditor', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [MappingEditor],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: 'mapping/edit/:id', component: StubRouteTarget }]),
+      ],
     })
       .overrideComponent(MappingEditor, {
         remove: { imports: [MappingCanvas] },
@@ -118,6 +128,7 @@ describe('MappingEditor', () => {
     component.sourceSchemas.set([sampleSourceSchema]);
     component.fileTypes.set([sampleFileType]);
     component.selectedFileTypeId = sampleFileType.id;
+    component.confirmHedef();
     fixture.detectChanges();
   }
 
@@ -125,9 +136,17 @@ describe('MappingEditor', () => {
     expect(component).toBeTruthy();
   });
 
-  it('gates the canvas behind a selected file type', () => {
+  it('gates the canvas behind a selected and confirmed file type', () => {
     expect(fixture.debugElement.query(By.directive(FakeMappingCanvas))).toBeNull();
-    selectTarget();
+
+    component.sourceSchemas.set([sampleSourceSchema]);
+    component.fileTypes.set([sampleFileType]);
+    component.selectedFileTypeId = sampleFileType.id;
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.directive(FakeMappingCanvas))).toBeNull();
+
+    component.confirmHedef();
+    fixture.detectChanges();
     expect(fixture.debugElement.query(By.directive(FakeMappingCanvas))).not.toBeNull();
   });
 
@@ -154,9 +173,11 @@ describe('MappingEditor', () => {
     expect(component.newSourceSchemaId).toBe('');
   });
 
-  it('delegates add-constant and remove-edge to the canvas', () => {
+  it('delegates remove-edge to the canvas', () => {
     selectTarget();
-    component.addConstant();
+    // Sabit değer ekleme artık mapping-editor'de değil, doğrudan
+    // MappingCanvas'ın kendi functoid paletinde (bkz. mapping-canvas.spec.ts).
+    fakeCanvas().addConstant(260, 240);
     expect(fakeCanvas().getSnapshot().constantNodes.length).toBe(1);
 
     fakeCanvas().snapshot = {

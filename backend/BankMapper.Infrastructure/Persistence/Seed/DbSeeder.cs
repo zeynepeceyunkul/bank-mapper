@@ -47,6 +47,21 @@ public static class DbSeeder
             ]
         };
 
-        await fileTypes.InsertOneAsync(maasOdemeDosyasi);
+        var vergiOdemeDosyasi = new FileType
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            ProductId = vergiProduct.Id,
+            Code = "VERGI_ODEME_DOSYASI",
+            Name = "Vergi Odeme Dosyasi",
+            TargetFields =
+            [
+                new TargetField { Name = "TCKimlikNo", Type = "string", Order = 1, Length = 11 },
+                new TargetField { Name = "VergiDonemi", Type = "string", Order = 2, Length = 10 },
+                new TargetField { Name = "VergiTutari", Type = "decimal", Order = 3 },
+                new TargetField { Name = "IBAN", Type = "string", Order = 4, Length = 26 }
+            ]
+        };
+
+        await fileTypes.InsertManyAsync([maasOdemeDosyasi, vergiOdemeDosyasi]);
     }
 }

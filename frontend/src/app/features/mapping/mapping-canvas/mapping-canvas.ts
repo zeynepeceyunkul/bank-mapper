@@ -85,6 +85,14 @@ function schemaBoxHeight(fieldCount: number): number {
   return TITLE_HEIGHT + Math.max(fieldCount, 1) * ROW_HEIGHT + 6;
 }
 
+// Functoid isimleri (ör. "Trim (Bas/Son Bosluk Kirp)") sabit NODE_WIDTH'ten
+// (140px) uzun olabiliyor ve SVG text kutunun disina taşiyordu. Karakter
+// sayisina gore genislik hesaplayip metne gore buyuyen bir kutu kullaniyoruz;
+// kisa isimler icin yine NODE_WIDTH'te kaliyor.
+function functoidNodeWidth(label: string): number {
+  return Math.max(NODE_WIDTH, label.length * 7.5 + 24);
+}
+
 @Component({
   selector: 'app-mapping-canvas',
   imports: [FormsModule],
@@ -385,14 +393,16 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     params: Record<string, unknown> | null
   ): Node.Metadata {
     const def = this.functoidDefinitions.find((d) => d.code === functoidCode);
+    const label = def?.name ?? functoidCode;
     const ports = def?.inputPorts?.length ? def.inputPorts : [{ name: 'value', label: 'Değer' }];
     const height = ports.length <= 1 ? NODE_HEIGHT : ports.length * 30;
+    const width = functoidNodeWidth(label);
     return {
       id: fnId(id),
       shape: 'rect',
       x,
       y,
-      width: NODE_WIDTH,
+      width,
       height,
       zIndex: 3,
       data: { kind: 'functoid', functoidNodeId: id, functoidCode, params: params ?? null },
@@ -401,10 +411,10 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         { tagName: 'text', selector: 'label' },
       ],
       attrs: {
-        body: { width: NODE_WIDTH, height, fill: '#fff3e0', stroke: '#fb8c00', strokeWidth: 1, rx: 4, ry: 4 },
+        body: { width, height, fill: '#fff3e0', stroke: '#fb8c00', strokeWidth: 1, rx: 4, ry: 4 },
         label: {
-          text: def?.name ?? functoidCode,
-          x: NODE_WIDTH / 2,
+          text: label,
+          x: width / 2,
           y: height / 2 + TEXT_BASELINE_OFFSET,
           fontSize: 12,
           fontWeight: 600,
@@ -425,7 +435,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
             group: 'in',
             args: { x: 0, y: ((i + 0.5) * height) / ports.length },
           })),
-          { id: 'out', group: 'out', args: { x: NODE_WIDTH, y: height / 2 } },
+          { id: 'out', group: 'out', args: { x: width, y: height / 2 } },
         ],
       },
       tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],

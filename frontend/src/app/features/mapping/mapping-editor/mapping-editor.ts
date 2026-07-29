@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -52,6 +52,7 @@ export class MappingEditor implements OnInit {
   readonly newSchemaOption = '__new__';
 
   @ViewChild('canvas') canvas!: MappingCanvas;
+  @ViewChild('schemaSelectRef', { read: ElementRef }) schemaSelectRef?: ElementRef<HTMLSelectElement>;
 
   readonly products = signal<Product[]>([]);
   readonly fileTypes = signal<FileType[]>([]);
@@ -151,16 +152,20 @@ export class MappingEditor implements OnInit {
       next: (mapping) => {
         this.mappingName = mapping.name;
 
-        // selectedFileTypeId/fileTypes'i temizlemek, template'teki
-        // `@if (!!selectedFileType)` bloğunu anlik olarak kapatip
+        // hedefConfirmedOnce'i sifirlamak, template'teki
+        // `@if (hedefConfirmedOnce())` bloğunu anlik olarak kapatip
         // app-mapping-canvas'i yok edip yeniden yaratmasini sagliyor. Bu,
         // kayitli bir mapping acikken baska bir kayitli mapping'e gecerken
         // gerekli: MappingCanvas'in tek seferlik `hydrated` bayragi ayni
         // component instance'i canli kaldigi surece ikinci snapshot'in hic
         // yuklenmemesine yol aciyordu (eski node/edge'ler ekranda kalip
-        // yenileri hic gelmiyordu).
+        // yenileri hic gelmiyordu). Onceden bu is selectedFileTypeId/fileTypes'i
+        // temizlemekle yapiliyordu, ama hedef/kaynak wizard'i canvas'in gorunurlugunu
+        // hedefConfirmedOnce'e bagladiktan sonra o eski temizlik artik canvas'i hic
+        // kapatmiyordu - ayni bug farkli bir sinyalden geri gelmisti.
         this.selectedFileTypeId = '';
         this.fileTypes.set([]);
+        this.hedefConfirmedOnce.set(false);
         this.resetGraphState();
         this.canvasRevealed.set(mapping.sourceSchemas.length > 0);
 
@@ -296,17 +301,23 @@ export class MappingEditor implements OnInit {
 
   onSchemaCreated(schema: SourceSchema): void {
     this.sourceSchemas.update((list) => [...list, schema]);
+    this.resetSchemaSelect();
   }
 
-  // "+ Kaynak Ekle" seçim kutusundaki "Yeni Şema Oluştur" seçeneği, ayrı bir
-  // "+ Yeni Source Şema" butonu yerine ayni tek giriş noktasindan modali açar.
-  addSourceSchemaOrCreateNew(): void {
+  // Bu select bilerek [(ngModel)] KULLANMIYOR: Angular'in SelectControlValueAccessor'i,
+  // @for listesi buyuyunce (yeni sema eklendiginde/olusturulunca) option'lara verdigi
+  // ic ID'leri kaydirip degeri yanlis resmediyordu (model dogru ama DOM '__new__'de
+  // takili kalıyordu, hicbir erteleme/microtask bunu duzeltmedi cunku Angular kendi
+  // writeValue'sunu her CD turunde tekrar hatali cagiriyordu). Bunun yerine select'i
+  // tamamen elle yonetiyoruz: (change) event'inden deger okunuyor, sifirlanacagi
+  // zaman hem newSourceSchemaId hem native elemanin .value'su elle esitleniyor.
+  onSourceSchemaSelectChange(selectEl: HTMLSelectElement): void {
+    this.newSourceSchemaId = selectEl.value;
     if (this.newSourceSchemaId === this.newSchemaOption) {
       this.newSourceSchemaId = '';
+      selectEl.value = '';
       this.toggleSourceSchemaModal();
-      return;
     }
-    this.addSourceSchema();
   }
 
   addSourceSchema(): void {
@@ -319,7 +330,14 @@ export class MappingEditor implements OnInit {
     }
     const index = this.usedSourceSchemaIds().length;
     this.canvas.addSourceSchema(schema, this.defaultSchemaX(index), this.defaultSchemaY(index));
+    this.resetSchemaSelect();
+  }
+
+  private resetSchemaSelect(): void {
     this.newSourceSchemaId = '';
+    if (this.schemaSelectRef) {
+      this.schemaSelectRef.nativeElement.value = '';
+    }
   }
 
   removeEdge(id: string): void {

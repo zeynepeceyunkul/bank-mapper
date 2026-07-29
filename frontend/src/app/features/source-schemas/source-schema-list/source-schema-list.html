@@ -14,50 +14,59 @@
   </div>
 
   @if (!isFixedLength) {
-    <div class="field checkbox">
-      <label>
-        <input type="checkbox" [(ngModel)]="hasHeader" />
-        Başlık satırı var
-      </label>
-    </div>
+    <div class="format-settings">
+      <p class="format-settings-label">{{ fileFormat === 'Csv' ? 'CSV ayarları' : 'Excel ayarları' }}</p>
 
-    @if (fileFormat === 'Csv') {
-      <div class="field">
-        <label for="delimiter">Ayraç</label>
-        <input id="delimiter" type="text" [(ngModel)]="delimiter" placeholder="," />
+      <div class="field checkbox">
+        <label>
+          <input type="checkbox" [(ngModel)]="hasHeader" />
+          Başlık satırı var
+        </label>
       </div>
-    }
 
-    <div class="field">
-      <label for="file">Dosya</label>
-      <input id="file" type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" />
-    </div>
-  } @else {
-    <div class="manual-fields">
-      <p>Alan pozisyonlarını manuel tanımlayın:</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Alan Adı</th>
-            <th>Başlangıç</th>
-            <th>Uzunluk</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (field of manualFields(); track $index) {
-            <tr>
-              <td><input type="text" [(ngModel)]="field.name" /></td>
-              <td><input type="number" [(ngModel)]="field.startIndex" /></td>
-              <td><input type="number" [(ngModel)]="field.length" /></td>
-              <td><button type="button" (click)="removeManualField($index)">Sil</button></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      <button type="button" (click)="addManualField()">+ Alan Ekle</button>
+      @if (fileFormat === 'Csv') {
+        <div class="field">
+          <label for="delimiter">Ayraç</label>
+          <input id="delimiter" type="text" [(ngModel)]="delimiter" placeholder="," />
+        </div>
+      }
     </div>
   }
+
+  <div class="primary-step">
+    @if (!isFixedLength) {
+      <div class="field">
+        <label for="file">Dosya</label>
+        <input id="file" type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" />
+      </div>
+    } @else {
+      <div class="manual-fields">
+        <label>Alan pozisyonları</label>
+        <p class="hint">Alan pozisyonlarını manuel tanımlayın:</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Alan Adı</th>
+              <th>Başlangıç</th>
+              <th>Uzunluk</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (field of manualFields(); track $index) {
+              <tr>
+                <td><input type="text" [(ngModel)]="field.name" /></td>
+                <td><input type="number" [(ngModel)]="field.startIndex" /></td>
+                <td><input type="number" [(ngModel)]="field.length" /></td>
+                <td><button type="button" (click)="removeManualField($index)">Sil</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <button type="button" (click)="addManualField()">+ Alan Ekle</button>
+      </div>
+    }
+  </div>
 
   @if (createError()) {
     <p class="error">{{ createError() }}</p>

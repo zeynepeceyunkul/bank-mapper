@@ -18,6 +18,34 @@
     }
   }
 
+  .format-settings {
+    background: #f5f5f5;
+    border-radius: 6px;
+    padding: 0.75rem 1rem 0.25rem;
+    margin-bottom: 1rem;
+
+    .format-settings-label {
+      margin: 0 0 0.5rem;
+      font-size: 0.75rem;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+  }
+
+  .primary-step {
+    border-top: 1px solid #ddd;
+    padding-top: 1rem;
+    margin-bottom: 1rem;
+
+    > .field > label,
+    .manual-fields > label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+  }
+
   .manual-fields {
     margin-bottom: 1rem;
 

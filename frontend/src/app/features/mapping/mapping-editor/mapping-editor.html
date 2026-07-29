@@ -121,14 +121,14 @@
     @if (hedefConfirmedOnce()) {
       <div class="wizard-panel-body">
         <div class="add-source-schema">
-          <select [(ngModel)]="newSourceSchemaId">
-            <option value="" disabled>Kaynak şema seçin</option>
+          <select #schemaSelectRef (change)="onSourceSchemaSelectChange(schemaSelectRef)">
+            <option value="" disabled selected>Kaynak şema seçin</option>
             @for (schema of availableSourceSchemasToAdd; track schema.id) {
               <option [value]="schema.id">{{ schema.name }}</option>
             }
             <option [value]="newSchemaOption">+ Yeni Source Şema Oluştur...</option>
           </select>
-          <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchemaOrCreateNew()">+ Kaynak Ekle</button>
+          <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
         </div>
       </div>
     } @else {

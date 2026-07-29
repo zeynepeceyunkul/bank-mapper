@@ -1,0 +1,9 @@
+<div class="toast-container">
+  @for (toast of toastService.all(); track toast.id) {
+    <div class="toast" [class.toast-error]="toast.type === 'error'" [class.toast-success]="toast.type === 'success'">
+      <span class="toast-icon" aria-hidden="true">{{ toast.type === 'error' ? '⚠' : '✓' }}</span>
+      <span class="toast-message">{{ toast.message }}</span>
+      <button type="button" class="toast-close" title="Kapat" (click)="toastService.dismiss(toast.id)">×</button>
+    </div>
+  }
+</div>

@@ -9,6 +9,7 @@ import { MappingEditor } from './mapping-editor';
 import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
 import { FileType } from '../../../core/models/file-type.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
+import { ToastService } from '../../../core/services/toast.service';
 
 const sampleSourceSchema: SourceSchema = {
   id: 'src-1',
@@ -89,6 +90,7 @@ describe('MappingEditor', () => {
   let component: MappingEditor;
   let fixture: ComponentFixture<MappingEditor>;
   let httpMock: HttpTestingController;
+  let toastService: ToastService;
 
   function fakeCanvas(): FakeMappingCanvas {
     return fixture.debugElement.query(By.directive(FakeMappingCanvas)).componentInstance as FakeMappingCanvas;
@@ -112,6 +114,7 @@ describe('MappingEditor', () => {
     fixture = TestBed.createComponent(MappingEditor);
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
+    toastService = TestBed.inject(ToastService);
 
     fixture.detectChanges();
 
@@ -206,7 +209,7 @@ describe('MappingEditor', () => {
 
     component.saveMapping();
 
-    expect(component.saveError()).toBe('En az bir hedef alan bağlantısı olmalı.');
+    expect(toastService.all().map((t) => t.message)).toContain('En az bir hedef alan bağlantısı olmalı.');
     httpMock.expectNone((req) => req.url.endsWith('/mappings'));
   });
 
@@ -282,7 +285,7 @@ describe('MappingEditor', () => {
 
     component.saveMapping();
 
-    expect(component.saveError()).toBe(
+    expect(toastService.all().map((t) => t.message)).toContain(
       'Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.'
     );
     httpMock.expectNone((req) => req.url.endsWith('/mappings'));

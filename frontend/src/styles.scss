@@ -10,7 +10,9 @@ body {
   color: #1a1a1a;
 }
 
-/* Ekranlar arasi ortak durum metinleri (hata/bilgi/basari) */
+/* Ekranlar arasi ortak durum metinleri (yuklenemedi vb. kalici hatalar,
+   bilgi metinleri) - tek seferlik islem sonucu basari/hata mesajlari artik
+   ToastService/app-toast-container uzerinden gosteriliyor (bkz. core/services/toast.service.ts). */
 .error {
   color: #c62828;
 }
@@ -18,10 +20,6 @@ body {
 .hint {
   color: #555;
   font-style: italic;
-}
-
-.success {
-  color: #2e7d32;
 }
 
 button {

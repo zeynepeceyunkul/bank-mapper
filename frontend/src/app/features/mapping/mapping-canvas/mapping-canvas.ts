@@ -174,6 +174,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.graph.on('node:change:position', () => {
       this.repositionOverlays();
       this.refreshJoinKeySelectors();
+      this.emitGraphChanged();
     });
     this.graph.on('node:click', ({ node }) => this.onNodeClick(node));
     this.graph.on('blank:click', () => {
@@ -557,6 +558,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     const params = { ...((data['params'] as Record<string, unknown>) ?? {}), [param.key]: value };
     node.setData({ ...data, params });
     this.paramPanel.set({ ...panel, params });
+    this.emitGraphChanged();
   }
 
   closeParamPanel(): void {
@@ -573,6 +575,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     node.attr('label/fill', raw ? '#1b5e20' : '#8a9a8c');
     node.attr('label/fontStyle', raw ? 'normal' : 'italic');
     this.constantEdit.set({ ...edit, value: raw });
+    this.emitGraphChanged();
   }
 
   closeConstantEdit(): void {
@@ -609,6 +612,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       node.setData({ ...node.getData<Record<string, unknown>>(), joinKeyField: value });
     }
     this.refreshJoinKeySelectors();
+    this.emitGraphChanged();
   }
 
   // --- Kaydetme/silme dışa açılan API ---

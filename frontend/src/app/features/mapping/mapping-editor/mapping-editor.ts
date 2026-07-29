@@ -7,13 +7,15 @@ import { SourceSchemaService } from '../../../core/services/source-schema.servic
 import { MappingService } from '../../../core/services/mapping.service';
 import { FunctoidService } from '../../../core/services/functoid.service';
 import { FileType } from '../../../core/models/file-type.model';
-import { Mapping } from '../../../core/models/mapping.model';
 import { FunctoidDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
 import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
 import { MappingList } from '../mapping-list/mapping-list';
 import { SourceSchemaList } from '../../source-schemas/source-schema-list/source-schema-list';
+import { HasUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
+import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-mapping-editor',
@@ -21,7 +23,7 @@ import { SourceSchemaList } from '../../source-schemas/source-schema-list/source
   templateUrl: './mapping-editor.html',
   styleUrl: './mapping-editor.scss',
 })
-export class MappingEditor implements OnInit {
+export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly productService = inject(ProductService);
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly mappingService = inject(MappingService);
@@ -29,6 +31,8 @@ export class MappingEditor implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toastService = inject(ToastService);
+  private readonly confirmService = inject(ConfirmService);
 
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);
@@ -56,6 +60,13 @@ export class MappingEditor implements OnInit {
 
   readonly products = signal<Product[]>([]);
   readonly fileTypes = signal<FileType[]>([]);
+  // Canvas'a gecen, GERCEKTEN uygulanmis (Onayla ile onaylanmis) hedef dosya
+  // tipi. `selectedFileType` (asagida getter) ise sadece dropdown'daki o anki
+  // secimi yansitir - Onayla'ya basilana kadar ikisi farkli olabilir. Canvas
+  // [targetFileType] input'u bilerek activeFileType'a bagli, selectedFileType'a
+  // degil: aksi halde dropdown'da secim yapmak (Onayla'ya basmadan) hedefi
+  // hemen silip yeniden kurar, tek bir onay sorusu yerine her secimde sorardik.
+  readonly activeFileType = signal<FileType | null>(null);
   readonly sourceSchemas = signal<SourceSchema[]>([]);
   readonly functoidDefinitions = signal<FunctoidDefinition[]>([]);
   readonly error = signal<string | null>(null);
@@ -70,14 +81,19 @@ export class MappingEditor implements OnInit {
   readonly usedSourceSchemaIds = signal<string[]>([]);
   readonly connections = signal<{ id: string; from: string; to: string }[]>([]);
 
+  // Canvas hydrate/olusturma sonrasi (bkz. mapping-canvas.ts ngAfterViewInit)
+  // her zaman bir kerelik "hazir" bildirimi geliyor - bu, taze yuklenmis ya
+  // da az once Hedef'i onaylanmis bos bir mapping'i yanlislikla "kirli"
+  // isaretlememek icin bir sonraki onGraphChanged() cagrisini yutuyor.
+  readonly isDirty = signal(false);
+  private awaitingInitialGraphReady = false;
+
   selectedProductId = '';
   selectedFileTypeId = '';
   newSourceSchemaId = '';
 
   mappingName = '';
   readonly saving = signal(false);
-  readonly saveError = signal<string | null>(null);
-  readonly savedMapping = signal<Mapping | null>(null);
 
   ngOnInit(): void {
     this.productService.getProducts().subscribe({
@@ -106,6 +122,12 @@ export class MappingEditor implements OnInit {
     // yeniden kullanılıyor, tek seferlik snapshot okuma sayfa içi geçişlerde
     // (ör. "Kayıtlı Mapping'ler" panelinden başka bir mapping seçmek) state'i
     // güncellemez.
+    // Onay/iptal kontrolu burada DEGIL - unsavedChangesGuard (core/guards/
+    // unsaved-changes.guard.ts) mapping/edit/:id -> mapping/edit/:id gecisleri
+    // dahil TUM navigasyonlarda calisiyor (ampirik olarak dogrulandi: Angular
+    // ayni route config'te sadece :id degisince component instance'ini yeniden
+    // kullansa bile CanDeactivate guard'i atlamiyor). Burada tekrar sormak
+    // kullaniciya ayni onay penceresini iki kez gostermeye yol aciyordu.
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const id = params.get('id');
       if (id) {
@@ -123,8 +145,21 @@ export class MappingEditor implements OnInit {
   // butonları formu doğrudan da sıfırlıyor; edit ekranından geliniyorsa
   // routerLink'in tetikleyeceği resetForNewMapping() ile bu ikinci çağrı
   // sorunsuzca çakışıyor (idempotent).
-  startNewMapping(): void {
+  async startNewMapping(): Promise<void> {
     this.showMappingsPanel.set(false);
+
+    if (this.isEditMode) {
+      // Farkli bir route'a (mapping/edit/:id -> mapping) gercek bir navigasyon
+      // olacak; state'i burada ELLE sifirlamiyoruz - CanDeactivate guard
+      // (core/guards/unsaved-changes.guard.ts) devreye girip soracak, guard
+      // olmadan burada resetlersek guard hic calismadan veri zaten silinmis olur.
+      return;
+    }
+
+    // Zaten /mapping'deyken routerLink="/mapping" Router'in
+    // onSameUrlNavigation:'ignore' davranisi yuzunden navigasyon/guard hic
+    // tetiklenmiyor - kontrolu burada elle yapiyoruz.
+    if (!(await this.confirmDiscardIfDirty())) return;
     this.resetForNewMapping();
   }
 
@@ -135,14 +170,15 @@ export class MappingEditor implements OnInit {
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
     this.rawPendingSnapshot.set(null);
-    this.savedMapping.set(null);
-    this.saveError.set(null);
     this.error.set(null);
     this.showSavePopup.set(false);
     this.hedefExpanded.set(true);
     this.hedefConfirmedOnce.set(false);
     this.canvasRevealed.set(false);
+    this.activeFileType.set(null);
     this.resetGraphState();
+    this.awaitingInitialGraphReady = false;
+    this.isDirty.set(false);
   }
 
   private loadExistingMapping(id: string): void {
@@ -189,8 +225,11 @@ export class MappingEditor implements OnInit {
               next: (fileTypes) => {
                 this.fileTypes.set(fileTypes);
                 this.selectedFileTypeId = mapping.fileTypeId;
+                this.activeFileType.set(fileType);
                 this.hedefExpanded.set(false);
+                this.awaitingInitialGraphReady = true;
                 this.hedefConfirmedOnce.set(true);
+                this.isDirty.set(false);
                 this.loadingExisting.set(false);
               },
               error: () => {
@@ -212,10 +251,15 @@ export class MappingEditor implements OnInit {
     });
   }
 
+  // Urun/Dosya Tipi'ni degistirmek artik BURADA hicbir sey silmiyor - sadece
+  // dropdown'daki secimi ve Dosya Tipi listesini gunceller. Hedefi/canvas'i
+  // gercekten degistirmek (ve gerekiyorsa TEK bir onay sorusu sormak)
+  // confirmHedef()'e ("Onayla") tasindi - iki ayri dropdown'da iki ayri soru
+  // sormak yerine, kullanici Ürün+Dosya Tipi'ni serbestce degistirip Onayla'ya
+  // bastiginda bir kere soruluyor.
   onProductChange(): void {
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
-    this.resetGraphState();
     this.hedefExpanded.set(true);
 
     if (!this.selectedProductId) {
@@ -228,17 +272,61 @@ export class MappingEditor implements OnInit {
     });
   }
 
-  onFileTypeChange(): void {
-    this.resetGraphState();
+  // Dirty durumda geri donulemez bir islem (yeni mapping baslatma, mapping
+  // degistirme, route degisikligi) yapilmadan once kullaniciya soruyor.
+  // ConfirmService (app-confirm-dialog) native confirm() yerine uygulamanin
+  // kendi gorunumune uyan bir pencere gosteriyor - Promise donduruyor.
+  private confirmDiscardIfDirty(): Promise<boolean> {
+    return !this.isDirty()
+      ? Promise.resolve(true)
+      : this.confirmService.confirm('Kaydedilmemiş değişiklikleriniz var. Devam ederseniz kaybolacaklar. Emin misiniz?');
+  }
+
+  // unsavedChangesGuard (core/guards/unsaved-changes.guard.ts) tarafindan
+  // gercek route navigasyonlarinda (ornegin Onizleme'ye gecis) cagriliyor.
+  // CanDeactivateFn Promise<boolean> donusunu destekliyor.
+  canDeactivate(): Promise<boolean> {
+    return this.confirmDiscardIfDirty();
   }
 
   // Hedef paneli sadece "Onayla" ile kapanıyor (bkz. mapping-editor.html),
   // ürün/dosya tipi seçmek tek başına paneli küçültmüyor. hedefConfirmedOnce
   // "yapışkan" (sticky): Hedef paneli daha sonra tekrar açılıp incelense bile
   // Kaynaklar/canvas kapanmıyor — sadece ilk açılışı burada tetikleniyor.
-  confirmHedef(): void {
-    if (!this.selectedFileType) return;
+  //
+  // Hedefi GERCEKTEN degistirme (canvas'i sifirlayip yeni hedefi kurma) ve
+  // buna bagli tek onay sorusu da burada oluyor - dropdown'larda secim yapmak
+  // (onProductChange/[(ngModel)]) hicbir sey silmiyor, sadece burada "Onayla"
+  // ile commit ediliyor.
+  async confirmHedef(): Promise<void> {
+    const newFileType = this.selectedFileType;
+    if (!newFileType) return;
+
+    const isFirstConfirm = !this.hedefConfirmedOnce();
+    const targetChanging = this.activeFileType()?.id !== newFileType.id;
+
+    // Ilk onaydan sonraki her degisiklik (yani zaten bir hedef/canvas varken
+    // farkli bir Urun/Dosya Tipi'ne gecmek) mevcut hedef baglantilarini ve
+    // kaynak/canvas yapisini sifirliyor - isDirty olsun ya da olmasin, çünkü
+    // bu zaten kurulmus/kayitli bir eslesmeyi yok ediyor. Hedef gercekten
+    // degismiyorsa (ayni dosya tipi tekrar onaylandi) sormaya gerek yok.
+    if (targetChanging && !isFirstConfirm) {
+      const confirmed = await this.confirmService.confirm(
+        'Ürün/Dosya Tipi değiştirmek mevcut hedef alan bağlantılarını ve kaynak/canvas yapılandırmasını sıfırlayacak. Devam etmek istediğinize emin misiniz?'
+      );
+      if (!confirmed) return;
+    }
+
     this.hedefExpanded.set(false);
+
+    if (targetChanging) {
+      this.resetGraphState();
+      this.activeFileType.set(newFileType);
+    }
+
+    if (isFirstConfirm) {
+      this.awaitingInitialGraphReady = true;
+    }
     this.hedefConfirmedOnce.set(true);
   }
 
@@ -285,6 +373,12 @@ export class MappingEditor implements OnInit {
     if (this.usedSourceSchemaIds().length > 0) {
       this.canvasRevealed.set(true);
     }
+
+    if (this.awaitingInitialGraphReady) {
+      this.awaitingInitialGraphReady = false;
+    } else {
+      this.isDirty.set(true);
+    }
   }
 
   toggleMappingsPanel(): void {
@@ -299,9 +393,18 @@ export class MappingEditor implements OnInit {
     this.showSavePopup.update((v) => !v);
   }
 
+  onMappingNameChanged(value: string): void {
+    this.mappingName = value;
+    this.isDirty.set(true);
+  }
+
   onSchemaCreated(schema: SourceSchema): void {
     this.sourceSchemas.update((list) => [...list, schema]);
     this.resetSchemaSelect();
+  }
+
+  onSchemaDeleted(schemaId: string): void {
+    this.sourceSchemas.update((list) => list.filter((s) => s.id !== schemaId));
   }
 
   // Bu select bilerek [(ngModel)] KULLANMIYOR: Angular'in SelectControlValueAccessor'i,
@@ -345,23 +448,20 @@ export class MappingEditor implements OnInit {
   }
 
   saveMapping(): void {
-    this.saveError.set(null);
-    this.savedMapping.set(null);
-
     if (!this.mappingName.trim()) {
-      this.saveError.set('Mapping adı zorunlu.');
+      this.toastService.error('Mapping adı zorunlu.');
       return;
     }
 
     const snapshot = this.canvas.getSnapshot();
 
     if (!snapshot.edges.some((e) => e.toKind === 'TargetField')) {
-      this.saveError.set('En az bir hedef alan bağlantısı olmalı.');
+      this.toastService.error('En az bir hedef alan bağlantısı olmalı.');
       return;
     }
 
     if (snapshot.sourceSchemas.length > 1 && snapshot.sourceSchemas.some((s) => !s.joinKeyField)) {
-      this.saveError.set('Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.');
+      this.toastService.error('Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.');
       return;
     }
 
@@ -376,7 +476,11 @@ export class MappingEditor implements OnInit {
         positionX: s.positionX,
         positionY: s.positionY,
       })),
-      fileTypeId: this.selectedFileTypeId,
+      // selectedFileTypeId DEGIL: Hedef paneli tekrar acilip Onayla'ya
+      // basilmadan farkli bir Dosya Tipi secilmis olabilir (dropdown'daki
+      // secim gecici/commit-edilmemis). Canvas'in gercekten gosterdigi ve
+      // baglantilarin ait oldugu hedef her zaman activeFileType.
+      fileTypeId: this.activeFileType()?.id ?? '',
       functoidNodes: snapshot.functoidNodes,
       constantNodes: snapshot.constantNodes,
       edges: snapshot.edges,
@@ -389,9 +493,11 @@ export class MappingEditor implements OnInit {
 
     save$.subscribe({
       next: (mapping) => {
-        this.savedMapping.set(mapping);
         this.saving.set(false);
         this.showSavePopup.set(false);
+        this.isDirty.set(false);
+        const edgeCount = mapping.edges.filter((e) => e.toKind === 'TargetField').length;
+        this.toastService.success(`${wasNew ? 'Kaydedildi' : 'Güncellendi'}: ${mapping.name} (${edgeCount} hedef alan bağlantısı)`);
         // İlk kayıtta URL hâlâ /mapping'de kalıyordu (yeni mapping rotası) —
         // bu yüzden Önizleme'ye gidip geri dönmek ya da sayfayı yenilemek
         // her şeyi sıfırlıyordu. Kayıt sonrası /mapping/edit/:id'ye
@@ -401,13 +507,9 @@ export class MappingEditor implements OnInit {
         }
       },
       error: () => {
-        this.saveError.set('Mapping kaydedilemedi. API çalışıyor mu?');
         this.saving.set(false);
+        this.toastService.error('Mapping kaydedilemedi. API çalışıyor mu?');
       },
     });
-  }
-
-  targetFieldEdgeCount(mapping: Mapping): number {
-    return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
   }
 }

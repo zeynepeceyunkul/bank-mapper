@@ -8,60 +8,19 @@
     </h2>
 
     <div class="header-actions">
-      <div class="mappings-panel-anchor">
-        <button
-          type="button"
-          class="icon-btn ghost"
-          title="Kayıtlı Mapping'ler"
-          aria-label="Kayıtlı Mapping'ler"
-          (click)="toggleMappingsPanel()"
-        >
-          🗂
-        </button>
-
-        @if (showMappingsPanel()) {
-          <div class="mappings-panel">
-            <app-mapping-list (newMapping)="startNewMapping()" />
-          </div>
-        }
-      </div>
+      <button type="button" class="ghost-btn" (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler</button>
 
       <a routerLink="/mapping" class="icon-btn ghost" title="Yeni Mapping" aria-label="Yeni Mapping" (click)="startNewMapping()">+</a>
 
-      <div class="save-popup-anchor">
-        <button
-          type="button"
-          class="icon-btn save-icon-btn"
-          [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-          [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-          (click)="toggleSavePopup()"
-        >
-          💾
-        </button>
-
-        @if (showSavePopup()) {
-          <div class="save-popup">
-            <div class="save-popup-header">
-              <span>Mapping Adı</span>
-              <button type="button" class="modal-close" title="Kapat" (click)="toggleSavePopup()">×</button>
-            </div>
-
-            <div class="field name-field">
-              <input
-                id="mappingName"
-                type="text"
-                aria-label="Mapping Adı"
-                [(ngModel)]="mappingName"
-                placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
-              />
-            </div>
-
-            <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
-              {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
-            </button>
-          </div>
-        }
-      </div>
+      <button
+        type="button"
+        class="icon-btn save-icon-btn"
+        [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+        [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+        (click)="toggleSavePopup()"
+      >
+        💾
+      </button>
     </div>
   </div>
 
@@ -92,12 +51,7 @@
 
         <div class="field">
           <label for="fileType">Dosya Tipi</label>
-          <select
-            id="fileType"
-            [(ngModel)]="selectedFileTypeId"
-            (ngModelChange)="onFileTypeChange()"
-            [disabled]="fileTypes().length === 0"
-          >
+          <select id="fileType" [(ngModel)]="selectedFileTypeId" [disabled]="fileTypes().length === 0">
             <option value="" disabled>Dosya tipi seçin</option>
             @for (fileType of fileTypes(); track fileType.id) {
               <option [value]="fileType.id">{{ fileType.name }}</option>
@@ -139,15 +93,6 @@
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
-  @if (saveError()) {
-    <p class="error">{{ saveError() }}</p>
-  }
-  @if (savedMapping()) {
-    <p class="success">
-      {{ isEditMode ? 'Güncellendi' : 'Kaydedildi' }}: {{ savedMapping()!.name }}
-      ({{ targetFieldEdgeCount(savedMapping()!) }} hedef alan bağlantısı)
-    </p>
-  }
 
   @if (hedefConfirmedOnce()) {
     @if (canvasRevealed()) {
@@ -166,7 +111,7 @@
       <app-mapping-canvas
         #canvas
         [functoidDefinitions]="functoidDefinitions()"
-        [targetFileType]="selectedFileType ?? null"
+        [targetFileType]="activeFileType()"
         [allSourceSchemas]="sourceSchemas()"
         [initialSnapshot]="effectiveSnapshot()"
         (graphChanged)="onGraphChanged()"
@@ -204,7 +149,41 @@
           <h3>Yeni Source Şema</h3>
           <button type="button" class="modal-close" (click)="toggleSourceSchemaModal()">×</button>
         </div>
-        <app-source-schema-list (schemaCreated)="onSchemaCreated($event)" />
+        <app-source-schema-list (schemaCreated)="onSchemaCreated($event)" (schemaDeleted)="onSchemaDeleted($event)" />
+      </div>
+    </div>
+  }
+
+  @if (showMappingsPanel()) {
+    <div class="modal-backdrop" (click)="toggleMappingsPanel()">
+      <div class="modal-box" (click)="$event.stopPropagation()">
+        <app-mapping-list (newMapping)="startNewMapping()" />
+      </div>
+    </div>
+  }
+
+  @if (showSavePopup()) {
+    <div class="modal-backdrop" (click)="toggleSavePopup()">
+      <div class="modal-box save-modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Mapping Adı</h3>
+          <button type="button" class="modal-close" title="Kapat" (click)="toggleSavePopup()">×</button>
+        </div>
+
+        <div class="field name-field">
+          <input
+            id="mappingName"
+            type="text"
+            aria-label="Mapping Adı"
+            [ngModel]="mappingName"
+            (ngModelChange)="onMappingNameChanged($event)"
+            placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
+          />
+        </div>
+
+        <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
+          {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
+        </button>
       </div>
     </div>
   }

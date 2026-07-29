@@ -9,4 +9,6 @@ public interface ISourceSchemaRepository
     Task<SourceSchema?> GetByIdAsync(string id);
 
     Task<SourceSchema> CreateAsync(SourceSchema schema);
+
+    Task<bool> DeleteAsync(string id);
 }

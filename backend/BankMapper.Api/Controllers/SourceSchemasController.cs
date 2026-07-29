@@ -35,4 +35,11 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
         var created = await sourceSchemaService.CreateAsync(request);
         return Ok(created);
     }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var deleted = await sourceSchemaService.DeleteAsync(id);
+        return deleted ? NoContent() : NotFound();
+    }
 }

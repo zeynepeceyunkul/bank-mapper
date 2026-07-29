@@ -5,4 +5,6 @@ public interface ISourceSchemaService
     Task<List<SourceSchemaDto>> GetAllAsync();
 
     Task<SourceSchemaDto> CreateAsync(CreateSourceSchemaRequest request);
+
+    Task<bool> DeleteAsync(string id);
 }

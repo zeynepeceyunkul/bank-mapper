@@ -68,10 +68,6 @@
     }
   </div>
 
-  @if (createError()) {
-    <p class="error">{{ createError() }}</p>
-  }
-
   <button type="button" class="save-button" [disabled]="saving()" (click)="submit()">
     {{ saving() ? 'Kaydediliyor...' : 'Şemayı Kaydet' }}
   </button>
@@ -127,6 +123,7 @@
             <th>Format</th>
             <th>Başlık Satırı</th>
             <th>Alan Sayısı</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -136,6 +133,7 @@
               <td>{{ schema.fileFormat }}</td>
               <td>{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
               <td>{{ schema.fields.length }}</td>
+              <td><button type="button" class="delete-button" (click)="deleteSchema(schema)">Sil</button></td>
             </tr>
           }
         </tbody>

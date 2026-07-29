@@ -170,6 +170,8 @@ public class PreviewServiceTests
         public Task<SourceSchema?> GetByIdAsync(string id) => Task.FromResult(schemas.GetValueOrDefault(id));
 
         public Task<SourceSchema> CreateAsync(SourceSchema s) => Task.FromResult(s);
+
+        public Task<bool> DeleteAsync(string id) => Task.FromResult(schemas.Remove(id));
     }
 
     private class FakeFileParser(Dictionary<string, List<Dictionary<string, string?>>> rowsBySchemaId) : IFileParser

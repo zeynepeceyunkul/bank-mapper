@@ -10,16 +10,17 @@
 }
 
 .modal-box {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--mat-sys-surface);
+  border-radius: 12px;
   padding: 1.25rem;
   max-width: 420px;
   width: 100%;
+  box-shadow: var(--mat-sys-level3);
 }
 
 .confirm-message {
   margin: 0 0 1rem;
-  color: #333;
+  color: var(--mat-sys-on-surface);
   line-height: 1.4;
 }
 
@@ -27,24 +28,4 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-}
-
-.cancel-btn {
-  padding: 0.5rem 1.25rem;
-  border: 1px solid #ccc;
-  background: #fff;
-  color: #333;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.confirm-btn {
-  padding: 0.5rem 1.25rem;
-  border: 1px solid #1a73e8;
-  background: #1a73e8;
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
 }

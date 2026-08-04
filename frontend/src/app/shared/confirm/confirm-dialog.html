@@ -3,8 +3,8 @@
     <div class="modal-box" (click)="$event.stopPropagation()">
       <p class="confirm-message">{{ request.message }}</p>
       <div class="confirm-actions">
-        <button type="button" class="cancel-btn" (click)="confirmService.respond(false)">İptal</button>
-        <button type="button" class="confirm-btn" (click)="confirmService.respond(true)">Tamam</button>
+        <button type="button" mat-stroked-button (click)="confirmService.respond(false)">İptal</button>
+        <button type="button" mat-flat-button (click)="confirmService.respond(true)">Tamam</button>
       </div>
     </div>
   </div>

@@ -1,9 +1,11 @@
 <div class="toast-container">
   @for (toast of toastService.all(); track toast.id) {
     <div class="toast" [class.toast-error]="toast.type === 'error'" [class.toast-success]="toast.type === 'success'">
-      <span class="toast-icon" aria-hidden="true">{{ toast.type === 'error' ? '⚠' : '✓' }}</span>
+      <mat-icon class="toast-icon" aria-hidden="true">{{ toast.type === 'error' ? 'error' : 'check_circle' }}</mat-icon>
       <span class="toast-message">{{ toast.message }}</span>
-      <button type="button" class="toast-close" title="Kapat" (click)="toastService.dismiss(toast.id)">×</button>
+      <button type="button" mat-icon-button class="toast-close" title="Kapat" (click)="toastService.dismiss(toast.id)">
+        <mat-icon>close</mat-icon>
+      </button>
     </div>
   }
 </div>

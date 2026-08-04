@@ -14,10 +14,10 @@
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.75rem 0.9rem;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid transparent;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: #fff;
+  box-shadow: var(--mat-sys-level3);
+  background: var(--mat-sys-surface);
   animation: toast-in 0.15s ease-out;
 
   &.toast-success {
@@ -35,8 +35,6 @@
 
 .toast-icon {
   flex: 0 0 auto;
-  font-weight: 700;
-  line-height: 1.4;
 }
 
 .toast-message {
@@ -44,17 +42,12 @@
   font-size: 0.9rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
+  padding-top: 0.1rem;
 }
 
 .toast-close {
   flex: 0 0 auto;
-  border: none;
-  background: none;
   color: inherit;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 0.15rem;
   opacity: 0.7;
 
   &:hover {

@@ -1,13 +1,17 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 import { MappingService } from '../../../core/services/mapping.service';
-import { PreviewService, PreviewSourceFileUpload } from '../../../core/services/preview.service';
+import { ConvertFileFormat, PreviewService, PreviewSourceFileUpload } from '../../../core/services/preview.service';
 import { Mapping } from '../../../core/models/mapping.model';
 
 @Component({
   selector: 'app-preview-execute',
-  imports: [FormsModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatTableModule],
   templateUrl: './preview-execute.html',
   styleUrl: './preview-execute.scss',
 })
@@ -24,6 +28,7 @@ export class PreviewExecute implements OnInit {
 
   selectedMappingId = '';
   selectedFiles: Record<string, File | null> = {};
+  selectedFormat: ConvertFileFormat = 'Csv';
 
   ngOnInit(): void {
     this.mappingService.getAll().subscribe({
@@ -46,6 +51,10 @@ export class PreviewExecute implements OnInit {
   onFileSelected(schemaId: string, event: Event): void {
     const input = event.target as HTMLInputElement;
     this.selectedFiles = { ...this.selectedFiles, [schemaId]: input.files?.[0] ?? null };
+  }
+
+  fileName(schemaId: string): string {
+    return this.selectedFiles[schemaId]?.name ?? 'Dosya seçilmedi';
   }
 
   get columns(): string[] {
@@ -97,7 +106,12 @@ export class PreviewExecute implements OnInit {
     });
   }
 
-  downloadCsv(): void {
+  private static readonly FORMAT_EXTENSIONS: Record<ConvertFileFormat, string> = {
+    Csv: 'csv',
+    Excel: 'xlsx',
+  };
+
+  downloadFile(): void {
     this.error.set(null);
 
     const uploads = this.buildFileUploads();
@@ -107,12 +121,12 @@ export class PreviewExecute implements OnInit {
 
     this.downloading.set(true);
 
-    this.previewService.convert(this.selectedMappingId, uploads).subscribe({
+    this.previewService.convert(this.selectedMappingId, uploads, this.selectedFormat).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'donusturulen-dosya.csv';
+        link.download = `donusturulen-dosya.${PreviewExecute.FORMAT_EXTENSIONS[this.selectedFormat]}`;
         link.click();
         URL.revokeObjectURL(url);
         this.downloading.set(false);

@@ -8,6 +8,11 @@ export interface PreviewSourceFileUpload {
   file: File;
 }
 
+// Backend'de FixedLength de tanimli ama disa aktarma icin henuz desteklenmiyor
+// (bazi hedef alanlarin Length'i tanimsiz - sabit genislik kurali belirsiz
+// kaliyor) - o yuzden burada sadece indirilebilen iki format var.
+export type ConvertFileFormat = 'Csv' | 'Excel';
+
 export interface PreviewExecuteResult {
   rows: Record<string, unknown>[];
   warnings: string[];
@@ -21,8 +26,10 @@ export class PreviewService {
     return this.http.post<PreviewExecuteResult>(`${environment.apiUrl}/preview/execute`, this.buildFormData(mappingId, files));
   }
 
-  convert(mappingId: string, files: PreviewSourceFileUpload[]): Observable<Blob> {
-    return this.http.post(`${environment.apiUrl}/preview/convert`, this.buildFormData(mappingId, files), {
+  convert(mappingId: string, files: PreviewSourceFileUpload[], format: ConvertFileFormat): Observable<Blob> {
+    const formData = this.buildFormData(mappingId, files);
+    formData.append('Format', format);
+    return this.http.post(`${environment.apiUrl}/preview/convert`, formData, {
       responseType: 'blob',
     });
   }

@@ -1,71 +1,79 @@
 <section class="preview-execute">
-  <h2>Dosya Önizleme / Dönüştürme</h2>
+  <div class="setup-card">
+    <h2>Dosya Önizleme / Dönüştürme</h2>
 
-  <div class="selectors">
-    <div class="field">
+    <div class="field-group">
       <label for="mapping">Mapping</label>
-      <select id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
-        <option value="" disabled>Mapping seçin</option>
-        @for (mapping of mappings(); track mapping.id) {
-          <option [value]="mapping.id">{{ mapping.name }}</option>
-        }
-      </select>
+      <mat-form-field appearance="outline" class="field">
+        <select matNativeControl id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
+          <option value="" selected>Mapping seçin</option>
+          @for (mapping of mappings(); track mapping.id) {
+            <option [value]="mapping.id">{{ mapping.name }}</option>
+          }
+        </select>
+      </mat-form-field>
     </div>
-  </div>
 
-  @if (selectedMapping; as mapping) {
-    <div class="selectors file-inputs">
+    @if (selectedMapping; as mapping) {
       @for (ref of mapping.sourceSchemas; track ref.sourceSchemaId) {
-        <div class="field">
-          <label>{{ ref.alias }} dosyası</label>
-          <input type="file" (change)="onFileSelected(ref.sourceSchemaId, $event)" />
+        <div class="file-picker">
+          <span class="file-picker-label">{{ ref.alias }} dosyası</span>
+          <button type="button" mat-stroked-button (click)="fileInput.click()">Dosya Seç</button>
+          <span class="file-picker-name">{{ fileName(ref.sourceSchemaId) }}</span>
+          <input #fileInput type="file" hidden (change)="onFileSelected(ref.sourceSchemaId, $event)" />
         </div>
       }
-    </div>
-  }
+    }
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
 
-  @if (warnings().length > 0) {
-    <ul class="warnings">
-      @for (warning of warnings(); track warning) {
-        <li>{{ warning }}</li>
-      }
-    </ul>
-  }
-
-  <div class="actions">
-    <button type="button" [disabled]="loading()" (click)="runPreview()">
+    <button type="button" mat-flat-button class="primary-action" [disabled]="loading()" (click)="runPreview()">
       {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
     </button>
 
-    <button type="button" [disabled]="downloading()" (click)="downloadCsv()">
-      {{ downloading() ? 'Hazırlanıyor...' : 'CSV Olarak İndir' }}
-    </button>
+    <div class="download-row">
+      <div class="field-group format-field">
+        <label for="format">Format</label>
+        <mat-form-field appearance="outline" class="field">
+          <select matNativeControl id="format" [(ngModel)]="selectedFormat" aria-label="İndirme formatı">
+            <option value="Csv">CSV</option>
+            <option value="Excel">Excel</option>
+          </select>
+        </mat-form-field>
+      </div>
+      <button type="button" mat-stroked-button class="ghost-action" [disabled]="downloading()" (click)="downloadFile()">
+        {{ downloading() ? 'Hazırlanıyor...' : 'İndir' }}
+      </button>
+    </div>
   </div>
 
-  @if (rows().length > 0) {
-    <div class="preview-table-wrapper">
-      <table class="preview-table">
-        <thead>
-          <tr>
-            @for (col of columns; track col) {
-              <th>{{ col }}</th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of rows(); track $index) {
-            <tr>
-              @for (col of columns; track col) {
-                <td>{{ row[col] }}</td>
-              }
-            </tr>
+  @if (warnings().length > 0 || rows().length > 0) {
+    <div class="result-section">
+      @if (warnings().length > 0) {
+        <ul class="warnings">
+          @for (warning of warnings(); track warning) {
+            <li>{{ warning }}</li>
           }
-        </tbody>
-      </table>
+        </ul>
+      }
+
+      @if (rows().length > 0) {
+        <div class="preview-table-wrapper">
+          <table mat-table [dataSource]="rows()" class="preview-table">
+            @for (col of columns; track col) {
+              <ng-container [matColumnDef]="col">
+                <th mat-header-cell *matHeaderCellDef>{{ col }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+              </ng-container>
+            }
+
+            <tr mat-header-row *matHeaderRowDef="columns"></tr>
+            <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          </table>
+        </div>
+      }
     </div>
   }
 </section>

@@ -1,12 +1,93 @@
+// Include theming for Angular Material with `mat.theme()`.
+// This Sass mixin will define CSS variables that are used for styling Angular Material
+// components according to the Material 3 design spec.
+// Learn more about theming and how to use it for your application's
+// custom components at https://material.angular.dev/guide/theming
+@use '@angular/material' as mat;
+@use './theme-colors' as theme;
+
+html {
+  height: 100%;
+  @include mat.theme(
+    (
+      color: (
+        theme-type: light,
+        primary: theme.$primary-palette,
+        tertiary: theme.$tertiary-palette,
+      ),
+      typography: Roboto,
+      density: -2,
+    )
+  );
+
+  // mat.theme()'in HCT tabanli otomatik ton uretimi, saf siyah/sari gibi
+  // dusuk kroma (neredeyse gri) seed renkleri kendi tonlama algoritmasinda
+  // "primary" rolu icin (ton 40) belirgin sekilde griye/soluklastiriyor -
+  // VakifBank siyahi (#1A1A1A) butonlarda #5f5e5e gibi donuk bir gri olarak
+  // cikiyordu. Gorunur/etkilesimli bilesenlerde (buton, aktif durum) marka
+  // renklerini birebir tutmak icin sistem token'larini mat.theme()'den SONRA
+  // elle eziyoruz - container/yuzey tonlari (daha az belirgin, arka plan
+  // niteliginde) otomatik uretilen degerlerde kaliyor.
+  --mat-sys-primary: #1a1a1a;
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-tertiary: #ffc72c;
+  --mat-sys-on-tertiary: #1a1a1a;
+  --mat-sys-secondary: #56708a;
+  --mat-sys-on-secondary: #ffffff;
+
+  // Referansin gercek CSS'inde TUM outline'lar (form alani kutulari,
+  // outlined butonlar) ayni acik gri tonu kullaniyor - Material'in kendi
+  // --mat-sys-outline uretimi cok daha koyu/griydi.
+  --mat-sys-outline: #c4c4c4;
+
+  // Referansin gercek DOM'undan okunan mavi-gri "muted" renk (rgb(86,112,138))
+  // - hint metinleri, breadcrumb, ikincil buton metinleri icin. --mat-sys-secondary
+  // ile ayni deger ama component'lerde dogrudan (Material rolu beklemeden)
+  // kullanabilmek icin ayri, kisa bir isim.
+  --app-muted: #56708a;
+
+  // mat-select placeholder rengi bilinmeyen bir nedenle (muhtemelen ayni
+  // dusuk-kroma seed sorunu) seffaf hesaplaniyordu (rgba(0,0,0,0)) - dogrudan
+  // gorunur bir sistem token'ina sabitleniyor.
+  --mat-select-placeholder-text-color: var(--mat-sys-on-surface-variant);
+}
+
+// mat-select label HER ZAMAN yukari "float" ediyor (deger olsun olmasin) -
+// Material bunu bilerek yapiyor ve boylece bos durumda placeholder metnini
+// gereksiz sayip seffaflastiriyor (yukaridaki token override'i bu yuzden tek
+// basina yetmiyordu). Tasarimda etiket + placeholder'in birlikte gorunmesi
+// istendigi icin bu bastirmayi elle geri aciyoruz.
+.mat-mdc-select-placeholder {
+  color: var(--mat-select-placeholder-text-color) !important;
+  -webkit-text-fill-color: var(--mat-select-placeholder-text-color) !important;
+}
+
+body {
+  // Default the application to a light color theme. This can be changed to
+  // `dark` to enable the dark color theme, or to `light dark` to defer to the
+  // user's system settings.
+  color-scheme: light;
+
+  // Set a default background, font and text colors for the application using
+  // Angular Material's system-level CSS variables. Learn more about these
+  // variables at https://material.angular.dev/guide/system-variables
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  // Reset the user agent margin.
+  margin: 0;
+  height: 100%;
+}
 /* You can add global styles to this file, and also import other style files */
 
-@import "@antv/x6/dist/index.css";
-@import "@antv/x6-plugin-dnd/dist/index.css";
-@import "@antv/x6-plugin-snapline/dist/index.css";
+@import '@antv/x6/dist/index.css';
+@import '@antv/x6-plugin-dnd/dist/index.css';
+@import '@antv/x6-plugin-snapline/dist/index.css';
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #1a1a1a;
 }
 
@@ -18,7 +99,7 @@ body {
 }
 
 .hint {
-  color: #555;
+  color: var(--app-muted);
   font-style: italic;
 }
 

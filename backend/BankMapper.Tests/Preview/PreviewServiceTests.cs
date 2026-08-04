@@ -5,6 +5,7 @@ using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
 using BankMapper.Domain.Execution;
 using BankMapper.Domain.Functoids;
+using BankMapper.Infrastructure.FileWriting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -25,7 +26,8 @@ public class PreviewServiceTests
         var mappingRepo = new FakeMappingRepository(mapping);
         var schemaRepo = new FakeSourceSchemaRepository(schemas);
         var parserFactory = new FakeFileParserFactory(new FakeFileParser(rowsBySchemaId));
-        return new PreviewService(mappingRepo, schemaRepo, parserFactory, CreateExecutor(), NullLogger<PreviewService>.Instance);
+        var writerFactory = new FileWriterFactory();
+        return new PreviewService(mappingRepo, schemaRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
     }
 
     private static SourceSchema Schema(string id) => new() { Id = id, Name = id, FileFormat = FileFormat.Csv };

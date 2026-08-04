@@ -1,4 +1,3 @@
-using System.Text;
 using BankMapper.Application.Preview;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,7 +21,7 @@ public class PreviewController(IPreviewService previewService) : ControllerBase
     }
 
     [HttpPost("convert")]
-    public async Task<IActionResult> Convert([FromForm] ExecutePreviewFormRequest form)
+    public async Task<IActionResult> Convert([FromForm] ConvertPreviewFormRequest form)
     {
         var validationError = Validate(form);
         if (validationError is not null)
@@ -30,9 +29,8 @@ public class PreviewController(IPreviewService previewService) : ControllerBase
             return BadRequest(validationError);
         }
 
-        var csv = await previewService.ConvertToCsvAsync(form.MappingId, BuildSourceFiles(form));
-        var bytes = Encoding.UTF8.GetBytes(csv);
-        return File(bytes, "text/csv", "donusturulen-dosya.csv");
+        var result = await previewService.ConvertAsync(form.MappingId, BuildSourceFiles(form), form.Format);
+        return File(result.Content, result.ContentType, result.FileName);
     }
 
     private static string? Validate(ExecutePreviewFormRequest form)

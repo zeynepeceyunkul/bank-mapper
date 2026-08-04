@@ -1,5 +1,11 @@
 import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
@@ -13,7 +19,15 @@ interface ManualFieldRow {
 
 @Component({
   selector: 'app-source-schema-list',
-  imports: [FormsModule],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatTableModule,
+  ],
   templateUrl: './source-schema-list.html',
   styleUrl: './source-schema-list.scss',
 })
@@ -26,10 +40,11 @@ export class SourceSchemaList implements OnInit {
   @Output() readonly schemaDeleted = new EventEmitter<string>();
 
   readonly showList = signal(false);
+  readonly schemaColumns = ['name', 'fileFormat', 'hasHeader', 'fieldCount', 'actions'];
 
   // Olusturma formu durumu
   name = '';
-  fileFormat: FileFormat = 'Csv';
+  fileFormat: FileFormat | '' = '';
   hasHeader = true;
   delimiter = ',';
   selectedFile: File | null = null;
@@ -80,6 +95,11 @@ export class SourceSchemaList implements OnInit {
 
     if (!this.name.trim()) {
       this.toastService.error('Şema adı zorunlu.');
+      return;
+    }
+
+    if (!this.fileFormat) {
+      this.toastService.error('Dosya formatı zorunlu.');
       return;
     }
 

@@ -1,7 +1,7 @@
 <section class="mapping-list">
   <div class="header">
     <h2>Kayıtlı Mapping'ler</h2>
-    <a routerLink="/mapping" class="new-button" (click)="newMapping.emit()">+ Yeni Mapping</a>
+    <a mat-flat-button routerLink="/mapping" (click)="newMapping.emit()">+ Yeni Mapping</a>
   </div>
 
   @if (error()) {
@@ -11,27 +11,31 @@
   @if (mappings().length === 0 && !error()) {
     <p class="hint">Henüz kayıtlı mapping yok.</p>
   } @else {
-    <table>
-      <thead>
-        <tr>
-          <th>Ad</th>
-          <th>Alan Sayısı</th>
-          <th>Güncellenme</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (mapping of mappings(); track mapping.id) {
-          <tr>
-            <td>{{ mapping.name }}</td>
-            <td>{{ targetFieldEdgeCount(mapping) }}</td>
-            <td>{{ mapping.updatedAt | date: 'short' }}</td>
-            <td>
-              <a [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>
-            </td>
-          </tr>
-        }
-      </tbody>
+    <table mat-table [dataSource]="mappings()">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Ad</th>
+        <td mat-cell *matCellDef="let mapping">{{ mapping.name }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="fieldCount">
+        <th mat-header-cell *matHeaderCellDef>Alan Sayısı</th>
+        <td mat-cell *matCellDef="let mapping">{{ targetFieldEdgeCount(mapping) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="updatedAt">
+        <th mat-header-cell *matHeaderCellDef>Güncellenme</th>
+        <td mat-cell *matCellDef="let mapping">{{ mapping.updatedAt | date: 'short' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let mapping">
+          <a mat-button [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
     </table>
   }
 </section>

@@ -2,6 +2,11 @@ import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject,
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
@@ -19,7 +24,18 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-mapping-editor',
-  imports: [FormsModule, RouterLink, MappingCanvas, MappingList, SourceSchemaList],
+  imports: [
+    FormsModule,
+    RouterLink,
+    MappingCanvas,
+    MappingList,
+    SourceSchemaList,
+    MatButtonModule,
+    MatExpansionModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+  ],
   templateUrl: './mapping-editor.html',
   styleUrl: './mapping-editor.scss',
 })
@@ -53,7 +69,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // (yoksa "Kaynak Ekle" butonunun ekleyecegi bir canvas referansi olmazdi).
   // Bir kaynak eklendikten sonra hepsini silse bile canvas tekrar gizlenmiyor.
   readonly canvasRevealed = signal(false);
-  readonly newSchemaOption = '__new__';
 
   @ViewChild('canvas') canvas!: MappingCanvas;
   @ViewChild('schemaSelectRef', { read: ElementRef }) schemaSelectRef?: ElementRef<HTMLSelectElement>;
@@ -409,18 +424,12 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   // Bu select bilerek [(ngModel)] KULLANMIYOR: Angular'in SelectControlValueAccessor'i,
   // @for listesi buyuyunce (yeni sema eklendiginde/olusturulunca) option'lara verdigi
-  // ic ID'leri kaydirip degeri yanlis resmediyordu (model dogru ama DOM '__new__'de
-  // takili kalıyordu, hicbir erteleme/microtask bunu duzeltmedi cunku Angular kendi
-  // writeValue'sunu her CD turunde tekrar hatali cagiriyordu). Bunun yerine select'i
-  // tamamen elle yonetiyoruz: (change) event'inden deger okunuyor, sifirlanacagi
-  // zaman hem newSourceSchemaId hem native elemanin .value'su elle esitleniyor.
+  // ic ID'leri kaydirip degeri yanlis resmediyordu (model dogru ama DOM eski degerde
+  // takili kalıyordu). Bunun yerine select'i tamamen elle yonetiyoruz: (change)
+  // event'inden deger okunuyor, sifirlanacagi zaman native elemanin .value'su elle
+  // esitleniyor.
   onSourceSchemaSelectChange(selectEl: HTMLSelectElement): void {
     this.newSourceSchemaId = selectEl.value;
-    if (this.newSourceSchemaId === this.newSchemaOption) {
-      this.newSourceSchemaId = '';
-      selectEl.value = '';
-      this.toggleSourceSchemaModal();
-    }
   }
 
   addSourceSchema(): void {

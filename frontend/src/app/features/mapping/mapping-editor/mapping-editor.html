@@ -8,18 +8,28 @@
     </h2>
 
     <div class="header-actions">
-      <button type="button" class="ghost-btn" (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler</button>
+      <button type="button" mat-stroked-button (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler</button>
 
-      <a routerLink="/mapping" class="icon-btn ghost" title="Yeni Mapping" aria-label="Yeni Mapping" (click)="startNewMapping()">+</a>
+      <a
+        mat-icon-button
+        class="outlined-icon-btn"
+        routerLink="/mapping"
+        title="Yeni Mapping"
+        aria-label="Yeni Mapping"
+        (click)="startNewMapping()"
+      >
+        <mat-icon>add</mat-icon>
+      </a>
 
       <button
         type="button"
-        class="icon-btn save-icon-btn"
+        mat-mini-fab
+        color="primary"
         [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
         [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
         (click)="toggleSavePopup()"
       >
-        💾
+        <mat-icon>save</mat-icon>
       </button>
     </div>
   </div>
@@ -28,67 +38,101 @@
     <p class="hint">Mapping yükleniyor...</p>
   }
 
-  <div class="wizard-panel">
-    <button type="button" class="wizard-panel-header" (click)="toggleHedefGroup()">
-      <span class="wizard-panel-title">1. Hedef</span>
-      @if (!hedefExpanded() && selectedFileType) {
-        <span class="wizard-panel-summary">{{ selectedProduct?.name }} › {{ selectedFileType?.name }}</span>
-      }
-      <i class="chevron" [class.collapsed]="!hedefExpanded()" aria-hidden="true">⌄</i>
-    </button>
+  <mat-accordion class="wizard-accordion" multi="false">
+    <mat-expansion-panel
+      class="wizard-panel"
+      [expanded]="hedefExpanded()"
+      (opened)="hedefExpanded.set(true)"
+      (closed)="hedefExpanded.set(false)"
+    >
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          <span class="step-badge" [class.done]="hedefConfirmedOnce()">
+            @if (hedefConfirmedOnce()) {
+              <mat-icon>check</mat-icon>
+            } @else {
+              1
+            }
+          </span>
+          Hedef
+        </mat-panel-title>
+        @if (!hedefExpanded() && selectedFileType) {
+          <mat-panel-description class="breadcrumb">{{ selectedProduct?.name }} › {{ selectedFileType?.name }}</mat-panel-description>
+        }
+      </mat-expansion-panel-header>
 
-    @if (hedefExpanded()) {
       <div class="wizard-panel-body">
-        <div class="field">
+        <div class="field-group">
           <label for="product">Ürün</label>
-          <select id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
-            <option value="" disabled>Ürün seçin</option>
-            @for (product of products(); track product.id) {
-              <option [value]="product.id">{{ product.name }}</option>
-            }
-          </select>
+          <mat-form-field appearance="outline" class="field">
+            <select matNativeControl id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
+              <option value="" selected>Ürün seçin</option>
+              @for (product of products(); track product.id) {
+                <option [value]="product.id">{{ product.name }}</option>
+              }
+            </select>
+          </mat-form-field>
         </div>
 
-        <div class="field">
+        <div class="field-group">
           <label for="fileType">Dosya Tipi</label>
-          <select id="fileType" [(ngModel)]="selectedFileTypeId" [disabled]="fileTypes().length === 0">
-            <option value="" disabled>Dosya tipi seçin</option>
-            @for (fileType of fileTypes(); track fileType.id) {
-              <option [value]="fileType.id">{{ fileType.name }}</option>
-            }
-          </select>
+          <mat-form-field appearance="outline" class="field">
+            <select
+              matNativeControl
+              id="fileType"
+              [(ngModel)]="selectedFileTypeId"
+              [disabled]="fileTypes().length === 0"
+            >
+              <option value="" selected>Dosya tipi seçin</option>
+              @for (fileType of fileTypes(); track fileType.id) {
+                <option [value]="fileType.id">{{ fileType.name }}</option>
+              }
+            </select>
+          </mat-form-field>
         </div>
 
-        <button type="button" class="save-btn" [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
+        <button type="button" mat-flat-button [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
       </div>
-    }
-  </div>
+    </mat-expansion-panel>
 
-  <div class="wizard-panel" [class.locked]="!hedefConfirmedOnce()">
-    <div class="wizard-panel-header">
-      <span class="wizard-panel-title">2. Kaynaklar</span>
-      @if (!hedefConfirmedOnce()) {
-        <i class="lock-icon" aria-hidden="true">🔒</i>
-      }
-    </div>
-
-    @if (hedefConfirmedOnce()) {
-      <div class="wizard-panel-body">
-        <div class="add-source-schema">
-          <select #schemaSelectRef (change)="onSourceSchemaSelectChange(schemaSelectRef)">
-            <option value="" disabled selected>Kaynak şema seçin</option>
-            @for (schema of availableSourceSchemasToAdd; track schema.id) {
-              <option [value]="schema.id">{{ schema.name }}</option>
+    <mat-expansion-panel class="wizard-panel" [expanded]="hedefConfirmedOnce()" [disabled]="!hedefConfirmedOnce()">
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          <span class="step-badge" [class.done]="canvasRevealed()">
+            @if (!hedefConfirmedOnce()) {
+              <mat-icon aria-hidden="true">lock</mat-icon>
+            } @else if (canvasRevealed()) {
+              <mat-icon>check</mat-icon>
+            } @else {
+              2
             }
-            <option [value]="newSchemaOption">+ Yeni Source Şema Oluştur...</option>
-          </select>
-          <button type="button" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">+ Kaynak Ekle</button>
+          </span>
+          Kaynaklar
+        </mat-panel-title>
+        @if (!hedefConfirmedOnce()) {
+          <mat-panel-description class="locked-text">Önce hedefi tamamla.</mat-panel-description>
+        }
+      </mat-expansion-panel-header>
+
+      <div class="wizard-panel-body add-source-schema">
+        <div class="field-group">
+          <label for="sourceSchema">Kaynak şema</label>
+          <mat-form-field appearance="outline" class="field">
+            <select matNativeControl id="sourceSchema" #schemaSelectRef (change)="onSourceSchemaSelectChange(schemaSelectRef)">
+              <option value="" selected>Kaynak şema seçin</option>
+              @for (schema of availableSourceSchemasToAdd; track schema.id) {
+                <option [value]="schema.id">{{ schema.name }}</option>
+              }
+            </select>
+          </mat-form-field>
         </div>
+        <button type="button" matButton="tonal" class="pill-btn" [disabled]="!newSourceSchemaId" (click)="addSourceSchema()">
+          + Kaynak Ekle
+        </button>
+        <button type="button" mat-button class="muted-text-btn" (click)="toggleSourceSchemaModal()">+ Yeni Şema</button>
       </div>
-    } @else {
-      <p class="wizard-panel-locked-text hint">Önce hedefi tamamla.</p>
-    }
-  </div>
+    </mat-expansion-panel>
+  </mat-accordion>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
@@ -129,7 +173,9 @@
             @for (edge of connections(); track edge.id) {
               <li>
                 <span class="connection-label">{{ edge.from }} → {{ edge.to }}</span>
-                <button type="button" (click)="removeEdge(edge.id)">Sil</button>
+                <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
+                  <mat-icon>delete</mat-icon>
+                </button>
               </li>
             }
           </ul>
@@ -147,7 +193,9 @@
       <div class="modal-box" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h3>Yeni Source Şema</h3>
-          <button type="button" class="modal-close" (click)="toggleSourceSchemaModal()">×</button>
+          <button type="button" mat-icon-button aria-label="Kapat" (click)="toggleSourceSchemaModal()">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
         <app-source-schema-list (schemaCreated)="onSchemaCreated($event)" (schemaDeleted)="onSchemaDeleted($event)" />
       </div>
@@ -167,21 +215,26 @@
       <div class="modal-box save-modal-box" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h3>Mapping Adı</h3>
-          <button type="button" class="modal-close" title="Kapat" (click)="toggleSavePopup()">×</button>
+          <button type="button" mat-icon-button aria-label="Kapat" (click)="toggleSavePopup()">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
 
-        <div class="field name-field">
-          <input
-            id="mappingName"
-            type="text"
-            aria-label="Mapping Adı"
-            [ngModel]="mappingName"
-            (ngModelChange)="onMappingNameChanged($event)"
-            placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
-          />
+        <div class="field-group name-field">
+          <label for="mappingName">Mapping Adı</label>
+          <mat-form-field appearance="outline" class="field">
+            <input
+              matInput
+              id="mappingName"
+              type="text"
+              [ngModel]="mappingName"
+              (ngModelChange)="onMappingNameChanged($event)"
+              placeholder="Örn. Musteri X Bordro -> Maas Odeme Mapping"
+            />
+          </mat-form-field>
         </div>
 
-        <button type="button" class="save-btn" [disabled]="saving()" (click)="saveMapping()">
+        <button type="button" mat-flat-button [disabled]="saving()" (click)="saveMapping()">
           {{ saving() ? 'Kaydediliyor...' : (isEditMode ? "Mapping'i Güncelle" : "Mapping'i Kaydet") }}
         </button>
       </div>

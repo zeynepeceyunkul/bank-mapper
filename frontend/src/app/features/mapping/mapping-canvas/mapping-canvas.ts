@@ -151,7 +151,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         },
         createEdge: () =>
           this.graph.createEdge({
-            attrs: { line: { stroke: '#1a73e8', strokeWidth: 2, targetMarker: null } },
+            attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
             zIndex: 0,
           }),
       },
@@ -276,8 +276,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         ...fields.map((_, i) => ({ tagName: 'text' as const, selector: `label-${i}` })),
       ],
       attrs: {
-        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#1a73e8', strokeWidth: 1, rx: 6, ry: 6 },
-        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#e8f0fe', stroke: '#1a73e8', strokeWidth: 1 },
+        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#1a1a1a', strokeWidth: 2, rx: 8, ry: 8 },
+        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#1a1a1a', stroke: '#1a1a1a', strokeWidth: 2 },
         titleText: {
           text: schema.name,
           x: 8,
@@ -287,7 +287,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           textAnchor: 'start',
           refX: 0,
           refY: 0,
-          fill: '#0d2b66',
+          fill: '#ffffff',
         },
         ...Object.fromEntries(
           fields.map((f, i) => [
@@ -309,7 +309,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         groups: {
           out: {
             position: 'absolute',
-            attrs: { circle: { r: 6, magnet: true, stroke: '#1a73e8', strokeWidth: 1, fill: '#1a73e8', cursor: 'crosshair' } },
+            attrs: { circle: { r: 6, magnet: true, stroke: '#56708a', strokeWidth: 1, fill: '#56708a', cursor: 'crosshair' } },
           },
         },
         items: fields.map((f, i) => ({
@@ -341,8 +341,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         ...fields.map((_, i) => ({ tagName: 'text' as const, selector: `label-${i}` })),
       ],
       attrs: {
-        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#2e7d32', strokeWidth: 1, rx: 6, ry: 6 },
-        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#e8f5e9', stroke: '#2e7d32', strokeWidth: 1 },
+        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#2e7d32', strokeWidth: 2, rx: 8, ry: 8 },
+        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#2e7d32', stroke: '#2e7d32', strokeWidth: 2 },
         titleText: {
           text: fileType.name,
           x: 8,
@@ -352,7 +352,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           textAnchor: 'start',
           refX: 0,
           refY: 0,
-          fill: '#1b5e20',
+          fill: '#ffffff',
         },
         ...Object.fromEntries(
           fields.map((f, i) => [
@@ -374,7 +374,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         groups: {
           in: {
             position: 'absolute',
-            attrs: { circle: { r: 6, magnet: true, stroke: '#2e7d32', strokeWidth: 1, fill: '#2e7d32', cursor: 'crosshair' } },
+            attrs: { circle: { r: 6, magnet: true, stroke: '#56708a', strokeWidth: 1, fill: '#56708a', cursor: 'crosshair' } },
           },
         },
         items: fields.map((f, i) => ({
@@ -760,7 +760,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         id: edge.id,
         source: { cell: source.cellId, port: source.portId },
         target: { cell: target.cellId, port: target.portId },
-        attrs: { line: { stroke: '#1a73e8', strokeWidth: 2, targetMarker: null } },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
         zIndex: 0,
       });
     }

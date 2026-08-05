@@ -62,6 +62,13 @@ html {
   -webkit-text-fill-color: var(--mat-select-placeholder-text-color) !important;
 }
 
+// Referansta (md3-field select/input) tum form alanlari 0.875rem (14px)
+// kullaniyor - Material'in varsayilan body-large'i (16px) burada uygulanmiyor.
+.mat-mdc-input-element {
+  font-size: 0.875rem !important;
+}
+
+
 body {
   // Default the application to a light color theme. This can be changed to
   // `dark` to enable the dark color theme, or to `light dark` to defer to the
@@ -125,4 +132,12 @@ button {
 input,
 select {
   font-family: inherit;
+}
+
+// Native <select> popup'indaki secenek satirlarinin basindaki bosluk -
+// Windows/Chrome'un secili oge icin ayirdigi onay isareti (checkmark)
+// alani, isletim sistemi tarafindan ciziliyor; bu deneme kismen etkili
+// olabilir ama o alani CSS'ten tamamen kaldirmak garanti degil.
+option {
+  padding-left: 0;
 }

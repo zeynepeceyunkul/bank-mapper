@@ -59,7 +59,24 @@ public class PreviewService(
                 ?? throw new ArgumentException($"Source sema bulunamadi: {schemaRef.SourceSchemaId}");
 
             var parser = fileParserFactory.GetParser(sourceSchema.FileFormat);
-            return parser.Parse(file.Content, sourceSchema).Rows;
+
+            try
+            {
+                return parser.Parse(file.Content, sourceSchema).Rows;
+            }
+            catch (Exception ex) when (ex is not ArgumentException)
+            {
+                // CsvHelper/ClosedXML gibi kutuphaneler, format olarak gecersiz bir
+                // dosyaya (orn. yeniden adlandirilmis bir PDF) genellikle kendi ic
+                // exception tiplerini firlatiyor - bunlar yakalanmazsa 500 (sunucu
+                // hatasi) olarak donuyordu, ama aslinda bu bir kullanici/girdi hatasi.
+                // ArgumentException'a ceviriyoruz ki GlobalExceptionHandler bunu 400
+                // olarak dondursun. Kendi firlattigimiz ArgumentException'lar (orn.
+                // "Beklenen sutun bulunamadi") zaten spesifik mesajlariyla degismeden
+                // gecsin diye burada tekrar sarmalanmiyor.
+                throw new ArgumentException(
+                    $"'{schemaRef.Alias}' için yüklenen dosya geçerli bir {sourceSchema.FileFormat} dosyası değil.", ex);
+            }
         }
 
         if (mapping.SourceSchemas.Count == 1)

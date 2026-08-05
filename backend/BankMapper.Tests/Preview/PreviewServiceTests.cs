@@ -136,6 +136,31 @@ public class PreviewServiceTests
         Assert.Contains(result.Warnings, w => w.Contains('A') && w.Contains("boş"));
     }
 
+    [Fact]
+    public async Task Parser_exception_from_an_invalid_file_is_converted_to_a_clear_argument_exception()
+    {
+        var mapping = new Mapping
+        {
+            Id = "m1",
+            SourceSchemas = [new MappingSourceSchema { SourceSchemaId = SchemaA, Alias = "A" }],
+            Edges =
+            [
+                new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaA, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "AdOut" },
+            ],
+        };
+
+        var mappingRepo = new FakeMappingRepository(mapping);
+        var schemaRepo = new FakeSourceSchemaRepository(new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA) });
+        var parserFactory = new FakeFileParserFactory(new FakeThrowingFileParser());
+        var writerFactory = new FileWriterFactory();
+        var service = new PreviewService(mappingRepo, schemaRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync("m1", FilesFor(SchemaA)));
+
+        Assert.Contains("A", ex.Message);
+        Assert.IsType<InvalidDataException>(ex.InnerException);
+    }
+
     private static Mapping TwoSchemaMapping() => new()
     {
         Id = "m1",
@@ -184,5 +209,11 @@ public class PreviewServiceTests
     private class FakeFileParserFactory(IFileParser parser) : IFileParserFactory
     {
         public IFileParser GetParser(FileFormat format) => parser;
+    }
+
+    private class FakeThrowingFileParser : IFileParser
+    {
+        public ParsedFileResult Parse(Stream fileStream, SourceSchema schema) =>
+            throw new InvalidDataException("Gecersiz dosya icerigi");
     }
 }

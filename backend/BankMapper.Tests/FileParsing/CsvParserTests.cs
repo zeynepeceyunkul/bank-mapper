@@ -66,4 +66,48 @@ public class CsvParserTests
         Assert.Equal("111", result.Rows[0]["TC"]);
         Assert.Equal("Ayse", result.Rows[1]["Ad"]);
     }
+
+    [Fact]
+    public void Full_read_mode_matches_columns_by_header_text_even_if_file_column_order_differs()
+    {
+        // Dosyada TC ve Soyad yer degistirmis (sema tanimlanirkenki siradan farkli) -
+        // eslesme header METNINE gore yapilmali, sema alan sirasina gore degil.
+        const string csv = "Ad,TC,Soyad\nAhmet,111,Yilmaz\n";
+        var schema = new SourceSchema
+        {
+            FileFormat = FileFormat.Csv,
+            FormatOptions = new SourceFormatOptions { HasHeader = true, Delimiter = "," },
+            Fields =
+            [
+                new SourceField { Name = "Ad", Order = 1 },
+                new SourceField { Name = "Soyad", Order = 2 },
+                new SourceField { Name = "TC", Order = 3 },
+            ],
+        };
+
+        var result = new CsvParser().Parse(ToStream(csv), schema);
+
+        Assert.Equal("Ahmet", result.Rows[0]["Ad"]);
+        Assert.Equal("Yilmaz", result.Rows[0]["Soyad"]);
+        Assert.Equal("111", result.Rows[0]["TC"]);
+    }
+
+    [Fact]
+    public void Full_read_mode_throws_when_expected_column_missing_from_header()
+    {
+        const string csv = "Ad,Soyad\nAhmet,Yilmaz\n";
+        var schema = new SourceSchema
+        {
+            FileFormat = FileFormat.Csv,
+            FormatOptions = new SourceFormatOptions { HasHeader = true, Delimiter = "," },
+            Fields =
+            [
+                new SourceField { Name = "Ad", Order = 1 },
+                new SourceField { Name = "Soyad", Order = 2 },
+                new SourceField { Name = "TC", Order = 3 },
+            ],
+        };
+
+        Assert.Throws<ArgumentException>(() => new CsvParser().Parse(ToStream(csv), schema));
+    }
 }

@@ -1,11 +1,15 @@
-<header class="app-header">
+<mat-toolbar class="app-header">
+  <span class="app-logo" aria-hidden="true"><mat-icon>menu</mat-icon></span>
   <h1>Bank Mapper</h1>
   <nav>
     <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
     <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
   </nav>
-</header>
+</mat-toolbar>
 
 <main class="app-content">
   <router-outlet />
 </main>
+
+<app-toast-container />
+<app-confirm-dialog />

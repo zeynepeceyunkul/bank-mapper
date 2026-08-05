@@ -5,7 +5,10 @@ using BankMapper.Domain.Enums;
 
 namespace BankMapper.Application.SourceSchemas;
 
-public class SourceSchemaService(ISourceSchemaRepository repository, IFileParserFactory fileParserFactory)
+public class SourceSchemaService(
+    ISourceSchemaRepository repository,
+    IFileParserFactory fileParserFactory,
+    IMappingRepository mappingRepository)
     : ISourceSchemaService
 {
     public async Task<List<SourceSchemaDto>> GetAllAsync()
@@ -33,7 +36,7 @@ public class SourceSchemaService(ISourceSchemaRepository repository, IFileParser
 
         var schema = new SourceSchema
         {
-            Name = request.Name,
+            Name = await ResolveUniqueNameAsync(request.Name.Trim()),
             FileFormat = request.FileFormat,
             Fields = fields,
             FormatOptions = formatOptions
@@ -41,6 +44,55 @@ public class SourceSchemaService(ISourceSchemaRepository repository, IFileParser
 
         var created = await repository.CreateAsync(schema);
         return ToDto(created);
+    }
+
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var existing = await repository.GetByIdAsync(id);
+        if (existing is null)
+        {
+            return false;
+        }
+
+        var referencingMappings = (await mappingRepository.GetAllAsync())
+            .Where(m => m.SourceSchemas.Any(s => s.SourceSchemaId == id))
+            .Select(m => m.Name)
+            .ToList();
+
+        if (referencingMappings.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Bu şema şu mapping(ler) tarafından kullanılıyor, silinemez: {string.Join(", ", referencingMappings)}"
+            );
+        }
+
+        return await repository.DeleteAsync(id);
+    }
+
+    // Ayni isimde bir sema zaten varsa engellemek yerine (kullaniciyi farkli
+    // bir isim dusunmeye zorlamak gereksiz surtunme yaratir) tarayicilarin
+    // indirilen dosyalara yaptigi gibi otomatik olarak " (1)", " (2)" ekleyip
+    // ilk bos olani buluyoruz.
+    private async Task<string> ResolveUniqueNameAsync(string requestedName)
+    {
+        var existingNames = (await repository.GetAllAsync())
+            .Select(s => s.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!existingNames.Contains(requestedName))
+        {
+            return requestedName;
+        }
+
+        var suffix = 1;
+        string candidate;
+        do
+        {
+            candidate = $"{requestedName} ({suffix})";
+            suffix++;
+        } while (existingNames.Contains(candidate));
+
+        return candidate;
     }
 
     private static List<SourceField> BuildManualFields(List<SourceFieldDto>? fields)

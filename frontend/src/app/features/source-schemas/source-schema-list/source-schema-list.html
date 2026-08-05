@@ -1,71 +1,108 @@
 <section class="source-schemas">
-  <div class="field">
+  <div class="field-group">
     <label for="name">Şema Adı</label>
-    <input id="name" type="text" [(ngModel)]="name" placeholder="Örn. Musteri X Bordro Excel" />
+    <mat-form-field appearance="outline" class="field">
+      <input matInput id="name" type="text" [(ngModel)]="name" placeholder="Örn. Musteri X Bordro Excel" />
+    </mat-form-field>
   </div>
 
-  <div class="field">
+  <div class="field-group">
     <label for="fileFormat">Dosya Formatı</label>
-    <select id="fileFormat" [(ngModel)]="fileFormat">
-      <option value="Excel">Excel</option>
-      <option value="Csv">CSV</option>
-      <option value="FixedLength">Sabit Uzunluklu (TXT)</option>
-    </select>
+    <mat-form-field appearance="outline" class="field">
+      <select matNativeControl id="fileFormat" [(ngModel)]="fileFormat">
+        <option value="" selected>Dosya formatı seçin</option>
+        <option value="Excel">Excel</option>
+        <option value="Csv">CSV</option>
+        <option value="FixedLength">Sabit Uzunluklu (TXT)</option>
+      </select>
+    </mat-form-field>
   </div>
 
-  @if (!isFixedLength) {
-    <div class="field checkbox">
-      <label>
-        <input type="checkbox" [(ngModel)]="hasHeader" />
-        Başlık satırı var
-      </label>
-    </div>
+  @if (fileFormat) {
+    @if (!isFixedLength) {
+      <div class="format-settings">
+        <p class="format-settings-label">{{ fileFormat === 'Csv' ? 'CSV ayarları' : 'Excel ayarları' }}</p>
 
-    @if (fileFormat === 'Csv') {
-      <div class="field">
-        <label for="delimiter">Ayraç</label>
-        <input id="delimiter" type="text" [(ngModel)]="delimiter" placeholder="," />
+        <mat-checkbox [(ngModel)]="hasHeader">Başlık satırı var</mat-checkbox>
+
+        @if (fileFormat === 'Csv') {
+          <div class="field-group">
+            <label for="delimiter">Ayraç</label>
+            <mat-form-field appearance="outline" class="field delimiter-field">
+              <input matInput id="delimiter" type="text" [(ngModel)]="delimiter" placeholder="," />
+            </mat-form-field>
+          </div>
+        }
+      </div>
+
+      <div class="primary-step">
+        <div class="file-picker">
+          <span class="file-picker-label">Dosya</span>
+          <button type="button" mat-stroked-button (click)="fileInput.click()">Dosya Seç</button>
+          <span class="file-picker-name">{{ selectedFile?.name ?? 'Dosya seçilmedi' }}</span>
+          <input
+            #fileInput
+            id="file"
+            type="file"
+            hidden
+            (change)="onFileSelected($event)"
+            accept=".csv,.xlsx"
+          />
+        </div>
+      </div>
+    } @else {
+      <div class="primary-step">
+        <div class="manual-fields">
+          <span class="manual-fields-label">Alan pozisyonları</span>
+          <p class="hint">Alan pozisyonlarını manuel tanımlayın:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Alan Adı</th>
+                <th>Başlangıç</th>
+                <th>Uzunluk</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (field of manualFields(); track $index) {
+                <tr>
+                  <td>
+                    <mat-form-field appearance="outline" class="cell-field">
+                      <input matInput type="text" [(ngModel)]="field.name" />
+                    </mat-form-field>
+                  </td>
+                  <td>
+                    <mat-form-field appearance="outline" class="cell-field cell-field-narrow">
+                      <input matInput type="number" [(ngModel)]="field.startIndex" />
+                    </mat-form-field>
+                  </td>
+                  <td>
+                    <mat-form-field appearance="outline" class="cell-field cell-field-narrow">
+                      <input matInput type="number" [(ngModel)]="field.length" />
+                    </mat-form-field>
+                  </td>
+                  <td>
+                    <button type="button" mat-icon-button aria-label="Sil" (click)="removeManualField($index)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <button type="button" mat-stroked-button (click)="addManualField()">
+            <mat-icon>add</mat-icon>
+            Alan Ekle
+          </button>
+        </div>
       </div>
     }
 
-    <div class="field">
-      <label for="file">Dosya</label>
-      <input id="file" type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" />
-    </div>
-  } @else {
-    <div class="manual-fields">
-      <p>Alan pozisyonlarını manuel tanımlayın:</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Alan Adı</th>
-            <th>Başlangıç</th>
-            <th>Uzunluk</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (field of manualFields(); track $index) {
-            <tr>
-              <td><input type="text" [(ngModel)]="field.name" /></td>
-              <td><input type="number" [(ngModel)]="field.startIndex" /></td>
-              <td><input type="number" [(ngModel)]="field.length" /></td>
-              <td><button type="button" (click)="removeManualField($index)">Sil</button></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      <button type="button" (click)="addManualField()">+ Alan Ekle</button>
-    </div>
+    <button type="button" mat-flat-button class="save-button" [disabled]="saving()" (click)="submit()">
+      {{ saving() ? 'Kaydediliyor...' : 'Şemayı Kaydet' }}
+    </button>
   }
-
-  @if (createError()) {
-    <p class="error">{{ createError() }}</p>
-  }
-
-  <button type="button" class="save-button" [disabled]="saving()" (click)="submit()">
-    {{ saving() ? 'Kaydediliyor...' : 'Şemayı Kaydet' }}
-  </button>
 
   @if (created()) {
     <div class="result">
@@ -97,7 +134,8 @@
 
   <hr />
 
-  <button type="button" class="toggle-list-button" (click)="toggleList()">
+  <button type="button" mat-button class="toggle-list-button" (click)="toggleList()">
+    <mat-icon>{{ showList() ? 'expand_less' : 'expand_more' }}</mat-icon>
     {{ showList() ? 'Kayıtlı Şemaları Gizle' : 'Kayıtlı Şemaları Görüntüle' }}
   </button>
 
@@ -111,25 +149,38 @@
     @if (schemas().length === 0 && !listError()) {
       <p>Henüz kayıtlı source şema yok.</p>
     } @else {
-      <table class="schema-list">
-        <thead>
-          <tr>
-            <th>Ad</th>
-            <th>Format</th>
-            <th>Başlık Satırı</th>
-            <th>Alan Sayısı</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (schema of schemas(); track schema.id) {
-            <tr>
-              <td>{{ schema.name }}</td>
-              <td>{{ schema.fileFormat }}</td>
-              <td>{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
-              <td>{{ schema.fields.length }}</td>
-            </tr>
-          }
-        </tbody>
+      <table mat-table [dataSource]="schemas()" class="schema-list">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Ad</th>
+          <td mat-cell *matCellDef="let schema">{{ schema.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="fileFormat">
+          <th mat-header-cell *matHeaderCellDef>Format</th>
+          <td mat-cell *matCellDef="let schema">{{ schema.fileFormat }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="hasHeader">
+          <th mat-header-cell *matHeaderCellDef>Başlık Satırı</th>
+          <td mat-cell *matCellDef="let schema">{{ schema.formatOptions.hasHeader ? 'Evet' : 'Hayır' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="fieldCount">
+          <th mat-header-cell *matHeaderCellDef>Alan Sayısı</th>
+          <td mat-cell *matCellDef="let schema">{{ schema.fields.length }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let schema">
+            <button type="button" mat-icon-button aria-label="Sil" (click)="deleteSchema(schema)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="schemaColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: schemaColumns"></tr>
       </table>
     }
   }

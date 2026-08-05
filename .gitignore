@@ -2,6 +2,7 @@
 backend/**/bin/
 backend/**/obj/
 backend/*.user
+backend/**/logs/
 
 # Angular / Node
 frontend/node_modules/

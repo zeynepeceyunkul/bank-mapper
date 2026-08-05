@@ -23,4 +23,10 @@ public class SourceSchemaRepository(IMongoDbContext context) : ISourceSchemaRepo
         await _collection.InsertOneAsync(schema);
         return schema;
     }
+
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var result = await _collection.DeleteOneAsync(s => s.Id == id);
+        return result.DeletedCount > 0;
+    }
 }

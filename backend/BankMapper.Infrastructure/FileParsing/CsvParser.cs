@@ -42,14 +42,22 @@ public class CsvParser : IFileParser
             return result;
         }
 
+        // Sema alanlari ile dosyadaki gercek kolonlari, sirasina degil
+        // header METNINE gore eslestiriyoruz - kaynak dosyada kolon sirasi
+        // degisirse (orn. IBAN ve Tutar yer degistirirse) yanlis alana
+        // sessizce yanlis veri yazilmasini onlemek icin.
+        var columnIndexes = hasHeader
+            ? ResolveColumnIndexes(fieldNames, csv.HeaderRecord ?? [])
+            : Enumerable.Range(0, fieldNames.Count).ToList();
+
         if (!hasHeader)
         {
-            result.Rows.Add(ReadRow(csv, fieldNames));
+            result.Rows.Add(ReadRow(csv, fieldNames, columnIndexes));
         }
 
         while (csv.Read())
         {
-            result.Rows.Add(ReadRow(csv, fieldNames));
+            result.Rows.Add(ReadRow(csv, fieldNames, columnIndexes));
         }
 
         return result;
@@ -58,12 +66,30 @@ public class CsvParser : IFileParser
     private static List<string> GenerateColumnNames(int count) =>
         Enumerable.Range(1, count).Select(i => $"Column{i}").ToList();
 
-    private static Dictionary<string, string?> ReadRow(CsvReader csv, List<string> fieldNames)
+    private static List<int> ResolveColumnIndexes(List<string> fieldNames, string[] header)
+    {
+        var normalizedHeader = header.Select(h => h.Trim().ToLowerInvariant()).ToList();
+        var columnIndexes = new List<int>();
+
+        foreach (var name in fieldNames)
+        {
+            var index = normalizedHeader.IndexOf(name.Trim().ToLowerInvariant());
+            if (index < 0)
+            {
+                throw new ArgumentException($"Beklenen sütun bulunamadı: {name}");
+            }
+            columnIndexes.Add(index);
+        }
+
+        return columnIndexes;
+    }
+
+    private static Dictionary<string, string?> ReadRow(CsvReader csv, List<string> fieldNames, List<int> columnIndexes)
     {
         var row = new Dictionary<string, string?>();
         for (var i = 0; i < fieldNames.Count; i++)
         {
-            row[fieldNames[i]] = csv.TryGetField<string>(i, out var value) ? value : null;
+            row[fieldNames[i]] = csv.TryGetField<string>(columnIndexes[i], out var value) ? value : null;
         }
         return row;
     }

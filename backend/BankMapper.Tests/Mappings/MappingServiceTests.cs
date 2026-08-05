@@ -2,6 +2,7 @@ using BankMapper.Application.Abstractions;
 using BankMapper.Application.Mappings;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace BankMapper.Tests.Mappings;
@@ -10,7 +11,7 @@ public class MappingServiceTests
 {
     private const string SchemaId = "src1";
 
-    private static MappingService CreateService() => new(new FakeMappingRepository());
+    private static MappingService CreateService() => new(new FakeMappingRepository(), NullLogger<MappingService>.Instance);
 
     private static CreateMappingRequest ValidRequestBase() => new()
     {

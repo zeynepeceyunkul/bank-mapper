@@ -15,4 +15,8 @@ export class SourceSchemaService {
   create(formData: FormData): Observable<SourceSchema> {
     return this.http.post<SourceSchema>(`${environment.apiUrl}/source-schemas`, formData);
   }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/source-schemas/${id}`);
+  }
 }

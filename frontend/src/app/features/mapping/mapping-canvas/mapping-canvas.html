@@ -7,6 +7,10 @@
         {{ def.name }}
       </div>
     }
+
+    <div class="palette-divider"></div>
+
+    <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
   </div>
 
   <div class="canvas-host-wrapper">
@@ -29,6 +33,7 @@
 
     @if (paramPanel(); as panel) {
       <div class="floating-panel" [style.left.px]="panel.x" [style.top.px]="panel.y">
+        <button type="button" class="floating-panel-close" title="Kapat" (click)="closeParamPanel()">×</button>
         @if (functoidParams(panel.functoidCode).length === 0) {
           <span class="hint">Bu functoid'in parametresi yok.</span>
         }
@@ -42,17 +47,16 @@
             />
           </label>
         }
-        <button type="button" (click)="closeParamPanel()">Kapat</button>
       </div>
     }
 
     @if (constantEdit(); as edit) {
       <div class="floating-panel" [style.left.px]="edit.x" [style.top.px]="edit.y">
+        <button type="button" class="floating-panel-close" title="Kapat" (click)="closeConstantEdit()">×</button>
         <label>
           Sabit değer
           <input type="text" [value]="edit.value" (input)="setConstantValue($any($event.target).value)" />
         </label>
-        <button type="button" (click)="closeConstantEdit()">Kapat</button>
       </div>
     }
   </div>

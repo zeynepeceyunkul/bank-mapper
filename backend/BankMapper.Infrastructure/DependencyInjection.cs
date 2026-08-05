@@ -1,6 +1,8 @@
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.FileParsing;
+using BankMapper.Application.FileWriting;
 using BankMapper.Infrastructure.FileParsing;
+using BankMapper.Infrastructure.FileWriting;
 using BankMapper.Infrastructure.Persistence;
 using BankMapper.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ISourceSchemaRepository, SourceSchemaRepository>();
         services.AddScoped<IMappingRepository, MappingRepository>();
         services.AddSingleton<IFileParserFactory, FileParserFactory>();
+        services.AddSingleton<IFileWriterFactory, FileWriterFactory>();
 
         return services;
     }

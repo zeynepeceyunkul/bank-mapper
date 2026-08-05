@@ -7,35 +7,56 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    min-width: 170px;
+    padding: 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+    width: 180px;
+    flex-shrink: 0;
     align-self: flex-start;
 
     h3 {
       margin: 0 0 0.25rem;
-      font-size: 0.95rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
     }
 
     .hint {
-      margin: 0 0 0.5rem;
-      font-size: 0.75rem;
-      color: #666;
+      margin: 0 0 0.4rem;
+      font-size: 0.7rem;
+      color: #9e9e9e;
     }
 
     .functoid-chip {
-      padding: 0.5rem 0.75rem;
+      padding: 5px 10px;
       background: #fff3e0;
       border: 1px solid #fb8c00;
       border-radius: 4px;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       cursor: grab;
       user-select: none;
 
       &:active {
         cursor: grabbing;
       }
+    }
+
+    .palette-divider {
+      height: 1px;
+      background: #e5e5e5;
+      margin: 0.5rem 0;
+    }
+
+    .constant-chip {
+      padding: 5px 10px;
+      background: #e8f5e9;
+      border: 1px solid #43a047;
+      border-radius: 4px;
+      color: #2e7d32;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
     }
   }
 
@@ -45,9 +66,12 @@
     min-width: 0;
     max-height: 70vh;
     overflow: auto;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background: #fafafa;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 20px;
+    background-color: #fafafa;
+    background-image: radial-gradient(circle, #d0d0d0 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 
   .canvas-host {
@@ -68,7 +92,7 @@
     background: #fff;
     border: 1px solid #999;
     border-radius: 4px;
-    padding: 0.5rem;
+    padding: 1.25rem 0.5rem 0.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
@@ -85,5 +109,18 @@
     input {
       padding: 0.2rem;
     }
+  }
+
+  .floating-panel-close {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #666;
+    cursor: pointer;
+    padding: 0.15rem;
   }
 }

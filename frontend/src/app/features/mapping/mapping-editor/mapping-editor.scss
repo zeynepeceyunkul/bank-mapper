@@ -1,4 +1,30 @@
 .mapping-editor {
+  // Kurulum bolumu (baslik + Hedef/Kaynaklar sihirbazi) tam genislige
+  // yayilmiyor, referansin gercek DOM'undan (DevTools > iframe > main
+  // style="max-width:1400px") okunan degere sabitleniyor.
+  > .page-header,
+  > .wizard-accordion,
+  > .hint,
+  > .error,
+  > .canvas-placeholder,
+  > .canvas-and-connections {
+    display: block;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  // Ustteki tek talimat metni (referansta rgb(86,112,138) mavi-gri, italik
+  // DEGIL) - canvas-placeholder/connection-list/palet icindeki bos-durum
+  // metinleri (genel .hint, notr gri + italik) ile karistirilmamasi icin
+  // sadece dogrudan alt eleman olarak hedefleniyor.
+  > .hint {
+    color: var(--app-muted);
+    font-style: normal;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
   .page-header {
     display: flex;
     align-items: center;
@@ -9,6 +35,17 @@
 
     h2 {
       margin: 0;
+      font-size: 1.375rem;
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--mat-sys-on-surface);
+
+      .mapping-name-badge {
+        font-weight: 400;
+        font-size: 0.8em;
+        color: var(--app-muted);
+        margin-left: 0.4rem;
+      }
     }
   }
 
@@ -18,36 +55,17 @@
     gap: 0.5rem;
   }
 
-  .ghost-btn {
-    padding: 0.4rem 0.75rem;
-    border: 1px solid #ccc;
-    background: #fff;
-    color: #333;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    text-decoration: none;
-    white-space: nowrap;
+  .outlined-icon-btn {
+    border: 1.5px solid #c4c4c4;
+    border-radius: 50%;
   }
 
-  .mappings-panel-anchor {
-    position: relative;
-  }
-
-  .mappings-panel {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    z-index: 20;
-    min-width: 420px;
-    max-width: calc(100vw - 2rem);
-    max-height: 60vh;
-    overflow-y: auto;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 0.75rem;
+  // mat-mini-fab M3'te varsayilan olarak "primary-container" rolunu kullanir
+  // (soluk gri ton) - referans tasarimdaki dolu siyah gorunum icin sadece bu
+  // butona ozel container/foreground token'lari eziliyor.
+  .header-actions [mat-mini-fab] {
+    --mat-fab-small-container-color: var(--mat-sys-primary);
+    --mat-fab-small-foreground-color: var(--mat-sys-on-primary);
   }
 
   .modal-backdrop {
@@ -63,133 +81,192 @@
 
   .modal-box {
     background: #fff;
-    border-radius: 8px;
-    padding: 1.25rem;
+    border-radius: 28px;
+    padding: 24px 24px 20px;
     max-width: 640px;
     width: 100%;
     max-height: 80vh;
     overflow-y: auto;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.2),
+      0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .save-modal-box {
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
   .modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
 
     h3 {
       margin: 0;
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: #1a1a1a;
     }
   }
 
-  .modal-close {
-    border: none;
-    background: none;
-    font-size: 1.25rem;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
+  .field {
+    display: block;
+    width: 100%;
+    min-width: 180px;
   }
 
-  .top-toolbar {
+  // Material'in kutu kenarina binen "floating label"i kullanmiyoruz -
+  // referans tasarimda etiket kutunun tamamen disinda, ayri bir satirda.
+  // mat-form-field'a mat-label VERMEDEN sadece placeholder kullaniyoruz,
+  // gercek etiketi bu wrapper'da kutunun ustune kendimiz koyuyoruz.
+  .field-group {
     display: flex;
-    align-items: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
-    background: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
+    flex-direction: column;
+    gap: 0.3rem;
+
+    > label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--app-muted);
+    }
+  }
+
+  .name-field {
+    min-width: 260px;
+    width: 100%;
 
     .field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      min-width: 180px;
-
-      label {
-        font-size: 0.75rem;
-        color: #555;
-      }
-
-      select,
-      input {
-        padding: 0.4rem;
-      }
-    }
-
-    .name-field {
-      min-width: 260px;
-    }
-
-    .toolbar-spacer {
-      flex: 1 1 auto;
-    }
-
-    .save-btn {
-      padding: 0.5rem 1.25rem;
-      border: 1px solid #1a73e8;
-      background: #1a73e8;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-      white-space: nowrap;
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
+      width: 100%;
     }
   }
 
-  .add-source-schema {
+  .wizard-accordion {
+    margin-bottom: 0.75rem;
     display: flex;
-    gap: 0.4rem;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 0.5rem;
 
-    select {
-      padding: 0.4rem;
+    mat-expansion-panel {
+      border-radius: 12px !important;
+    }
+
+    mat-expansion-panel-header {
+      padding: 0 20px !important;
+      height: 64px !important;
+
+      .mat-content {
+        gap: 12px;
+      }
+    }
+
+    .mat-expansion-panel-body {
+      border-top: 1px solid #f0f0f0;
+    }
+  }
+
+  mat-panel-title {
+    font-weight: 500;
+    font-size: 0.9375rem;
+    color: #1a1a1a;
+  }
+
+  .locked-text {
+    font-size: 0.8125rem;
+    color: #9e9e9e;
+    font-style: italic;
+  }
+
+  // Rozet iki durumda: henuz tamamlanmamis (acik gri daire + mavi-gri
+  // rakam/kilit ikonu) ve tamamlanmis (siyah daire + beyaz check). Varsayilan
+  // hal "henuz tamamlanmamis" - .done class'i eklenince siyaha donusuyor.
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: var(--app-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 16px;
+      height: 16px;
+      width: 16px;
+    }
+
+    &.done {
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+    }
+  }
+
+  .breadcrumb {
+    margin-left: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--app-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .wizard-panel-body {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 1rem;
+
+    // Referans tasarimda select kutulari satirin cogunu kapliyor (esit
+    // paylasarak buyuyor), sadece icerige gore daralmiyorlar - butonlar
+    // sabit genislikte sagda kaliyor. align-items:flex-end + butonun
+    // kendi yuksekligi (label'siz) butonu otomatik olarak select kutusunun
+    // alt kenariyla hizaliyor - referans DOM'unun kullandigi mekanizma bu.
+    .field-group {
+      flex: 1 1 0;
+      min-width: 160px;
     }
 
     button {
-      padding: 0.4rem 0.75rem;
-      border: 1px solid #1a73e8;
-      background: #e8f0fe;
-      color: #1a56d6;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      white-space: nowrap;
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+      flex: 0 0 auto;
     }
   }
 
-  .add-constant {
-    padding: 0.4rem 0.75rem;
-    border: 1px solid #43a047;
-    background: #e8f5e9;
-    color: #2e7d32;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    white-space: nowrap;
-    align-self: flex-end;
+  .pill-btn {
+    border-radius: 20px !important;
+  }
+
+  .muted-text-btn {
+    color: var(--app-muted) !important;
+    font-size: 0.8125rem;
   }
 
   .canvas-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 320px;
-    border: 1px dashed #ccc;
-    border-radius: 6px;
+    box-sizing: border-box;
+    min-height: 280px;
+    border: 2px dashed #c4c4c4;
+    border-radius: 12px;
     background: #fafafa;
+    padding: 24px;
+    text-align: center;
+
+    .hint {
+      color: #9e9e9e;
+      font-size: 0.875rem;
+    }
   }
 
   .canvas-and-connections {
@@ -202,25 +279,52 @@
       flex: 1 1 auto;
       min-width: 0;
     }
+
+    // Canvas ilk kaynak eklenene kadar gorsel olarak gizli tutuluyor ama
+    // component DOM'dan hic kaldirilmiyor ("+Kaynak Ekle" butonunun
+    // ekleyecegi bir canvas referansi olsun diye). display:none KULLANMA:
+    // X6, kendini olcerken (computeCanvasWidth) container'in clientWidth'ini
+    // okuyor, display:none genisligi de 0 yapip canvas'i bozar. max-height/
+    // overflow ile sadece yukseklik gizleniyor, genislik layout'ta kaliyor.
+    &.canvas-collapsed {
+      max-height: 0;
+      overflow: hidden;
+      visibility: hidden;
+      margin: 0;
+      gap: 0;
+    }
   }
 
   .connection-list {
-    flex: 0 0 260px;
+    flex: 0 0 220px;
     max-height: 70vh;
     overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
 
     h3 {
-      margin: 0 0 0.5rem;
-      font-size: 0.95rem;
+      margin: 0;
+      padding: 12px 16px;
+      background: #fafafa;
+      border-bottom: 1px solid #e5e5e5;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #1a1a1a;
     }
 
     ul {
       list-style: none;
-      padding: 0;
+      padding: 8px;
       margin: 0;
+    }
+
+    .hint {
+      padding: 20px 8px;
+      text-align: center;
+      font-size: 0.8125rem;
     }
 
     li {
@@ -228,7 +332,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      padding: 0.4rem 0;
+      padding: 0.25rem 0;
       border-bottom: 1px solid #f0f0f0;
       font-size: 0.85rem;
 

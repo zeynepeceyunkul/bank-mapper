@@ -85,6 +85,14 @@ function schemaBoxHeight(fieldCount: number): number {
   return TITLE_HEIGHT + Math.max(fieldCount, 1) * ROW_HEIGHT + 6;
 }
 
+// Functoid isimleri (ör. "Trim (Bas/Son Bosluk Kirp)") sabit NODE_WIDTH'ten
+// (140px) uzun olabiliyor ve SVG text kutunun disina taşiyordu. Karakter
+// sayisina gore genislik hesaplayip metne gore buyuyen bir kutu kullaniyoruz;
+// kisa isimler icin yine NODE_WIDTH'te kaliyor.
+function functoidNodeWidth(label: string): number {
+  return Math.max(NODE_WIDTH, label.length * 7.5 + 24);
+}
+
 @Component({
   selector: 'app-mapping-canvas',
   imports: [FormsModule],
@@ -143,7 +151,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         },
         createEdge: () =>
           this.graph.createEdge({
-            attrs: { line: { stroke: '#1a73e8', strokeWidth: 2, targetMarker: null } },
+            attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
             zIndex: 0,
           }),
       },
@@ -166,6 +174,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.graph.on('node:change:position', () => {
       this.repositionOverlays();
       this.refreshJoinKeySelectors();
+      this.emitGraphChanged();
     });
     this.graph.on('node:click', ({ node }) => this.onNodeClick(node));
     this.graph.on('blank:click', () => {
@@ -267,8 +276,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         ...fields.map((_, i) => ({ tagName: 'text' as const, selector: `label-${i}` })),
       ],
       attrs: {
-        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#1a73e8', strokeWidth: 1, rx: 6, ry: 6 },
-        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#e8f0fe', stroke: '#1a73e8', strokeWidth: 1 },
+        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#1a1a1a', strokeWidth: 2, rx: 8, ry: 8 },
+        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#1a1a1a', stroke: '#1a1a1a', strokeWidth: 2 },
         titleText: {
           text: schema.name,
           x: 8,
@@ -278,7 +287,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           textAnchor: 'start',
           refX: 0,
           refY: 0,
-          fill: '#0d2b66',
+          fill: '#ffffff',
         },
         ...Object.fromEntries(
           fields.map((f, i) => [
@@ -300,7 +309,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         groups: {
           out: {
             position: 'absolute',
-            attrs: { circle: { r: 6, magnet: true, stroke: '#1a73e8', strokeWidth: 1, fill: '#1a73e8', cursor: 'crosshair' } },
+            attrs: { circle: { r: 6, magnet: true, stroke: '#56708a', strokeWidth: 1, fill: '#56708a', cursor: 'crosshair' } },
           },
         },
         items: fields.map((f, i) => ({
@@ -332,8 +341,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         ...fields.map((_, i) => ({ tagName: 'text' as const, selector: `label-${i}` })),
       ],
       attrs: {
-        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#2e7d32', strokeWidth: 1, rx: 6, ry: 6 },
-        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#e8f5e9', stroke: '#2e7d32', strokeWidth: 1 },
+        body: { width: SCHEMA_BOX_WIDTH, height, fill: '#fff', stroke: '#2e7d32', strokeWidth: 2, rx: 8, ry: 8 },
+        titleBg: { width: SCHEMA_BOX_WIDTH, height: TITLE_HEIGHT, fill: '#2e7d32', stroke: '#2e7d32', strokeWidth: 2 },
         titleText: {
           text: fileType.name,
           x: 8,
@@ -343,7 +352,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           textAnchor: 'start',
           refX: 0,
           refY: 0,
-          fill: '#1b5e20',
+          fill: '#ffffff',
         },
         ...Object.fromEntries(
           fields.map((f, i) => [
@@ -365,7 +374,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         groups: {
           in: {
             position: 'absolute',
-            attrs: { circle: { r: 6, magnet: true, stroke: '#2e7d32', strokeWidth: 1, fill: '#2e7d32', cursor: 'crosshair' } },
+            attrs: { circle: { r: 6, magnet: true, stroke: '#56708a', strokeWidth: 1, fill: '#56708a', cursor: 'crosshair' } },
           },
         },
         items: fields.map((f, i) => ({
@@ -385,14 +394,16 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     params: Record<string, unknown> | null
   ): Node.Metadata {
     const def = this.functoidDefinitions.find((d) => d.code === functoidCode);
+    const label = def?.name ?? functoidCode;
     const ports = def?.inputPorts?.length ? def.inputPorts : [{ name: 'value', label: 'Değer' }];
     const height = ports.length <= 1 ? NODE_HEIGHT : ports.length * 30;
+    const width = functoidNodeWidth(label);
     return {
       id: fnId(id),
       shape: 'rect',
       x,
       y,
-      width: NODE_WIDTH,
+      width,
       height,
       zIndex: 3,
       data: { kind: 'functoid', functoidNodeId: id, functoidCode, params: params ?? null },
@@ -401,10 +412,10 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         { tagName: 'text', selector: 'label' },
       ],
       attrs: {
-        body: { width: NODE_WIDTH, height, fill: '#fff3e0', stroke: '#fb8c00', strokeWidth: 1, rx: 4, ry: 4 },
+        body: { width, height, fill: '#fff3e0', stroke: '#fb8c00', strokeWidth: 1, rx: 4, ry: 4 },
         label: {
-          text: def?.name ?? functoidCode,
-          x: NODE_WIDTH / 2,
+          text: label,
+          x: width / 2,
           y: height / 2 + TEXT_BASELINE_OFFSET,
           fontSize: 12,
           fontWeight: 600,
@@ -425,7 +436,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
             group: 'in',
             args: { x: 0, y: ((i + 0.5) * height) / ports.length },
           })),
-          { id: 'out', group: 'out', args: { x: NODE_WIDTH, y: height / 2 } },
+          { id: 'out', group: 'out', args: { x: width, y: height / 2 } },
         ],
       },
       tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
@@ -547,6 +558,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     const params = { ...((data['params'] as Record<string, unknown>) ?? {}), [param.key]: value };
     node.setData({ ...data, params });
     this.paramPanel.set({ ...panel, params });
+    this.emitGraphChanged();
   }
 
   closeParamPanel(): void {
@@ -563,6 +575,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     node.attr('label/fill', raw ? '#1b5e20' : '#8a9a8c');
     node.attr('label/fontStyle', raw ? 'normal' : 'italic');
     this.constantEdit.set({ ...edit, value: raw });
+    this.emitGraphChanged();
   }
 
   closeConstantEdit(): void {
@@ -599,6 +612,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       node.setData({ ...node.getData<Record<string, unknown>>(), joinKeyField: value });
     }
     this.refreshJoinKeySelectors();
+    this.emitGraphChanged();
   }
 
   // --- Kaydetme/silme dışa açılan API ---
@@ -746,7 +760,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         id: edge.id,
         source: { cell: source.cellId, port: source.portId },
         target: { cell: target.cellId, port: target.portId },
-        attrs: { line: { stroke: '#1a73e8', strokeWidth: 2, targetMarker: null } },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
         zIndex: 0,
       });
     }

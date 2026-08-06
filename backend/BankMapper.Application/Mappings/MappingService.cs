@@ -79,14 +79,9 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
             throw new ArgumentException("Mapping adı zorunludur.");
         }
 
-        if (mapping.SourceSchemas.Count == 0)
+        if (mapping.SourceSchemas.Count != 1)
         {
-            throw new ArgumentException("En az bir source şema seçilmelidir.");
-        }
-
-        if (mapping.SourceSchemas.Count > 1 && mapping.SourceSchemas.Any(s => string.IsNullOrWhiteSpace(s.JoinKeyField)))
-        {
-            throw new ArgumentException("Birden fazla source şema kullanılıyorsa her biri için birleştirme anahtarı (join key) seçilmelidir.");
+            throw new ArgumentException("Tam olarak bir source şema seçilmelidir.");
         }
 
         if (string.IsNullOrWhiteSpace(mapping.FileTypeId))
@@ -156,7 +151,6 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
     {
         SourceSchemaId = dto.SourceSchemaId,
         Alias = dto.Alias,
-        JoinKeyField = dto.JoinKeyField,
         PositionX = dto.PositionX,
         PositionY = dto.PositionY
     };
@@ -231,7 +225,6 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
             {
                 SourceSchemaId = s.SourceSchemaId,
                 Alias = s.Alias,
-                JoinKeyField = s.JoinKeyField,
                 PositionX = s.PositionX,
                 PositionY = s.PositionY
             })

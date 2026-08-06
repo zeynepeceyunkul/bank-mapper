@@ -16,21 +16,6 @@
   <div class="canvas-host-wrapper">
     <div class="canvas-host" #canvasHost></div>
 
-    @for (jk of joinKeySelectors(); track jk.schemaId) {
-      <select
-        class="join-key-overlay"
-        [style.left.px]="jk.x"
-        [style.top.px]="jk.y"
-        [ngModel]="jk.value"
-        (ngModelChange)="onJoinKeySelectChange(jk.schemaId, $event)"
-      >
-        <option value="" disabled>Anahtar</option>
-        @for (f of jk.fields; track f) {
-          <option [value]="f">{{ f }}</option>
-        }
-      </select>
-    }
-
     @if (paramPanel(); as panel) {
       <div class="floating-panel" [style.left.px]="panel.x" [style.top.px]="panel.y">
         <button type="button" class="floating-panel-close" title="Kapat" (click)="closeParamPanel()">×</button>

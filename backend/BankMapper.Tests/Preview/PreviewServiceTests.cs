@@ -14,7 +14,6 @@ namespace BankMapper.Tests.Preview;
 public class PreviewServiceTests
 {
     private const string SchemaA = "A";
-    private const string SchemaB = "B";
 
     private static MappingExecutor CreateExecutor() => new(new FunctoidRegistry([new TrimFunctoid()]));
 
@@ -36,7 +35,7 @@ public class PreviewServiceTests
         schemaIds.Select(id => new PreviewSourceFile { SourceSchemaId = id, Content = Stream.Null }).ToList();
 
     [Fact]
-    public async Task Single_schema_mapping_bypasses_join_and_maps_fields_directly()
+    public async Task Single_schema_mapping_maps_fields_directly()
     {
         var mapping = new Mapping
         {
@@ -58,82 +57,6 @@ public class PreviewServiceTests
         Assert.Single(result.Rows);
         Assert.Equal("Ahmet", result.Rows[0]["AdOut"]);
         Assert.Empty(result.Warnings);
-    }
-
-    [Fact]
-    public async Task Two_schemas_are_inner_joined_by_key_and_merged_into_one_row()
-    {
-        var service = CreateService(
-            TwoSchemaMapping(),
-            new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA), [SchemaB] = Schema(SchemaB) },
-            new Dictionary<string, List<Dictionary<string, string?>>>
-            {
-                [SchemaA] = [Row(("Id", "1"), ("NameA", "Ahmet")), Row(("Id", "2"), ("NameA", "Mehmet"))],
-                [SchemaB] = [Row(("Id", "1"), ("NameB", "Yilmaz")), Row(("Id", "2"), ("NameB", "Demir"))],
-            });
-
-        var result = await service.ExecuteAsync("m1", FilesFor(SchemaA, SchemaB));
-
-        Assert.Equal(2, result.Rows.Count);
-        Assert.Contains(result.Rows, r => (string?)r["OutA"] == "Ahmet" && (string?)r["OutB"] == "Yilmaz");
-        Assert.Contains(result.Rows, r => (string?)r["OutA"] == "Mehmet" && (string?)r["OutB"] == "Demir");
-        Assert.Empty(result.Warnings);
-    }
-
-    [Fact]
-    public async Task Unmatched_key_in_secondary_schema_is_skipped_with_a_warning()
-    {
-        var service = CreateService(
-            TwoSchemaMapping(),
-            new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA), [SchemaB] = Schema(SchemaB) },
-            new Dictionary<string, List<Dictionary<string, string?>>>
-            {
-                [SchemaA] = [Row(("Id", "1"), ("NameA", "Ahmet")), Row(("Id", "2"), ("NameA", "Mehmet"))],
-                [SchemaB] = [Row(("Id", "1"), ("NameB", "Yilmaz"))],
-            });
-
-        var result = await service.ExecuteAsync("m1", FilesFor(SchemaA, SchemaB));
-
-        Assert.Single(result.Rows);
-        Assert.Equal("Ahmet", result.Rows[0]["OutA"]);
-        Assert.Contains(result.Warnings, w => w.Contains('2') && w.Contains('B'));
-    }
-
-    [Fact]
-    public async Task Duplicate_join_key_within_one_schema_keeps_the_last_row()
-    {
-        var service = CreateService(
-            TwoSchemaMapping(),
-            new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA), [SchemaB] = Schema(SchemaB) },
-            new Dictionary<string, List<Dictionary<string, string?>>>
-            {
-                [SchemaA] = [Row(("Id", "1"), ("NameA", "Birinci")), Row(("Id", "1"), ("NameA", "Ikinci"))],
-                [SchemaB] = [Row(("Id", "1"), ("NameB", "Yilmaz"))],
-            });
-
-        var result = await service.ExecuteAsync("m1", FilesFor(SchemaA, SchemaB));
-
-        Assert.Single(result.Rows);
-        Assert.Equal("Ikinci", result.Rows[0]["OutA"]);
-    }
-
-    [Fact]
-    public async Task Empty_join_key_value_is_skipped_with_a_warning()
-    {
-        var service = CreateService(
-            TwoSchemaMapping(),
-            new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA), [SchemaB] = Schema(SchemaB) },
-            new Dictionary<string, List<Dictionary<string, string?>>>
-            {
-                [SchemaA] = [Row(("Id", ""), ("NameA", "Hayalet")), Row(("Id", "1"), ("NameA", "Ahmet"))],
-                [SchemaB] = [Row(("Id", "1"), ("NameB", "Yilmaz"))],
-            });
-
-        var result = await service.ExecuteAsync("m1", FilesFor(SchemaA, SchemaB));
-
-        Assert.Single(result.Rows);
-        Assert.Equal("Ahmet", result.Rows[0]["OutA"]);
-        Assert.Contains(result.Warnings, w => w.Contains('A') && w.Contains("boş"));
     }
 
     [Fact]
@@ -160,21 +83,6 @@ public class PreviewServiceTests
         Assert.Contains("A", ex.Message);
         Assert.IsType<InvalidDataException>(ex.InnerException);
     }
-
-    private static Mapping TwoSchemaMapping() => new()
-    {
-        Id = "m1",
-        SourceSchemas =
-        [
-            new MappingSourceSchema { SourceSchemaId = SchemaA, Alias = "A", JoinKeyField = "Id" },
-            new MappingSourceSchema { SourceSchemaId = SchemaB, Alias = "B", JoinKeyField = "Id" },
-        ],
-        Edges =
-        [
-            new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaA, FromFieldName = "NameA", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "OutA" },
-            new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaB, FromFieldName = "NameB", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "OutB" },
-        ],
-    };
 
     private static Dictionary<string, string?> Row(params (string Key, string? Value)[] fields) =>
         fields.ToDictionary(f => f.Key, f => f.Value);

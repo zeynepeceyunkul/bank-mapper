@@ -61,7 +61,7 @@ class FakeMappingCanvas {
   addSourceSchema(schema: SourceSchema, x: number, y: number): void {
     this.snapshot = {
       ...this.snapshot,
-      sourceSchemas: [...this.snapshot.sourceSchemas, { sourceSchemaId: schema.id, joinKeyField: null, positionX: x, positionY: y }],
+      sourceSchemas: [...this.snapshot.sourceSchemas, { sourceSchemaId: schema.id, positionX: x, positionY: y }],
     };
     this.graphChanged.emit();
   }
@@ -216,7 +216,7 @@ describe('MappingEditor', () => {
   it('sends the graph snapshot from the canvas when saving', () => {
     selectTarget();
     fakeCanvas().snapshot = {
-      sourceSchemas: [{ sourceSchemaId: 'src-1', joinKeyField: null, positionX: 20, positionY: 20 }],
+      sourceSchemas: [{ sourceSchemaId: 'src-1', positionX: 20, positionY: 20 }],
       functoidNodes: [],
       constantNodes: [],
       edges: [
@@ -240,7 +240,7 @@ describe('MappingEditor', () => {
     const request = httpMock.expectOne((req) => req.url.endsWith('/mappings'));
     expect(request.request.method).toBe('POST');
     expect(request.request.body.sourceSchemas).toEqual([
-      { sourceSchemaId: 'src-1', alias: 'Test Source', joinKeyField: null, positionX: 20, positionY: 20 },
+      { sourceSchemaId: 'src-1', alias: 'Test Source', positionX: 20, positionY: 20 },
     ]);
     expect(request.request.body.edges.length).toBe(1);
 
@@ -258,12 +258,12 @@ describe('MappingEditor', () => {
     });
   });
 
-  it('requires a join key from every schema before saving when multiple source schemas are used', () => {
+  it('rejects saving when more than one source schema is present', () => {
     selectTarget();
     fakeCanvas().snapshot = {
       sourceSchemas: [
-        { sourceSchemaId: 'src-1', joinKeyField: null, positionX: 20, positionY: 20 },
-        { sourceSchemaId: 'src-2', joinKeyField: null, positionX: 50, positionY: 50 },
+        { sourceSchemaId: 'src-1', positionX: 20, positionY: 20 },
+        { sourceSchemaId: 'src-2', positionX: 50, positionY: 50 },
       ],
       functoidNodes: [],
       constantNodes: [],
@@ -285,9 +285,27 @@ describe('MappingEditor', () => {
 
     component.saveMapping();
 
-    expect(toastService.all().map((t) => t.message)).toContain(
-      'Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.'
-    );
+    expect(toastService.all().map((t) => t.message)).toContain('Tam olarak bir kaynak şema seçilmelidir.');
     httpMock.expectNone((req) => req.url.endsWith('/mappings'));
+  });
+
+  it('disables (but keeps visible) the add-source-schema controls once one source schema is present', () => {
+    selectTarget();
+    component.newSourceSchemaId = sampleSourceSchema.id;
+    component.addSourceSchema();
+    fixture.detectChanges();
+
+    const select = fixture.debugElement.query(By.css('#sourceSchema'));
+    const addButton = fixture.debugElement.query(By.css('.add-source-schema .pill-btn'));
+    expect(select).not.toBeNull();
+    expect(addButton).not.toBeNull();
+    expect(select.nativeElement.disabled).toBe(true);
+    expect(addButton.nativeElement.disabled).toBe(true);
+
+    // Guard'i UI devre-disi birakmasindan bagimsiz da dogruluyoruz: bir sema
+    // secili olsa bile (elle) ikinci addSourceSchema() cagrisi hicbir sey eklemiyor.
+    component.newSourceSchemaId = sampleSourceSchema.id;
+    component.addSourceSchema();
+    expect(fakeCanvas().getSourceSchemaIds()).toEqual(['src-1']);
   });
 });

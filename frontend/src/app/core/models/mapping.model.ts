@@ -30,7 +30,6 @@ export interface GraphEdge {
 export interface MappingSourceSchemaRef {
   sourceSchemaId: string;
   alias: string;
-  joinKeyField?: string | null;
   positionX: number;
   positionY: number;
 }

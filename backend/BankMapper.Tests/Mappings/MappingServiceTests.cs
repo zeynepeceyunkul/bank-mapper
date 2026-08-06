@@ -76,7 +76,7 @@ public class MappingServiceTests
     }
 
     [Fact]
-    public async Task Multiple_source_schemas_without_join_key_are_rejected()
+    public async Task Multiple_source_schemas_are_rejected()
     {
         var request = ValidRequestBase();
         request.SourceSchemas =
@@ -87,7 +87,18 @@ public class MappingServiceTests
         request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = "src1", FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => CreateService().CreateAsync(request));
-        Assert.Contains("birleştirme anahtarı", ex.Message);
+        Assert.Contains("Tam olarak bir source şema", ex.Message);
+    }
+
+    [Fact]
+    public async Task No_source_schema_is_rejected()
+    {
+        var request = ValidRequestBase();
+        request.SourceSchemas = [];
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => CreateService().CreateAsync(request));
+        Assert.Contains("Tam olarak bir source şema", ex.Message);
     }
 
     [Fact]

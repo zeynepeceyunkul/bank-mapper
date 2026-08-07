@@ -6,7 +6,7 @@ import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 
 import { MappingEditor } from './mapping-editor';
-import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
+import { MappingCanvas, MappingCanvasSnapshot, SuggestedFieldMatch } from '../mapping-canvas/mapping-canvas';
 import { FileType } from '../../../core/models/file-type.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
 import { ToastService } from '../../../core/services/toast.service';
@@ -45,9 +45,14 @@ class FakeMappingCanvas {
   @Output() readonly graphChanged = new EventEmitter<void>();
 
   snapshot: MappingCanvasSnapshot = emptySnapshot();
+  lastSuggestions: SuggestedFieldMatch[] | null = null;
 
   getSnapshot(): MappingCanvasSnapshot {
     return this.snapshot;
+  }
+
+  showSuggestions(matches: SuggestedFieldMatch[]): void {
+    this.lastSuggestions = matches;
   }
 
   getSourceSchemaIds(): string[] {
@@ -307,5 +312,42 @@ describe('MappingEditor', () => {
     component.newSourceSchemaId = sampleSourceSchema.id;
     component.addSourceSchema();
     expect(fakeCanvas().getSourceSchemaIds()).toEqual(['src-1']);
+  });
+
+  // Bu testler AI eslestirme cagrisini test ediyor - HttpTestingController
+  // sayesinde gercek bir aga (Gemini'ye) hic gidilmiyor, tamamen sahte veriyle.
+  it('sends source and target field names and forwards the result to the canvas', () => {
+    selectTarget();
+    component.newSourceSchemaId = sampleSourceSchema.id;
+    component.addSourceSchema();
+
+    component.suggestMatches();
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/field-match-suggestions'));
+    expect(request.request.body).toEqual({
+      sourceFieldNames: ['Ad', 'Soyad'],
+      targetFieldNames: ['AdSoyad'],
+    });
+    expect(component.suggestingMatches()).toBe(true);
+
+    request.flush([{ sourceFields: ['Ad'], targetField: 'AdSoyad', functoidCode: null }]);
+
+    expect(component.suggestingMatches()).toBe(false);
+    expect(fakeCanvas().lastSuggestions).toEqual([{ sourceFields: ['Ad'], targetField: 'AdSoyad', functoidCode: null }]);
+  });
+
+  it('shows an error when the suggestion request fails', () => {
+    selectTarget();
+    component.newSourceSchemaId = sampleSourceSchema.id;
+    component.addSourceSchema();
+
+    component.suggestMatches();
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/field-match-suggestions'));
+    request.flush('bozuldu', { status: 500, statusText: 'Server Error' });
+
+    expect(component.suggestingMatches()).toBe(false);
+    expect(component.suggestError()).toBe('Eşleştirme önerisi alınamadı. API çalışıyor mu?');
+    expect(fakeCanvas().lastSuggestions).toBeNull();
   });
 });

@@ -47,6 +47,31 @@ interface ConstantEditState {
   value: string;
 }
 
+export interface SuggestedFieldMatch {
+  sourceFields: string[];
+  targetField: string;
+  functoidCode: string | null;
+}
+
+interface SuggestionBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+}
+
+interface SuggestionOverlay {
+  key: string;
+  sourceFields: string[];
+  targetField: string;
+  functoidCode: string | null;
+  lines: { x1: number; y1: number; x2: number; y2: number }[];
+  box: SuggestionBox | null;
+  controlsX: number;
+  controlsY: number;
+}
+
 const TITLE_HEIGHT = 30;
 const ROW_HEIGHT = 28;
 const SCHEMA_BOX_WIDTH = 220;
@@ -118,6 +143,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // güncellenmiyordu). Signal write'ları zone'dan bağımsız CD tetikler.
   readonly paramPanel = signal<ParamPanelState | null>(null);
   readonly constantEdit = signal<ConstantEditState | null>(null);
+  readonly suggestions = signal<SuggestionOverlay[]>([]);
 
   ngAfterViewInit(): void {
     this.suppress = true;
@@ -154,9 +180,13 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       this.emitGraphChanged();
     });
     this.graph.on('edge:removed', () => this.emitGraphChanged());
-    this.graph.on('node:added', () => this.emitGraphChanged());
+    this.graph.on('node:added', ({ node }) => {
+      this.tryAttachToNearbySuggestion(node);
+      this.emitGraphChanged();
+    });
     this.graph.on('node:removed', ({ node }) => {
       this.graph.getConnectedEdges(node).forEach((e) => this.graph.removeEdge(e.id));
+      this.suggestions.set([]);
       this.emitGraphChanged();
     });
     this.graph.on('node:change:position', () => {
@@ -524,6 +554,9 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         this.constantEdit.set({ ...edit, x: pos.x, y: pos.y + NODE_HEIGHT + 4 });
       }
     }
+    if (this.suggestions().length > 0) {
+      this.recomputeSuggestionPositions();
+    }
   }
 
   functoidParams(code: string): FunctoidParameterDefinition[] {
@@ -584,6 +617,265 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   removeSourceSchema(schemaId: string): void {
     const cell = this.graph.getCellById(srcId(schemaId));
     if (cell) this.graph.removeCell(cell);
+  }
+
+  // --- AI eslestirme onerileri (kalici degil - onaylanmadan graph'a yazilmaz) ---
+
+  get overlayWidth(): number {
+    return this.canvasWidth;
+  }
+
+  get overlayHeight(): number {
+    return CANVAS_HEIGHT;
+  }
+
+  showSuggestions(matches: SuggestedFieldMatch[]): void {
+    const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
+    const targetNode = this.graph.getCellById(TARGET_NODE_ID) as Node | undefined;
+
+    if (!schemaNode || !targetNode) {
+      this.suggestions.set([]);
+      return;
+    }
+
+    const schemaId = schemaNode.getData<Record<string, unknown>>()?.['sourceSchemaId'] as string;
+    const schema = this.allSourceSchemas.find((s) => s.id === schemaId);
+    if (!schema || !this.targetFileType) {
+      this.suggestions.set([]);
+      return;
+    }
+
+    const srcFields = [...schema.fields].sort((a, b) => a.order - b.order);
+    const tgtFields = [...this.targetFileType.targetFields].sort((a, b) => a.order - b.order);
+    // Zaten kalici bir baglantisi olan alanlara oneri gosterme - kafa karistirmasin.
+    const connectedTargetPorts = new Set(
+      this.graph.getEdges().map((e) => e.getTargetPortId()).filter((p): p is string => !!p)
+    );
+    const connectedSourcePorts = new Set(
+      this.graph.getEdges().map((e) => e.getSourcePortId()).filter((p): p is string => !!p)
+    );
+
+    const overlays: SuggestionOverlay[] = [];
+    for (const m of matches) {
+      if (m.sourceFields.length === 0) continue;
+      if (m.sourceFields.some((f) => connectedSourcePorts.has(f)) || connectedTargetPorts.has(m.targetField)) continue;
+
+      const sourceIndices = m.sourceFields.map((f) => srcFields.findIndex((sf) => sf.name === f));
+      const targetIndex = tgtFields.findIndex((f) => f.name === m.targetField);
+      if (sourceIndices.some((i) => i < 0) || targetIndex < 0) continue;
+
+      overlays.push(
+        m.functoidCode
+          ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, m.sourceFields, m.targetField, m.functoidCode)
+          : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, m.sourceFields[0], m.targetField)
+      );
+    }
+
+    this.suggestions.set(overlays);
+  }
+
+  acceptSuggestion(s: SuggestionOverlay): void {
+    const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
+    if (!schemaNode) return;
+
+    if (s.functoidCode && s.box) {
+      const functoidNodeId = randomId();
+      this.graph.addNode(this.functoidNodeConfig(functoidNodeId, s.functoidCode, s.box.x, s.box.y, null));
+      const ports = this.functoidDefinitions.find((d) => d.code === s.functoidCode)?.inputPorts ?? [];
+      s.sourceFields.forEach((field, i) => {
+        this.graph.addEdge({
+          source: { cell: schemaNode.id, port: field },
+          target: { cell: fnId(functoidNodeId), port: `in:${ports[i]?.name ?? 'value'}` },
+          attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+          zIndex: 0,
+        });
+      });
+      this.graph.addEdge({
+        source: { cell: fnId(functoidNodeId), port: 'out' },
+        target: { cell: TARGET_NODE_ID, port: s.targetField },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+        zIndex: 0,
+      });
+    } else {
+      this.graph.addEdge({
+        source: { cell: schemaNode.id, port: s.sourceFields[0] },
+        target: { cell: TARGET_NODE_ID, port: s.targetField },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+        zIndex: 0,
+      });
+    }
+
+    this.suggestions.update((list) => list.filter((x) => x.key !== s.key));
+    this.emitGraphChanged();
+  }
+
+  rejectSuggestion(s: SuggestionOverlay): void {
+    this.suggestions.update((list) => list.filter((x) => x.key !== s.key));
+  }
+
+  clearSuggestions(): void {
+    this.suggestions.set([]);
+  }
+
+  // Paletten suruklenip AI onerisinin cizgisine yakin bir yere birakilan tek-girdili
+  // bir functoid'i, o oneriyi reddet+elle-bagla yapmaya gerek kalmadan otomatik
+  // baglar - bu yetenek zaten manuel olarak mumkundu (reddet, functoid surukle, elle
+  // baglan), burada sadece kisayola donusturuluyor. Kapsam bilincli olarak dar: sadece
+  // tek kaynak alanli, functoid onerilmemis (Concat degil) oneriler + sadece tek girdi
+  // portlu functoid'ler (Trim/Upper/Lower/LPad/RPad) - Concat 2 girdi istiyor, arity
+  // uyusmazligi riskine girmemek icin bu mekanizmanin disinda tutuluyor.
+  private tryAttachToNearbySuggestion(node: Node): void {
+    const data = node.getData<Record<string, unknown>>();
+    if (data?.['kind'] !== 'functoid' || this.suggestions().length === 0) return;
+
+    const def = this.functoidDefinitions.find((d) => d.code === (data['functoidCode'] as string));
+    if (!def || def.inputPorts.length !== 1) return;
+
+    const pos = node.getPosition();
+    const size = node.getSize();
+    const cx = pos.x + size.width / 2;
+    const cy = pos.y + size.height / 2;
+    const TOLERANCE = 40;
+
+    const match = this.suggestions().find(
+      (s) =>
+        !s.functoidCode &&
+        s.sourceFields.length === 1 &&
+        s.lines.some((l) => this.distanceToSegment(cx, cy, l.x1, l.y1, l.x2, l.y2) <= TOLERANCE)
+    );
+    if (!match) return;
+
+    const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
+    if (!schemaNode) return;
+
+    this.graph.addEdge({
+      source: { cell: schemaNode.id, port: match.sourceFields[0] },
+      target: { cell: node.id, port: `in:${def.inputPorts[0].name}` },
+      attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+      zIndex: 0,
+    });
+    this.graph.addEdge({
+      source: { cell: node.id, port: 'out' },
+      target: { cell: TARGET_NODE_ID, port: match.targetField },
+      attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+      zIndex: 0,
+    });
+    this.suggestions.update((list) => list.filter((x) => x.key !== match.key));
+  }
+
+  private distanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSquared));
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    return Math.hypot(px - closestX, py - closestY);
+  }
+
+  private buildDirectSuggestionOverlay(
+    schemaNode: Node,
+    targetNode: Node,
+    sourceFieldIndex: number,
+    targetFieldIndex: number,
+    sourceField: string,
+    targetField: string
+  ): SuggestionOverlay {
+    const srcPos = schemaNode.getPosition();
+    const tgtPos = targetNode.getPosition();
+    const x1 = srcPos.x + SCHEMA_BOX_WIDTH;
+    const y1 = srcPos.y + TITLE_HEIGHT + sourceFieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const x2 = tgtPos.x;
+    const y2 = tgtPos.y + TITLE_HEIGHT + targetFieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    return {
+      key: `${sourceField}->${targetField}`,
+      sourceFields: [sourceField],
+      targetField,
+      functoidCode: null,
+      lines: [{ x1, y1, x2, y2 }],
+      box: null,
+      controlsX: (x1 + x2) / 2,
+      controlsY: (y1 + y2) / 2,
+    };
+  }
+
+  // Kaynak alanlari bir functoid uzerinden hedefe baglayan oneri (ör. Concat ile
+  // Ad+Soyad -> AdSoyad). Kutu boyutu, gercekten kabul edilince olusacak functoid
+  // node'uyla ayni mantikla (functoidNodeConfig) hesaplaniyor ki onizleme yaniltici
+  // olmasin.
+  private buildFunctoidSuggestionOverlay(
+    schemaNode: Node,
+    targetNode: Node,
+    sourceFieldIndices: number[],
+    targetFieldIndex: number,
+    sourceFields: string[],
+    targetField: string,
+    functoidCode: string
+  ): SuggestionOverlay {
+    const srcPos = schemaNode.getPosition();
+    const tgtPos = targetNode.getPosition();
+    const srcX = srcPos.x + SCHEMA_BOX_WIDTH;
+    const tgtX = tgtPos.x;
+    const tgtY = tgtPos.y + TITLE_HEIGHT + targetFieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const srcYs = sourceFieldIndices.map((i) => srcPos.y + TITLE_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2);
+
+    const { width, height, label } = this.functoidBoxSize(functoidCode, sourceFields.length);
+    const boxX = (srcX + tgtX) / 2 - width / 2;
+    const boxY = srcYs.reduce((a, b) => a + b, 0) / srcYs.length - height / 2;
+
+    const lines = srcYs.map((y1, i) => ({
+      x1: srcX,
+      y1,
+      x2: boxX,
+      y2: boxY + ((i + 0.5) * height) / srcYs.length,
+    }));
+    lines.push({ x1: boxX + width, y1: boxY + height / 2, x2: tgtX, y2: tgtY });
+
+    return {
+      key: `${sourceFields.join('+')}->${targetField}`,
+      sourceFields,
+      targetField,
+      functoidCode,
+      lines,
+      box: { x: boxX, y: boxY, width, height, label },
+      controlsX: boxX + width,
+      controlsY: boxY + height / 2,
+    };
+  }
+
+  // functoidNodeConfig'teki boyut hesabinin ayni kopyasi (kabul-oncesi onizleme,
+  // kabul-sonrasi gercek node'la ayni boyutta gorunsun diye).
+  private functoidBoxSize(code: string, portCountHint: number): { width: number; height: number; label: string } {
+    const def = this.functoidDefinitions.find((d) => d.code === code);
+    const label = def?.name ?? code;
+    const portCount = def?.inputPorts?.length || portCountHint || 1;
+    const height = portCount <= 1 ? NODE_HEIGHT : portCount * 30;
+    const width = functoidNodeWidth(label);
+    return { width, height, label };
+  }
+
+  private recomputeSuggestionPositions(): void {
+    const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
+    const targetNode = this.graph.getCellById(TARGET_NODE_ID) as Node | undefined;
+    if (!schemaNode || !targetNode) return;
+
+    const schemaId = schemaNode.getData<Record<string, unknown>>()?.['sourceSchemaId'] as string;
+    const schema = this.allSourceSchemas.find((s) => s.id === schemaId);
+    if (!schema || !this.targetFileType) return;
+
+    const srcFields = [...schema.fields].sort((a, b) => a.order - b.order);
+    const tgtFields = [...this.targetFileType.targetFields].sort((a, b) => a.order - b.order);
+
+    this.suggestions.update((list) =>
+      list.map((s) => {
+        const sourceIndices = s.sourceFields.map((f) => srcFields.findIndex((sf) => sf.name === f));
+        const targetIndex = tgtFields.findIndex((f) => f.name === s.targetField);
+        if (sourceIndices.some((i) => i < 0) || targetIndex < 0) return s;
+        return s.functoidCode
+          ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, s.sourceFields, s.targetField, s.functoidCode)
+          : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, s.sourceFields[0], s.targetField);
+      })
+    );
   }
 
   addConstant(x: number, y: number): void {
@@ -694,6 +986,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     }
     this.paramPanel.set(null);
     this.constantEdit.set(null);
+    this.suggestions.set([]);
 
     for (const ref of snapshot.sourceSchemas) {
       const schema = this.allSourceSchemas.find((s) => s.id === ref.sourceSchemaId);

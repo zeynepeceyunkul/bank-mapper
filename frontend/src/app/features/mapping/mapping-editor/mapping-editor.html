@@ -157,11 +157,19 @@
 
   @if (hedefConfirmedOnce()) {
     @if (canvasRevealed()) {
-      <p class="hint">
-        Kaynak/hedef alanları veya node çıkış-giriş noktalarını sürükleyerek bağla. Functoid eklemek için
-        soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
-        taşınabilir.
-      </p>
+      <div class="canvas-toolbar">
+        <p class="hint">
+          Kaynak/hedef alanları veya node çıkış-giriş noktalarını sürükleyerek bağla. Functoid eklemek için
+          soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
+          taşınabilir.
+        </p>
+        <button type="button" matButton="tonal" [disabled]="suggestingMatches()" (click)="suggestMatches()">
+          {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
+        </button>
+      </div>
+      @if (suggestError()) {
+        <p class="error">{{ suggestError() }}</p>
+      }
     } @else {
       <div class="canvas-placeholder">
         <p class="hint">Bir kaynak şema ekleyince canvas burada görünecek.</p>

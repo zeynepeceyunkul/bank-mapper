@@ -16,6 +16,48 @@
   <div class="canvas-host-wrapper">
     <div class="canvas-host" #canvasHost></div>
 
+    @if (suggestions().length > 0) {
+      <!-- canvas-host-wrapper'in padding'i (20px) tek bir yerde, bu katmanin
+           kendisinde telafi ediliyor - icindeki tum koordinatlar X6'nin ham
+           node pozisyon uzayini degistirmeden dogrudan kullanabiliyor. -->
+      <div class="suggestion-layer">
+        <svg class="suggestion-overlay" [attr.width]="overlayWidth" [attr.height]="overlayHeight">
+          <!-- Cizgiler ONCE, kutular SONRA (ayri iki gecis) - SVG'de sonradan
+               cizilen oge onde durur. Boylece bir onerinin cizgisi baska bir
+               onerinin ghost kutusunun icinden gecerse, kutu her zaman ustte
+               kalip cizgiyi "arkasinda" gizliyor - karisik gorunmek yerine
+               gercek bir diyagramdaki gibi kutunun arkasindan geciyor hissi. -->
+          @for (s of suggestions(); track s.key) {
+            @for (l of s.lines; track $index) {
+              <line [attr.x1]="l.x1" [attr.y1]="l.y1" [attr.x2]="l.x2" [attr.y2]="l.y2" class="suggestion-line" />
+            }
+          }
+          @for (s of suggestions(); track s.key) {
+            @if (s.box; as box) {
+              <rect
+                [attr.x]="box.x"
+                [attr.y]="box.y"
+                [attr.width]="box.width"
+                [attr.height]="box.height"
+                rx="4"
+                ry="4"
+                class="suggestion-functoid-box"
+              />
+              <text [attr.x]="box.x + box.width / 2" [attr.y]="box.y + box.height / 2 + 4" class="suggestion-functoid-label">
+                {{ box.label }}
+              </text>
+            }
+          }
+        </svg>
+        @for (s of suggestions(); track s.key) {
+          <div class="suggestion-controls" [style.left.px]="s.controlsX - 24" [style.top.px]="s.controlsY - 12">
+            <button type="button" class="suggestion-accept" title="Kabul et" (click)="acceptSuggestion(s)">✓</button>
+            <button type="button" class="suggestion-reject" title="Reddet" (click)="rejectSuggestion(s)">✕</button>
+          </div>
+        }
+      </div>
+    }
+
     @if (paramPanel(); as panel) {
       <div class="floating-panel" [style.left.px]="panel.x" [style.top.px]="panel.y">
         <button type="button" class="floating-panel-close" title="Kapat" (click)="closeParamPanel()">×</button>

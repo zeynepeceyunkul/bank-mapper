@@ -78,6 +78,79 @@
     position: relative;
   }
 
+  .suggestion-layer {
+    position: absolute;
+    // canvas-host-wrapper'in 20px padding'i burada TEK bir yerde telafi ediliyor
+    // - canvas-host da ayni padding kadar iceri kaydigi icin, bu katmanin ici
+    // X6'nin ham node pozisyon uzayiyla birebir hizali oluyor. Wrapper'in
+    // padding'i degisirse burasi da guncellenmeli.
+    top: 20px;
+    left: 20px;
+    z-index: 4;
+  }
+
+  .suggestion-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .suggestion-line {
+    stroke: #378add;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 5;
+  }
+
+  // Henuz onaylanmamis functoid onerisi - gercek (turuncu) functoid node'undan
+  // bilerek farkli, mavi/kesikli tonda kaliyor ki "henuz gercek degil" hissi net olsun.
+  .suggestion-functoid-box {
+    fill: #eaf2fb;
+    stroke: #378add;
+    stroke-width: 1.5;
+    stroke-dasharray: 5, 5;
+  }
+
+  .suggestion-functoid-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-anchor: middle;
+    fill: #205a96;
+  }
+
+  .suggestion-controls {
+    position: absolute;
+    z-index: 6;
+    display: flex;
+    gap: 4px;
+    pointer-events: auto;
+  }
+
+  .suggestion-accept,
+  .suggestion-reject {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .suggestion-accept {
+    border: 1px solid #639922;
+    background: #eaf3de;
+    color: #3b6d11;
+  }
+
+  .suggestion-reject {
+    border: 1px solid #a32d2d;
+    background: #fcebeb;
+    color: #791f1f;
+  }
+
   .floating-panel {
     position: absolute;
     z-index: 5;

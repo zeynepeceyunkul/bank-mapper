@@ -1,5 +1,8 @@
+using System.Globalization;
 using System.Text;
 using BankMapper.Application.FileWriting;
+using CsvHelper;
+using CsvHelper.Configuration;
 
 namespace BankMapper.Infrastructure.FileWriting;
 
@@ -17,20 +20,30 @@ public class CsvFileWriter : IFileWriter
         }
 
         var columns = rows[0].Keys.ToList();
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Join(",", columns.Select(EscapeCsvValue)));
 
-        foreach (var row in rows)
+        using var stream = new MemoryStream();
+        // BOM'suz UTF8: Encoding.UTF8.GetBytes de BOM eklemiyordu, StreamWriter'in
+        // parametresiz varsayilani BOM ekler - onceki davranisla ayni kalmasi icin
+        // acikca belirtiliyor.
+        using (var streamWriter = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: true))
+        using (var csv = new CsvWriter(streamWriter, new CsvConfiguration(CultureInfo.InvariantCulture)))
         {
-            var values = columns.Select(c => EscapeCsvValue(row.GetValueOrDefault(c)?.ToString() ?? string.Empty));
-            builder.AppendLine(string.Join(",", values));
+            foreach (var column in columns)
+            {
+                csv.WriteField(column);
+            }
+            csv.NextRecord();
+
+            foreach (var row in rows)
+            {
+                foreach (var column in columns)
+                {
+                    csv.WriteField(row.GetValueOrDefault(column)?.ToString() ?? string.Empty);
+                }
+                csv.NextRecord();
+            }
         }
 
-        return Encoding.UTF8.GetBytes(builder.ToString());
+        return stream.ToArray();
     }
-
-    private static string EscapeCsvValue(string value) =>
-        value.Contains(',') || value.Contains('"') || value.Contains('\n')
-            ? $"\"{value.Replace("\"", "\"\"")}\""
-            : value;
 }

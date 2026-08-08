@@ -223,7 +223,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
         this.rawPendingSnapshot.set({
           sourceSchemas: mapping.sourceSchemas.map((s) => ({
             sourceSchemaId: s.sourceSchemaId,
-            joinKeyField: s.joinKeyField ?? null,
             positionX: s.positionX,
             positionY: s.positionY,
           })),
@@ -433,7 +432,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   addSourceSchema(): void {
-    if (!this.newSourceSchemaId) {
+    if (!this.newSourceSchemaId || this.usedSourceSchemaIds().length > 0) {
       return;
     }
     const schema = this.sourceSchemas().find((s) => s.id === this.newSourceSchemaId);
@@ -469,8 +468,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       return;
     }
 
-    if (snapshot.sourceSchemas.length > 1 && snapshot.sourceSchemas.some((s) => !s.joinKeyField)) {
-      this.toastService.error('Birden fazla kaynak şema kullanılıyorsa her biri için birleştirme anahtarı seçilmelidir.');
+    if (snapshot.sourceSchemas.length !== 1) {
+      this.toastService.error('Tam olarak bir kaynak şema seçilmelidir.');
       return;
     }
 
@@ -481,7 +480,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       sourceSchemas: snapshot.sourceSchemas.map((s) => ({
         sourceSchemaId: s.sourceSchemaId,
         alias: this.sourceSchemas().find((x) => x.id === s.sourceSchemaId)?.name ?? '',
-        joinKeyField: s.joinKeyField,
         positionX: s.positionX,
         positionY: s.positionY,
       })),

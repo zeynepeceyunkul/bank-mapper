@@ -60,6 +60,15 @@ describe('MappingCanvas', () => {
     expect(component.getSourceSchemaIds()).toEqual([]);
   });
 
+  it('ignores a second addSourceSchema call while one is already present (single-source only)', () => {
+    const otherSchema: SourceSchema = { ...sourceSchema, id: 'src-2', name: 'Other Source' };
+
+    component.addSourceSchema(sourceSchema, 20, 20);
+    component.addSourceSchema(otherSchema, 60, 60);
+
+    expect(component.getSourceSchemaIds()).toEqual(['src-1']);
+  });
+
   it('adds a constant node and reflects it in the snapshot', () => {
     component.addConstant(100, 100);
     const snapshot = component.getSnapshot();
@@ -69,7 +78,7 @@ describe('MappingCanvas', () => {
 
   it('round-trips a snapshot through loadSnapshot/getSnapshot (private API via initialSnapshot input)', () => {
     const snapshot: MappingCanvasSnapshot = {
-      sourceSchemas: [{ sourceSchemaId: 'src-1', joinKeyField: null, positionX: 20, positionY: 20 }],
+      sourceSchemas: [{ sourceSchemaId: 'src-1', positionX: 20, positionY: 20 }],
       functoidNodes: [{ id: 'fn-1', functoidCode: 'Trim', params: null, positionX: 300, positionY: 80 }],
       constantNodes: [],
       edges: [

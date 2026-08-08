@@ -11,7 +11,6 @@ import {
   ViewChild,
   signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Edge, Graph, Node } from '@antv/x6';
 import { Dnd } from '@antv/x6-plugin-dnd';
 import { Snapline } from '@antv/x6-plugin-snapline';
@@ -22,7 +21,6 @@ import { SourceSchema } from '../../../core/models/source-schema.model';
 
 export interface SourceSchemaRefInput {
   sourceSchemaId: string;
-  joinKeyField: string | null;
   positionX: number;
   positionY: number;
 }
@@ -47,14 +45,6 @@ interface ConstantEditState {
   x: number;
   y: number;
   value: string;
-}
-
-interface JoinKeySelector {
-  schemaId: string;
-  x: number;
-  y: number;
-  value: string;
-  fields: string[];
 }
 
 const TITLE_HEIGHT = 30;
@@ -95,7 +85,7 @@ function functoidNodeWidth(label: string): number {
 
 @Component({
   selector: 'app-mapping-canvas',
-  imports: [FormsModule],
+  imports: [],
   templateUrl: './mapping-canvas.html',
   styleUrl: './mapping-canvas.scss',
 })
@@ -128,7 +118,6 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // güncellenmiyordu). Signal write'ları zone'dan bağımsız CD tetikler.
   readonly paramPanel = signal<ParamPanelState | null>(null);
   readonly constantEdit = signal<ConstantEditState | null>(null);
-  readonly joinKeySelectors = signal<JoinKeySelector[]>([]);
 
   ngAfterViewInit(): void {
     this.suppress = true;
@@ -168,12 +157,10 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.graph.on('node:added', () => this.emitGraphChanged());
     this.graph.on('node:removed', ({ node }) => {
       this.graph.getConnectedEdges(node).forEach((e) => this.graph.removeEdge(e.id));
-      this.refreshJoinKeySelectors();
       this.emitGraphChanged();
     });
     this.graph.on('node:change:position', () => {
       this.repositionOverlays();
-      this.refreshJoinKeySelectors();
       this.emitGraphChanged();
     });
     this.graph.on('node:click', ({ node }) => this.onNodeClick(node));
@@ -257,7 +244,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
 
   // --- Node config üreticileri ---
 
-  private schemaNodeConfig(schema: SourceSchema, x: number, y: number, joinKeyField: string | null): Node.Metadata {
+  private schemaNodeConfig(schema: SourceSchema, x: number, y: number): Node.Metadata {
     const fields = [...schema.fields].sort((a, b) => a.order - b.order);
     const height = schemaBoxHeight(fields.length);
     return {
@@ -268,7 +255,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       width: SCHEMA_BOX_WIDTH,
       height,
       zIndex: 2,
-      data: { kind: 'sourceSchema', sourceSchemaId: schema.id, joinKeyField },
+      data: { kind: 'sourceSchema', sourceSchemaId: schema.id },
       markup: [
         { tagName: 'rect', selector: 'body' },
         { tagName: 'rect', selector: 'titleBg' },
@@ -582,45 +569,16 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.constantEdit.set(null);
   }
 
-  // --- Birleştirme anahtarı (join key) overlay'leri ---
-
-  private refreshJoinKeySelectors(): void {
-    const schemaNodes = this.graph.getNodes().filter((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
-    if (schemaNodes.length <= 1) {
-      this.joinKeySelectors.set([]);
-      return;
-    }
-    this.joinKeySelectors.set(
-      schemaNodes.map((n) => {
-        const data = n.getData<Record<string, unknown>>();
-        const pos = n.getPosition();
-        const schema = this.allSourceSchemas.find((s) => s.id === data['sourceSchemaId']);
-        return {
-          schemaId: data['sourceSchemaId'] as string,
-          x: pos.x + SCHEMA_BOX_WIDTH - 96,
-          y: pos.y + 4,
-          value: (data['joinKeyField'] as string) ?? '',
-          fields: (schema?.fields ?? []).map((f) => f.name),
-        };
-      })
-    );
-  }
-
-  onJoinKeySelectChange(schemaId: string, value: string): void {
-    const node = this.graph.getCellById(srcId(schemaId)) as Node | undefined;
-    if (node) {
-      node.setData({ ...node.getData<Record<string, unknown>>(), joinKeyField: value });
-    }
-    this.refreshJoinKeySelectors();
-    this.emitGraphChanged();
-  }
-
   // --- Kaydetme/silme dışa açılan API ---
 
+  // Tek kaynak semaya sinirlandirildigi icin (bkz. proje karari - multi-source
+  // mapping kaldirildi) zaten bir kaynak varsa yenisi eklenmiyor. mapping-editor
+  // tarafinda da "+ Kaynak Ekle" bir kaynak eklendikten sonra disabled oluyor,
+  // ama bu guard burada da savunma amacli tekrarlaniyor.
   addSourceSchema(schema: SourceSchema, x: number, y: number): void {
+    if (this.getSourceSchemaIds().length > 0) return;
     if (this.graph.getCellById(srcId(schema.id))) return;
-    this.graph.addNode(this.schemaNodeConfig(schema, x, y, null));
-    this.refreshJoinKeySelectors();
+    this.graph.addNode(this.schemaNodeConfig(schema, x, y));
   }
 
   removeSourceSchema(schemaId: string): void {
@@ -669,9 +627,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
 
   private describeFrom(edge: GraphEdge): string {
     if (edge.fromKind === 'SourceField') {
-      const multiSource = this.getSourceSchemaIds().length > 1;
-      const schema = this.allSourceSchemas.find((s) => s.id === edge.fromSourceSchemaId);
-      return schema && multiSource ? `${schema.name}: ${edge.fromFieldName}` : (edge.fromFieldName ?? '?');
+      return edge.fromFieldName ?? '?';
     }
     if (edge.fromKind === 'NodeOutput') {
       const node = this.findFunctoidCell(edge.fromNodeId ?? '');
@@ -703,7 +659,6 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       if (data['kind'] === 'sourceSchema') {
         sourceSchemas.push({
           sourceSchemaId: data['sourceSchemaId'] as string,
-          joinKeyField: (data['joinKeyField'] as string) ?? null,
           positionX: pos.x,
           positionY: pos.y,
         });
@@ -743,7 +698,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     for (const ref of snapshot.sourceSchemas) {
       const schema = this.allSourceSchemas.find((s) => s.id === ref.sourceSchemaId);
       if (!schema) continue;
-      this.graph.addNode(this.schemaNodeConfig(schema, ref.positionX, ref.positionY, ref.joinKeyField));
+      this.graph.addNode(this.schemaNodeConfig(schema, ref.positionX, ref.positionY));
     }
     for (const fn of snapshot.functoidNodes) {
       this.graph.addNode(this.functoidNodeConfig(fn.id, fn.functoidCode, fn.positionX, fn.positionY, fn.params ?? null));
@@ -765,7 +720,6 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       });
     }
 
-    this.refreshJoinKeySelectors();
     this.suppress = previousSuppress;
     if (!this.suppress) {
       this.emitGraphChanged();

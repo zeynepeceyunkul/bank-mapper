@@ -7,11 +7,28 @@
   > .hint,
   > .error,
   > .canvas-placeholder,
-  > .canvas-and-connections {
+  > .canvas-and-connections,
+  > .canvas-toolbar {
     display: block;
     max-width: 1400px;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  > .canvas-toolbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+
+    > .hint {
+      max-width: none;
+      margin: 0;
+    }
+
+    > button {
+      flex: 0 0 auto;
+    }
   }
 
   // Ustteki tek talimat metni (referansta rgb(86,112,138) mavi-gri, italik

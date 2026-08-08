@@ -11,6 +11,7 @@ import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
 import { FunctoidService } from '../../../core/services/functoid.service';
+import { FieldMatchSuggestionService } from '../../../core/services/field-match-suggestion.service';
 import { FileType } from '../../../core/models/file-type.model';
 import { FunctoidDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
@@ -44,6 +45,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly mappingService = inject(MappingService);
   private readonly functoidService = inject(FunctoidService);
+  private readonly fieldMatchSuggestionService = inject(FieldMatchSuggestionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -95,6 +97,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   readonly usedSourceSchemaIds = signal<string[]>([]);
   readonly connections = signal<{ id: string; from: string; to: string }[]>([]);
+  readonly suggestingMatches = signal(false);
+  readonly suggestError = signal<string | null>(null);
 
   // Canvas hydrate/olusturma sonrasi (bkz. mapping-canvas.ts ngAfterViewInit)
   // her zaman bir kerelik "hazir" bildirimi geliyor - bu, taze yuklenmis ya
@@ -453,6 +457,40 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   removeEdge(id: string): void {
     this.canvas.removeEdge(id);
+  }
+
+  // Kaynak semadaki ve hedef dosya tipindeki alan adlarini AI'ya gonderip
+  // eslestirme onerisi istiyor - canvas'ta onerileri kesikli cizgi olarak
+  // gosteriyor, kullanicinin her birini tek tek onaylamasi/reddetmesi gerekiyor
+  // (bkz. proje karari: otomatik/sessiz baglanti kurulmuyor).
+  suggestMatches(): void {
+    const schemaId = this.usedSourceSchemaIds()[0];
+    const schema = this.sourceSchemas().find((s) => s.id === schemaId);
+    const targetFileType = this.activeFileType();
+
+    if (!schema || !targetFileType) {
+      return;
+    }
+
+    this.suggestingMatches.set(true);
+    this.suggestError.set(null);
+
+    const sourceFieldNames = schema.fields.map((f) => f.name);
+    const targetFieldNames = targetFileType.targetFields.map((f) => f.name);
+
+    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFieldNames).subscribe({
+      next: (suggestions) => {
+        this.suggestingMatches.set(false);
+        this.canvas.showSuggestions(suggestions);
+        if (suggestions.length === 0) {
+          this.toastService.error('AI herhangi bir eşleştirme önerisi bulamadı.');
+        }
+      },
+      error: () => {
+        this.suggestingMatches.set(false);
+        this.suggestError.set('Eşleştirme önerisi alınamadı. API çalışıyor mu?');
+      },
+    });
   }
 
   saveMapping(): void {

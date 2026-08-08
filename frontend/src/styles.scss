@@ -119,14 +119,38 @@ button {
   padding: 0.4rem 0.8rem;
   background: #fff;
 
-  &:hover:not(:disabled) {
+  // Ayni "genel kural Material butonuna sizdi" sorunu hover'da da vardi: bu acik
+  // gri arka plan, Material'in kendi temali (orn. siyah "Onayla") arka planinin
+  // ustune biniyor ama metin rengi Material'den (beyaz) geldigi icin beyaz yazi
+  // beyaza yakin bir zeminde kayboluyordu. Material butonlari kendi hover/state-layer
+  // davranisini zaten temadan yonetiyor, bu yuzden onlar disarida tutuluyor.
+  &:hover:not(:disabled):not(.mat-mdc-button-base) {
     background: #f5f5f5;
   }
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.6;
+
+    // Angular Material butonlari (mat-flat-button vb.) kendi disabled kontrastini
+    // zaten temadan (surface-uzerindeki %12 arka plan / %38 metin alfasi) hesapliyor -
+    // bu genel opacity kurali onun USTUNE bir kez daha soluklastirma uyguluyordu,
+    // ikisi ust uste binince (orn. koyu "Onayla" butonu) metin okunamaz hale
+    // geliyordu. Sadece Material'in kendi disabled stilini tasimayan duz <button>'lar
+    // icin uygulanıyor.
+    &:not(.mat-mdc-button-base) {
+      opacity: 0.6;
+    }
   }
+}
+
+// Material'in kendi disabled tonu (on-surface renginin %12/%38 alfasi) beyaza
+// yakin bir zeminde ("Onayla" gibi dolu/flat butonlarda) neredeyse gorunmez
+// kaliyordu - saydam alfa yerine dogrudan, okunakli duz gri renkler kullaniliyor.
+// Sadece dolu/flat butonlar (mat-flat-button) hedefleniyor - icon butonlarin
+// (silme vb.) arka plani olmadigi icin buraya dahil edilmiyor.
+.mat-mdc-unelevated-button.mat-mdc-button-disabled {
+  background-color: #d9d9d9 !important;
+  color: #6b6b6b !important;
 }
 
 input,

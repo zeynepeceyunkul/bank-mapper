@@ -27,7 +27,12 @@ public static class DependencyInjection
         services.AddSingleton<IFileWriterFactory, FileWriterFactory>();
 
         services.Configure<GeminiSettings>(configuration.GetSection(GeminiSettings.SectionName));
-        services.AddHttpClient<IFieldMatchSuggestionService, GeminiFieldMatchSuggestionService>();
+        // HttpClient'in varsayilan Timeout'u 100 saniye - Gemini yavas/yanitsiz
+        // kaldiginda kullanici bu kadar sure "Oneriler aliniyor..." ekraninda
+        // bekleyip belirsiz bir hata aliyordu. Daha kisa bir sinir koyup hatayi
+        // hizlica yuzeye cikariyoruz.
+        services.AddHttpClient<IFieldMatchSuggestionService, GeminiFieldMatchSuggestionService>()
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20));
 
         return services;
     }

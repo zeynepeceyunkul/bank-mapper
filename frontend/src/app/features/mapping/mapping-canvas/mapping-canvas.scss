@@ -104,11 +104,19 @@
 
   // Henuz onaylanmamis functoid onerisi - gercek (turuncu) functoid node'undan
   // bilerek farkli, mavi/kesikli tonda kaliyor ki "henuz gercek degil" hissi net olsun.
+  // pointer-events acikca 'auto' - ebeveyn .suggestion-overlay'in 'none'u burada
+  // eziliyor ki kutu elle suruklenebilsin (bkz. startDraggingSuggestion).
   .suggestion-functoid-box {
     fill: #eaf2fb;
     stroke: #378add;
     stroke-width: 1.5;
     stroke-dasharray: 5, 5;
+    pointer-events: auto;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
   }
 
   .suggestion-functoid-label {

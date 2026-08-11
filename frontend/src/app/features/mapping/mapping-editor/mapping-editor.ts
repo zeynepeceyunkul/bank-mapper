@@ -1,4 +1,5 @@
-import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -99,6 +100,15 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   readonly connections = signal<{ id: string; from: string; to: string }[]>([]);
   readonly suggestingMatches = signal(false);
   readonly suggestError = signal<string | null>(null);
+
+  // Kaydet butonu, saveMapping()'in zaten reddedecegi bir durumu (hedef
+  // yok/kaynak yok/hic baglanti yok) kullaniciya oncesinde gostermeden
+  // acmasin diye - eskiden buton her zaman tiklanabiliyordu, hicbir sey
+  // secilmemisken bile "Mapping Adi" popup'ini acip sonra "zorunlu" hatasi
+  // veriyordu.
+  readonly canSave = computed(
+    () => this.hedefConfirmedOnce() && this.usedSourceSchemaIds().length > 0 && this.connections().length > 0 && !this.saving()
+  );
 
   // Canvas hydrate/olusturma sonrasi (bkz. mapping-canvas.ts ngAfterViewInit)
   // her zaman bir kerelik "hazir" bildirimi geliyor - bu, taze yuklenmis ya
@@ -262,9 +272,25 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
           },
         });
       },
-      error: () => {
-        this.error.set('Mapping yüklenemedi. API çalışıyor mu?');
+      error: (err: HttpErrorResponse) => {
+        // 404 (mapping silinmis - orn. "Kayitli Mapping'ler" panelinden, ayni
+        // mapping baska bir yerde acikken) genel "API calisiyor mu?" mesajini
+        // gostermek yanlis yonlendiriyordu - API gayet calisiyor, sadece bu
+        // mapping artik yok. Ayrica sadece loadingExisting'i kapatip mappingId'yi
+        // eski (artik gecersiz) degerinde birakmak, sayfa basligini hala
+        // "Mapping Duzenle" gostermeye devam ettiriyordu, hicbir sey
+        // yuklenmemis olsa bile - resetForNewMapping() ile temiz bir "yeni
+        // mapping" durumuna donuyoruz, hata mesaji ustte gorunur kaliyor.
         this.loadingExisting.set(false);
+        if (err.status === 404) {
+          // Sira onemli: resetForNewMapping() kendi icinde error.set(null)
+          // yapiyor, o yuzden mesaji ANCAK reset'ten SONRA yaziyoruz -
+          // aksi halde reset mesaji hemen siliyordu.
+          this.resetForNewMapping();
+          this.error.set('Bu mapping artık mevcut değil (silinmiş olabilir).');
+        } else {
+          this.error.set('Mapping yüklenemedi. API çalışıyor mu?');
+        }
       },
     });
   }
@@ -305,6 +331,19 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // CanDeactivateFn Promise<boolean> donusunu destekliyor.
   canDeactivate(): Promise<boolean> {
     return this.confirmDiscardIfDirty();
+  }
+
+  // canDeactivate SADECE Angular Router navigasyonlarinda calisiyor - sayfa
+  // yenileme (F5) ya da sekmeyi/pencereyi kapatma bunun disinda, tarayicinin
+  // kendi native uyarisi gerekiyor. Mesaj metni tarayici tarafindan sabitlendigi
+  // icin (guvenlik nedeniyle, modern tarayicilar ozel metne izin vermiyor)
+  // sadece preventDefault() cagirmak yeterli - tarayici kendi genel "kaydedilmemis
+  // degisiklikler olabilir" uyarisini gosteriyor.
+  @HostListener('window:beforeunload', ['$event'])
+  handleBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.isDirty()) {
+      event.preventDefault();
+    }
   }
 
   // Hedef paneli sadece "Onayla" ile kapanıyor (bkz. mapping-editor.html),
@@ -401,6 +440,31 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   toggleMappingsPanel(): void {
     this.showMappingsPanel.update((v) => !v);
+  }
+
+  // "Kayıtlı Mapping'ler" panelinden, o an bu ekranda acik olan mapping
+  // silinirse - eskiden arka sayfa hicbir sey degismemis gibi ayni
+  // (silinmis) mapping'i gostermeye devam ediyordu, kullanici ancak elle
+  // sayfayi yenileyince (loadExistingMapping'in 404 kontrolu sayesinde)
+  // fark ediyordu. Artik anlik olarak "yeni mapping" durumuna donup
+  // haber veriyoruz.
+  //
+  // Ece'nin canli yakaladigi bir eksik: resetForNewMapping() SADECE ic
+  // state'i sifirliyordu, URL'yi DEGISTIRMIYORDU - adres cubugu hala
+  // /mapping/edit/{silinenId} gosterirmeye devam ediyordu (sayfa icerigi
+  // "Yeni Mapping Olustur" desin bile). Kullanici daha sonra sayfayi
+  // yenileyince, URL hala o gecersiz id'yi tasidigi icin loadExistingMapping
+  // AYNI 404 akisini tekrar tetikliyordu - "yeni mapping" gordugu halde ayni
+  // hatayla tekrar karsilasiyordu. router.navigate ile URL'yi de gercekten
+  // /mapping'e tasiyoruz ki gorunen durumla adres cubugu tutarli olsun.
+  onMappingDeleted(id: string): void {
+    if (this.mappingId !== id) {
+      return;
+    }
+    this.resetForNewMapping();
+    this.showMappingsPanel.set(false);
+    this.toastService.error('Düzenlemekte olduğunuz mapping silindi.');
+    this.router.navigate(['/mapping']);
   }
 
   toggleSourceSchemaModal(): void {
@@ -551,9 +615,18 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
           this.router.navigate(['/mapping/edit', mapping.id]);
         }
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        this.toastService.error('Mapping kaydedilemedi. API çalışıyor mu?');
+        // Guncelleme sirasinda 404 - mapping baska bir yerden (orn. "Kayitli
+        // Mapping'ler" panelinden, baska bir sekmede) zaten silinmis demektir.
+        // Genel "kaydedilemedi/API calisiyor mu?" mesaji yanlis yonlendirici
+        // olurdu (loadExistingMapping'deki ayni duzeltmenin karsiligi).
+        if (!wasNew && err.status === 404) {
+          this.resetForNewMapping();
+          this.toastService.error('Bu mapping artık mevcut değil (başka bir yerden silinmiş olabilir).');
+          return;
+        }
+        this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping kaydedilemedi. API çalışıyor mu?');
       },
     });
   }

@@ -24,17 +24,58 @@ public class GeminiFieldMatchSuggestionService(HttpClient httpClient, IOptions<G
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{settings.Value.Model}:generateContent?key={settings.Value.ApiKey}";
         using var content = new StringContent(JsonSerializer.Serialize(BuildRequestBody(sourceFieldNames, targetFieldNames)), Encoding.UTF8, "application/json");
-        using var response = await httpClient.PostAsync(url, content);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Gemini API hata dondurdu: {(int)response.StatusCode} - {errorBody}");
-        }
-
-        var responseJson = await response.Content.ReadAsStringAsync();
+        var responseJson = await SendWithRetryAsync(url, content);
         return ParseSuggestions(responseJson, sourceFieldNames, targetFieldNames);
     }
+
+    // Gemini (ozellikle ucretsiz katmanda) ara sira tek seferlik gecici bir
+    // yavaslik/hata gosterebiliyor - zaman asimina ugrayip 20s Timeout'a takilan
+    // ya da 429/5xx donen bir cagriyi bir kez daha deniyoruz, boylece kullanici
+    // manuel "tekrar dene"ye basmak zorunda kalmiyor. Gercek istek hatalari
+    // (401/400 gibi) tekrar denemeden hemen firlatiliyor - tekrar denemek onlari
+    // duzeltmez, sadece gecikmeyi ikiye katlar.
+    private async Task<string> SendWithRetryAsync(string url, HttpContent content)
+    {
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                response = await httpClient.PostAsync(url, content);
+            }
+            catch (TaskCanceledException) when (attempt == 1)
+            {
+                await Task.Delay(500);
+                continue;
+            }
+
+            using (response)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsStringAsync();
+                }
+
+                var errorBody = await response.Content.ReadAsStringAsync();
+                if (attempt == 1 && IsTransientStatusCode(response.StatusCode))
+                {
+                    await Task.Delay(500);
+                    continue;
+                }
+
+                throw new InvalidOperationException($"Gemini API hata dondurdu: {(int)response.StatusCode} - {errorBody}");
+            }
+        }
+
+        // Buraya sadece 2. deneme de zaman asimina ugrarsa (TaskCanceledException)
+        // ulasilir - o durumda catch filtresi (attempt == 1) devreye girmedigi icin
+        // istisna zaten yukari firladi, bu satira asla fiilen erisilmez.
+        throw new InvalidOperationException("Gemini API'den yanit alinamadi.");
+    }
+
+    private static bool IsTransientStatusCode(System.Net.HttpStatusCode statusCode) =>
+        statusCode == System.Net.HttpStatusCode.TooManyRequests || (int)statusCode >= 500;
 
     private static object BuildRequestBody(List<string> sourceFieldNames, List<string> targetFieldNames)
     {

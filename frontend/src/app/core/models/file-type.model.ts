@@ -3,6 +3,8 @@ export interface TargetField {
   type: string;
   order: number;
   length: number | null;
+  isRequired: boolean;
+  validationFormat?: 'None' | 'Iban' | 'TcKimlikNo' | 'PositiveDecimal';
 }
 
 export interface FileType {

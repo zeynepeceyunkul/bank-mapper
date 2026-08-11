@@ -249,7 +249,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     const width = this.computeCanvasWidth();
     if (width === this.canvasWidth) return;
     this.applyCanvasSize(width, this.canvasHeight);
-    this.rebuildTargetNode();
+    this.repositionTargetNode();
   }
 
   // Canvas'in piksel boyutu sadece pencere genisligine gore degil, icindeki
@@ -319,6 +319,26 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     }
     const x = this.canvasWidth - SCHEMA_BOX_WIDTH - 60;
     this.graph.addNode(this.targetNodeConfig(this.targetFileType, x, 20));
+  }
+
+  // Sadece pencere yeniden boyutlandiginda hedef kutusunu sag kenara yasli
+  // tutmak icin - rebuildTargetNode()'un aksine node'u SILMIYOR, sadece
+  // tasiyor. Bug: handleWindowResize() eskiden rebuildTargetNode()
+  // cagiriyordu, o da node'u silip ayni ID'yle yeniden ekliyordu - X6'da bir
+  // node silinince ona bagli TUM edge'ler (gelen dahil) de otomatik siliniyor.
+  // Sonuc: DevTools acip pencere genisligi degisince, hedef alana giden butun
+  // baglantilar canvas'tan VE baglanti listesinden sessizce kayboluyordu
+  // (kaynak->node baglantilari etkilenmiyordu, cunku onlarin node'u
+  // silinmiyordu - sadece hedef node'a bagli olanlar gidiyordu). position()
+  // ile tasima, X6'nin edge'leri portlarina gore otomatik takip etmesini
+  // saglar, hicbir edge kopmaz.
+  private repositionTargetNode(): void {
+    const existing = this.graph.getCellById(TARGET_NODE_ID) as Node | undefined;
+    if (!existing) {
+      return;
+    }
+    const x = this.canvasWidth - SCHEMA_BOX_WIDTH - 60;
+    existing.position(x, 20);
   }
 
   // --- Node config üreticileri ---
@@ -424,7 +444,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           fields.map((f, i) => [
             `label-${i}`,
             {
-              text: f.name,
+              text: f.isRequired ? `${f.name} *` : f.name,
               x: 20,
               y: TITLE_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2 + TEXT_BASELINE_OFFSET,
               fontSize: 11,

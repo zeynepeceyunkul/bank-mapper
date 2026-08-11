@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 
 import { MappingEditor } from './mapping-editor';
 import { MappingCanvas, MappingCanvasSnapshot, SuggestedFieldMatch } from '../mapping-canvas/mapping-canvas';
@@ -27,7 +27,7 @@ const sampleFileType: FileType = {
   productId: 'prod-1',
   code: 'TEST_FILE',
   name: 'Test File',
-  targetFields: [{ name: 'AdSoyad', type: 'string', order: 1, length: 50 }],
+  targetFields: [{ name: 'AdSoyad', type: 'string', order: 1, length: 50, isRequired: false }],
 };
 
 const emptySnapshot = (): MappingCanvasSnapshot => ({ sourceSchemas: [], functoidNodes: [], constantNodes: [], edges: [] });
@@ -107,7 +107,10 @@ describe('MappingEditor', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideRouter([{ path: 'mapping/edit/:id', component: StubRouteTarget }]),
+        provideRouter([
+          { path: 'mapping', component: StubRouteTarget },
+          { path: 'mapping/edit/:id', component: StubRouteTarget },
+        ]),
       ],
     })
       .overrideComponent(MappingEditor, {
@@ -349,5 +352,85 @@ describe('MappingEditor', () => {
     expect(component.suggestingMatches()).toBe(false);
     expect(component.suggestError()).toBe('Eşleştirme önerisi alınamadı. API çalışıyor mu?');
     expect(fakeCanvas().lastSuggestions).toBeNull();
+  });
+
+  it('onMappingDeleted resets to new-mapping mode AND navigates the URL back to /mapping when the deleted mapping is the one currently open', async () => {
+    // Regresyon: Ece bunu canli yakaladi - onceki halinde sadece ic state
+    // sifirlaniyordu, adres cubugu hala /mapping/edit/{silinenId}'de kaliyordu
+    // (sayfa "Yeni Mapping Olustur" gostermesine ragmen). Sonra sayfa
+    // yenilenince URL hala gecersiz id'yi tasidigi icin ayni 404 akisi tekrar
+    // tetikleniyordu.
+    const router = TestBed.inject(Router);
+    component.mappingId = 'm-currently-open';
+    component.mappingName = 'Acik Olan Mapping';
+
+    component.onMappingDeleted('m-currently-open');
+    await fixture.whenStable();
+
+    expect(component.isEditMode).toBe(false);
+    expect(component.mappingName).toBe('');
+    expect(toastService.all().map((t) => t.message)).toContain('Düzenlemekte olduğunuz mapping silindi.');
+    expect(router.url).toBe('/mapping');
+  });
+
+  it('onMappingDeleted does nothing when the deleted mapping is a different one', () => {
+    component.mappingId = 'm-currently-open';
+    component.mappingName = 'Acik Olan Mapping';
+
+    component.onMappingDeleted('m-some-other-mapping');
+
+    expect(component.mappingId).toBe('m-currently-open');
+    expect(component.mappingName).toBe('Acik Olan Mapping');
+  });
+
+  it('saving an update to a mapping thats been deleted elsewhere (404) shows a clear message and resets to new-mapping mode', () => {
+    selectTarget();
+    component.mappingId = 'm-deleted';
+    fakeCanvas().snapshot = {
+      sourceSchemas: [{ sourceSchemaId: 'src-1', positionX: 20, positionY: 20 }],
+      functoidNodes: [],
+      constantNodes: [],
+      edges: [
+        {
+          id: 'e1',
+          fromKind: 'SourceField',
+          fromSourceSchemaId: 'src-1',
+          fromFieldName: 'Ad',
+          fromNodeId: null,
+          toKind: 'TargetField',
+          toNodeId: null,
+          toPort: null,
+          toFieldName: 'AdSoyad',
+        },
+      ],
+    };
+    component.mappingName = 'Silinmis Mapping';
+
+    component.saveMapping();
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/mappings/m-deleted'));
+    expect(request.request.method).toBe('PUT');
+    request.flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect(component.isEditMode).toBe(false);
+    expect(component.mappingName).toBe('');
+    expect(toastService.all().map((t) => t.message)).toContain('Bu mapping artık mevcut değil (başka bir yerden silinmiş olabilir).');
+  });
+
+  it('loading a deleted mapping (404) shows a clear message and resets to new-mapping mode instead of leaving a stale half-loaded page', () => {
+    // Regresyon: Ece bunu canli buldu - bir mapping'i "Kayitli Mapping'ler"
+    // panelinden silip aynı mapping'in edit sayfasini yenileyince, eskiden
+    // yanlis yonlendirici bir "API calisiyor mu?" mesaji goruluyordu ve sayfa
+    // basligi hala "Mapping Duzenle" yaziyordu, hicbir sey yuklenmemis olsa bile.
+    const internals = component as unknown as { loadExistingMapping: (id: string) => void };
+    internals.loadExistingMapping('deleted-id');
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/mappings/deleted-id'));
+    request.flush('Not Found', { status: 404, statusText: 'Not Found' });
+
+    expect(component.error()).toBe('Bu mapping artık mevcut değil (silinmiş olabilir).');
+    expect(component.isEditMode).toBe(false);
+    expect(component.mappingName).toBe('');
+    expect(component.loadingExisting()).toBe(false);
   });
 });

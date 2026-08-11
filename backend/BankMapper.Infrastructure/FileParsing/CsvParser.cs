@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using BankMapper.Application.FileParsing;
 using BankMapper.Domain.Entities;
 using CsvHelper;
@@ -14,7 +15,15 @@ public class CsvParser : IFileParser
         var hasHeader = schema.FormatOptions.HasHeader;
         var isDetectionMode = schema.Fields.Count == 0;
 
-        using var reader = new StreamReader(fileStream);
+        // StreamReader varsayilan olarak gecersiz byte dizilerini sessizce "?"
+        // ile degistirir, hata vermez - gercek bir ikili dosya (PDF, xlsx vb.)
+        // CSV olarak yuklenirse "basariyla" ama anlamsiz baslik/alan adlari
+        // uretirdi (canli test edildi: bir PDF'in ilk satirini header sandi).
+        // Kesin UTF-8 dogrulamasi acarak en azindan gercek ikili/bozuk
+        // dosyalari yakaliyoruz - gecerli-UTF8-ama-yanlis-formatli bir metin
+        // dosyasini (orn. gercekten CSV olmayan duz metin) hala yakalamaz,
+        // CSV formatinin kendi dogasindan gelen bir sinirlama.
+        using var reader = new StreamReader(fileStream, new UTF8Encoding(false, true));
         using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
         {
             Delimiter = delimiter,

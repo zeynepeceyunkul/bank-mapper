@@ -27,6 +27,7 @@
         color="primary"
         [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
         [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+        [disabled]="!canSave()"
         (click)="toggleSavePopup()"
       >
         <mat-icon>save</mat-icon>
@@ -163,9 +164,12 @@
           soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
           taşınabilir.
         </p>
-        <button type="button" matButton="tonal" [disabled]="suggestingMatches()" (click)="suggestMatches()">
-          {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
-        </button>
+        <div class="ai-suggest-col">
+          <button type="button" matButton="filled" class="ai-suggest-btn" [disabled]="suggestingMatches()" (click)="suggestMatches()">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
+          </button>
+        </div>
       </div>
       @if (suggestError()) {
         <p class="error">{{ suggestError() }}</p>
@@ -230,7 +234,7 @@
   @if (showMappingsPanel()) {
     <div class="modal-backdrop" (click)="toggleMappingsPanel()">
       <div class="modal-box" (click)="$event.stopPropagation()">
-        <app-mapping-list (newMapping)="startNewMapping()" />
+        <app-mapping-list (newMapping)="startNewMapping()" (mappingDeleted)="onMappingDeleted($event)" />
       </div>
     </div>
   }

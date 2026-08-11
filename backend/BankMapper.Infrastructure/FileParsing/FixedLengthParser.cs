@@ -1,3 +1,4 @@
+using System.Text;
 using BankMapper.Application.FileParsing;
 using BankMapper.Domain.Entities;
 
@@ -7,7 +8,14 @@ public class FixedLengthParser : IFileParser
 {
     public ParsedFileResult Parse(Stream fileStream, SourceSchema schema)
     {
-        using var reader = new StreamReader(fileStream);
+        // StreamReader varsayilan olarak gecersiz byte dizilerini sessizce "?"
+        // ile degistirir, hata vermez - gercek bir ikili dosya (PDF, xlsx vb.)
+        // yanlislikla buraya yuklenirse "basariyla" ama tamamen anlamsiz
+        // satirlar/alanlar uretilirdi. Kesin UTF-8 dogrulamasi acarak en
+        // azindan gercek ikili/bozuk dosyalari yakaliyoruz (bkz. CsvParser'daki
+        // ayni degisiklik) - bu, gecerli-UTF8-ama-yanlis-formatli metin
+        // dosyalarini yakalamaz, o hala CsvParser'in ayni bilinen sinirlamasi.
+        using var reader = new StreamReader(fileStream, new UTF8Encoding(false, true));
 
         if (schema.Fields.Count == 0)
         {

@@ -110,13 +110,19 @@ public class ExcelParserTests
     }
 
     [Fact]
-    public void Throws_when_workbook_has_more_than_one_worksheet()
+    public void Full_read_mode_finds_a_column_that_comes_after_a_blank_header_cell()
     {
+        // Ortadaki bos hucre (col2) hicbir zaman dokunulmadigi icin ClosedXML
+        // onu "kullanilmis" saymiyor - CellsUsed().Count() ile kolon sayisi
+        // hesaplanirsa 2 cikar (col1+col3), oysa gercek kullanilan aralik 3
+        // kolon genisliginde ve TCKimlikNo (col3) o sayimin disinda kalirdi,
+        // "Beklenen sütun bulunamadı" hatasina yol acardi.
         using var workbook = new XLWorkbook();
-        var sheet1 = workbook.Worksheets.Add("Sheet1");
-        sheet1.Cell(1, 1).Value = "AdSoyad";
-        sheet1.Cell(2, 1).Value = "Mehmet Demir";
-        workbook.Worksheets.Add("Sheet2");
+        var worksheet = workbook.Worksheets.Add("Sheet1");
+        worksheet.Cell(1, 1).Value = "AdSoyad";
+        worksheet.Cell(1, 3).Value = "TCKimlikNo";
+        worksheet.Cell(2, 1).Value = "Mehmet Demir";
+        worksheet.Cell(2, 3).Value = "11122233344";
 
         var stream = new MemoryStream();
         workbook.SaveAs(stream);
@@ -126,9 +132,46 @@ public class ExcelParserTests
         {
             FileFormat = FileFormat.Excel,
             FormatOptions = new SourceFormatOptions { HasHeader = true },
-            Fields = [],
+            Fields =
+            [
+                new SourceField { Name = "AdSoyad", Order = 1 },
+                new SourceField { Name = "TCKimlikNo", Order = 2 },
+            ],
         };
 
-        Assert.Throws<ArgumentException>(() => new ExcelParser().Parse(stream, schema));
+        var result = new ExcelParser().Parse(stream, schema);
+
+        Assert.Equal("Mehmet Demir", result.Rows[0]["AdSoyad"]);
+        Assert.Equal("11122233344", result.Rows[0]["TCKimlikNo"]);
+    }
+
+    [Fact]
+    public void Reads_only_the_first_worksheet_and_ignores_the_rest()
+    {
+        // Mentorun (Fatih Bey) 2026-08-10 onayi: birden fazla sayfa varsa
+        // sadece ilki okunur, digerleri sessizce yok sayilir - hata verilmez.
+        using var workbook = new XLWorkbook();
+        var sheet1 = workbook.Worksheets.Add("Sheet1");
+        sheet1.Cell(1, 1).Value = "AdSoyad";
+        sheet1.Cell(2, 1).Value = "Mehmet Demir";
+        var sheet2 = workbook.Worksheets.Add("Sheet2");
+        sheet2.Cell(1, 1).Value = "AdSoyad";
+        sheet2.Cell(2, 1).Value = "Bu Ikinci Sayfadan Gelmemeli";
+
+        var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var schema = new SourceSchema
+        {
+            FileFormat = FileFormat.Excel,
+            FormatOptions = new SourceFormatOptions { HasHeader = true },
+            Fields = [new SourceField { Name = "AdSoyad", Order = 1 }],
+        };
+
+        var result = new ExcelParser().Parse(stream, schema);
+
+        Assert.Single(result.Rows);
+        Assert.Equal("Mehmet Demir", result.Rows[0]["AdSoyad"]);
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BankMapper.Application.Common;
 using BankMapper.Application.SourceSchemas;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,6 +16,14 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
     {
         var schemas = await sourceSchemaService.GetAllAsync();
         return Ok(schemas);
+    }
+
+    [HttpGet("page")]
+    public async Task<ActionResult<PagedResult<SourceSchemaDto>>> GetPage(
+        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.NameAscending)
+    {
+        var result = await sourceSchemaService.GetPagedAsync(pageIndex, pageSize, sort);
+        return Ok(result);
     }
 
     [HttpPost]

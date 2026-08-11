@@ -1,4 +1,5 @@
 using BankMapper.Domain.Entities;
+using BankMapper.Domain.Enums;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -40,10 +41,10 @@ public static class DbSeeder
             Name = "Maas Odeme Dosyasi",
             TargetFields =
             [
-                new TargetField { Name = "TCKimlikNo", Type = "string", Order = 1, Length = 11 },
+                new TargetField { Name = "TCKimlikNo", Type = "string", Order = 1, Length = 11, IsRequired = true, ValidationFormat = FieldValidationFormat.TcKimlikNo },
                 new TargetField { Name = "AdSoyad", Type = "string", Order = 2, Length = 50 },
-                new TargetField { Name = "IBAN", Type = "string", Order = 3, Length = 26 },
-                new TargetField { Name = "NetTutar", Type = "decimal", Order = 4 }
+                new TargetField { Name = "IBAN", Type = "string", Order = 3, Length = 26, IsRequired = true, ValidationFormat = FieldValidationFormat.Iban },
+                new TargetField { Name = "NetTutar", Type = "decimal", Order = 4, ValidationFormat = FieldValidationFormat.PositiveDecimal }
             ]
         };
 
@@ -55,10 +56,10 @@ public static class DbSeeder
             Name = "Vergi Odeme Dosyasi",
             TargetFields =
             [
-                new TargetField { Name = "TCKimlikNo", Type = "string", Order = 1, Length = 11 },
+                new TargetField { Name = "TCKimlikNo", Type = "string", Order = 1, Length = 11, IsRequired = true, ValidationFormat = FieldValidationFormat.TcKimlikNo },
                 new TargetField { Name = "VergiDonemi", Type = "string", Order = 2, Length = 10 },
-                new TargetField { Name = "VergiTutari", Type = "decimal", Order = 3 },
-                new TargetField { Name = "IBAN", Type = "string", Order = 4, Length = 26 }
+                new TargetField { Name = "VergiTutari", Type = "decimal", Order = 3, ValidationFormat = FieldValidationFormat.PositiveDecimal },
+                new TargetField { Name = "IBAN", Type = "string", Order = 4, Length = 26, IsRequired = true, ValidationFormat = FieldValidationFormat.Iban }
             ]
         };
 

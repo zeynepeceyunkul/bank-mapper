@@ -6,10 +6,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { FileFormat, SourceSchema } from '../../../core/models/source-schema.model';
+import { SortOption } from '../../../core/models/paged-result.model';
 
 interface ManualFieldRow {
   name: string;
@@ -27,6 +29,7 @@ interface ManualFieldRow {
     MatIconModule,
     MatInputModule,
     MatTableModule,
+    MatPaginatorModule,
   ],
   templateUrl: './source-schema-list.html',
   styleUrl: './source-schema-list.scss',
@@ -56,6 +59,11 @@ export class SourceSchemaList implements OnInit {
   // Liste durumu
   readonly schemas = signal<SourceSchema[]>([]);
   readonly listError = signal<string | null>(null);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(10);
+  readonly totalCount = signal(0);
+  readonly pageSizeOptions = [5, 10, 25, 50];
+  readonly sort = signal<SortOption>('NameAscending');
 
   get isFixedLength(): boolean {
     return this.fileFormat === 'FixedLength';
@@ -67,10 +75,25 @@ export class SourceSchemaList implements OnInit {
 
   loadSchemas(): void {
     this.listError.set(null);
-    this.sourceSchemaService.getAll().subscribe({
-      next: (schemas) => this.schemas.set(schemas),
+    this.sourceSchemaService.getPage(this.pageIndex(), this.pageSize(), this.sort()).subscribe({
+      next: (result) => {
+        this.schemas.set(result.items);
+        this.totalCount.set(result.totalCount);
+      },
       error: () => this.listError.set('Şema listesi yüklenemedi. API çalışıyor mu?'),
     });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex.set(event.pageIndex);
+    this.pageSize.set(event.pageSize);
+    this.loadSchemas();
+  }
+
+  onSortChange(value: SortOption): void {
+    this.sort.set(value);
+    this.pageIndex.set(0);
+    this.loadSchemas();
   }
 
   onFileSelected(event: Event): void {
@@ -157,7 +180,14 @@ export class SourceSchemaList implements OnInit {
 
     this.sourceSchemaService.delete(schema.id).subscribe({
       next: () => {
-        this.schemas.update((list) => list.filter((s) => s.id !== schema.id));
+        // Yerel filtreleme yerine sayfayi yeniden yukluyoruz - server-side
+        // pagination'da toplam sayi/sayfa mantigi backend'de, yerel filter()
+        // bunları senkron tutamaz. Silinen kayit o sayfadaki tek kayitsa ve
+        // ilk sayfada degilsek bir onceki sayfaya donuyoruz.
+        if (this.schemas().length === 1 && this.pageIndex() > 0) {
+          this.pageIndex.update((i) => i - 1);
+        }
+        this.loadSchemas();
         this.toastService.success(`Silindi: ${schema.name}`);
         this.schemaDeleted.emit(schema.id);
       },

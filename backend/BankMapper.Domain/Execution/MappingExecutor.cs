@@ -6,7 +6,10 @@ namespace BankMapper.Domain.Execution;
 
 public class MappingExecutor(FunctoidRegistry registry)
 {
-    public Dictionary<string, object?> Apply(Mapping mapping, Dictionary<string, string?> sourceRecord)
+    public Dictionary<string, object?> Apply(
+        Mapping mapping,
+        Dictionary<string, string?> sourceRecord,
+        IReadOnlyList<TargetField>? targetFields = null)
     {
         var order = GraphTopologicalSorter.Sort(mapping);
         var nodeOutputs = new Dictionary<string, object?>();
@@ -23,10 +26,44 @@ public class MappingExecutor(FunctoidRegistry registry)
             nodeOutputs[nodeId] = functoid.Execute(inputs, node.Params);
         }
 
+        var fieldLengths = targetFields?
+            .Where(f => f.Length.HasValue)
+            .ToDictionary(f => f.Name, f => f.Length!.Value);
+
+        var fieldFormats = targetFields?
+            .Where(f => f.ValidationFormat != FieldValidationFormat.None)
+            .ToDictionary(f => f.Name, f => f.ValidationFormat);
+
         var result = new Dictionary<string, object?>();
         foreach (var edge in mapping.Edges.Where(e => e.ToKind == EdgeEndpointKind.TargetField))
         {
-            result[edge.ToFieldName!] = ResolveEdgeSourceValue(edge, sourceRecord, nodeOutputs, mapping);
+            var value = ResolveEdgeSourceValue(edge, sourceRecord, nodeOutputs, mapping);
+            var fieldName = edge.ToFieldName!;
+            var text = value?.ToString();
+
+            if (fieldLengths is not null
+                && fieldLengths.TryGetValue(fieldName, out var maxLength)
+                && text is { } lengthCheckedText
+                && lengthCheckedText.Length > maxLength)
+            {
+                throw new ArgumentException(
+                    $"'{fieldName}' alanı için üretilen değer izin verilen uzunluğu aşıyor " +
+                    $"(beklenen en fazla {maxLength}, üretilen {lengthCheckedText.Length}): \"{lengthCheckedText}\"");
+            }
+
+            // Bos/null deger burada kasitli olarak atlaniyor - "alan bos mu"
+            // sorusu ayri bir mekanizmanin (TargetField.IsRequired) isi, format
+            // kontrolu sadece "deger VARSA gecerli mi" sorusuna bakar.
+            if (fieldFormats is not null
+                && fieldFormats.TryGetValue(fieldName, out var format)
+                && !string.IsNullOrEmpty(text)
+                && !FieldFormatValidator.IsValid(format, text))
+            {
+                throw new ArgumentException(
+                    $"'{fieldName}' alanı için üretilen değer geçerli bir {format} formatında değil: \"{text}\"");
+            }
+
+            result[fieldName] = value;
         }
 
         return result;

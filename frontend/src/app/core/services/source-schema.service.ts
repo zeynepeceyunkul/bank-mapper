@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SourceSchema } from '../models/source-schema.model';
+import { PagedResult, SortOption } from '../models/paged-result.model';
 
 @Injectable({ providedIn: 'root' })
 export class SourceSchemaService {
@@ -10,6 +11,14 @@ export class SourceSchemaService {
 
   getAll(): Observable<SourceSchema[]> {
     return this.http.get<SourceSchema[]>(`${environment.apiUrl}/source-schemas`);
+  }
+
+  // Sadece liste ekrani icin - mapping-editor'daki kaynak sema secimi hala tam
+  // listeye ihtiyac duydugu icin getAll() ayrica duruyor.
+  getPage(pageIndex: number, pageSize: number, sort: SortOption = 'NameAscending'): Observable<PagedResult<SourceSchema>> {
+    return this.http.get<PagedResult<SourceSchema>>(`${environment.apiUrl}/source-schemas/page`, {
+      params: { pageIndex, pageSize, sort },
+    });
   }
 
   create(formData: FormData): Observable<SourceSchema> {

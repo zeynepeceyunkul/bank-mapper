@@ -140,13 +140,21 @@
   </button>
 
   @if (showList()) {
-    <h3>Kayıtlı Source Şemalar</h3>
+    <div class="list-header">
+      <h3>Kayıtlı Source Şemalar</h3>
+      <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
+        <option value="NameAscending" [selected]="sort() === 'NameAscending'">Ad (A→Z)</option>
+        <option value="NameDescending" [selected]="sort() === 'NameDescending'">Ad (Z→A)</option>
+        <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Eklenme (Yeni→Eski)</option>
+        <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Eklenme (Eski→Yeni)</option>
+      </select>
+    </div>
 
     @if (listError()) {
       <p class="error">{{ listError() }}</p>
     }
 
-    @if (schemas().length === 0 && !listError()) {
+    @if (totalCount() === 0 && !listError()) {
       <p>Henüz kayıtlı source şema yok.</p>
     } @else {
       <table mat-table [dataSource]="schemas()" class="schema-list">
@@ -182,6 +190,14 @@
         <tr mat-header-row *matHeaderRowDef="schemaColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: schemaColumns"></tr>
       </table>
+
+      <mat-paginator
+        [length]="totalCount()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        (page)="onPageChange($event)"
+      />
     }
   }
 </section>

@@ -10,18 +10,14 @@ public class ExcelParser : IFileParser
     {
         using var workbook = new XLWorkbook(fileStream);
 
-        // Birden fazla sayfali Excel dosyalarinin nasil ele alinacagina dair
-        // karar henuz verilmedi (kullanicinin sayfa secmesi mi, hepsinin ayni
-        // yapida olmasi mi, vb.) - o karar netlesene kadar sessizce ilk sayfayi
-        // okuyup digerlerini yok saymak yerine acikca hata veriyoruz.
-        if (workbook.Worksheets.Count > 1)
-        {
-            throw new ArgumentException(
-                "Excel dosyasında birden fazla sayfa (worksheet) bulundu. Şu anda yalnızca tek sayfalı dosyalar destekleniyor.");
-        }
-
+        // Birden fazla sayfali Excel dosyalarinda sadece ilk sayfa okunur,
+        // digerleri yok sayilir - mentorun (Fatih Bey) 2026-08-10 tarihli
+        // acik onayi: "Excel'deki ilk sheeti alman yeterli, diger sheetleri
+        // yok sayabiliriz." Onceden burada >1 sayfa varsa hata veren gecici
+        // bir koruma vardi (karar netlesene kadar); artik kalici davranis bu.
         var worksheet = workbook.Worksheets.First();
-        var rows = worksheet.RangeUsed()?.RowsUsed().ToList() ?? [];
+        var usedRange = worksheet.RangeUsed();
+        var rows = usedRange?.RowsUsed().ToList() ?? [];
 
         if (rows.Count == 0)
         {
@@ -31,7 +27,12 @@ public class ExcelParser : IFileParser
         var isDetectionMode = schema.Fields.Count == 0;
         var hasHeader = schema.FormatOptions.HasHeader;
         var firstRow = rows[0];
-        var columnCount = firstRow.CellsUsed().Count();
+
+        // CellsUsed().Count() sadece icerigi/formati olan hucreleri sayar - araya
+        // bos birakilmis (orn. formati temizlenmis) bir baslik hucresi varsa
+        // sessizce eksik sayar, bu da sonraki tum kolonlarin kaymasina yol acar.
+        // Bunun yerine kullanilan araligin tam genisligini (bosluklar dahil) aliyoruz.
+        var columnCount = usedRange!.ColumnCount();
 
         var fieldNames = isDetectionMode
             ? (hasHeader

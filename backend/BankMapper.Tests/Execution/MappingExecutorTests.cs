@@ -121,4 +121,110 @@ public class MappingExecutorTests
 
         Assert.Equal("ahmet-AHMET", result["Sonuc"]);
     }
+
+    [Fact]
+    public void Value_exceeding_target_field_length_throws_instead_of_writing_silently()
+    {
+        var mapping = new Mapping
+        {
+            FunctoidNodes = [new FunctoidNode { Id = "n1", FunctoidCode = "LPad", Params = new Dictionary<string, object> { ["length"] = 5 } }],
+            Edges =
+            [
+                new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "TC", ToKind = EdgeEndpointKind.NodeInput, ToNodeId = "n1", ToPort = "value" },
+                new GraphEdge { FromKind = EdgeEndpointKind.NodeOutput, FromNodeId = "n1", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "TCKimlikNo" },
+            ],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "TCKimlikNo", Length = 5 } };
+
+        // LPad(length=5) yalnizca padler, kisaltmaz - girdi zaten 8 karakter oldugu icin
+        // hedef alanin gercek uzunluk sinirini (5) sessizce asiyor.
+        var ex = Assert.Throws<ArgumentException>(() =>
+            CreateExecutor().Apply(mapping, Record(("TC", "12345678")), targetFields));
+
+        Assert.Contains("TCKimlikNo", ex.Message);
+    }
+
+    [Fact]
+    public void Value_within_target_field_length_is_unaffected()
+    {
+        var mapping = new Mapping
+        {
+            FunctoidNodes = [new FunctoidNode { Id = "n1", FunctoidCode = "LPad", Params = new Dictionary<string, object> { ["length"] = 11, ["padChar"] = "0" } }],
+            Edges =
+            [
+                new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "TC", ToKind = EdgeEndpointKind.NodeInput, ToNodeId = "n1", ToPort = "value" },
+                new GraphEdge { FromKind = EdgeEndpointKind.NodeOutput, FromNodeId = "n1", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "TCKimlikNo" },
+            ],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "TCKimlikNo", Length = 11 } };
+
+        var result = CreateExecutor().Apply(mapping, Record(("TC", "123")), targetFields);
+
+        Assert.Equal("00000000123", result["TCKimlikNo"]);
+    }
+
+    [Fact]
+    public void Invalid_iban_checksum_throws_instead_of_writing_silently()
+    {
+        var mapping = new Mapping
+        {
+            Edges = [new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "IBAN", ValidationFormat = FieldValidationFormat.Iban } };
+
+        // Son hane kasitli bozuldu - gecerli bir IBAN'in mod-97 checksum'ini bozuyor.
+        var ex = Assert.Throws<ArgumentException>(() =>
+            CreateExecutor().Apply(mapping, Record(("IBAN", "TR330006100519786457841327")), targetFields));
+
+        Assert.Contains("IBAN", ex.Message);
+    }
+
+    [Fact]
+    public void Valid_iban_checksum_passes_through()
+    {
+        var mapping = new Mapping
+        {
+            Edges = [new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "IBAN", ValidationFormat = FieldValidationFormat.Iban } };
+
+        var result = CreateExecutor().Apply(mapping, Record(("IBAN", "TR330006100519786457841326")), targetFields);
+
+        Assert.Equal("TR330006100519786457841326", result["IBAN"]);
+    }
+
+    [Fact]
+    public void Negative_amount_throws_when_target_field_requires_positive_decimal()
+    {
+        var mapping = new Mapping
+        {
+            Edges = [new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Tutar", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "NetTutar" }],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "NetTutar", ValidationFormat = FieldValidationFormat.PositiveDecimal } };
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            CreateExecutor().Apply(mapping, Record(("Tutar", "-500")), targetFields));
+
+        Assert.Contains("NetTutar", ex.Message);
+    }
+
+    [Fact]
+    public void Empty_value_is_not_flagged_by_format_validation_thats_the_required_field_checks_job()
+    {
+        var mapping = new Mapping
+        {
+            Edges = [new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Tutar", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "NetTutar" }],
+        };
+
+        var targetFields = new List<TargetField> { new() { Name = "NetTutar", ValidationFormat = FieldValidationFormat.PositiveDecimal } };
+
+        var result = CreateExecutor().Apply(mapping, Record(("Tutar", null)), targetFields);
+
+        Assert.Null(result["NetTutar"]);
+    }
 }

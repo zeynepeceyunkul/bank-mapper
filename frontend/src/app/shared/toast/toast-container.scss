@@ -49,6 +49,23 @@
   flex: 0 0 auto;
   color: inherit;
   opacity: 0.7;
+  // mat-icon-button'un varsayilan 40px dokunma alani, kucuk toast karti
+  // yaninda orantisiz buyuk duruyordu - sadece bu buton icin kucultuyoruz.
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: -4px -4px 0 0;
+
+  ::ng-deep .mat-mdc-button-touch-target {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mat-icon {
+    font-size: 16px;
+    height: 16px;
+    width: 16px;
+  }
 
   &:hover {
     opacity: 1;

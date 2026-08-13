@@ -11,8 +11,8 @@ const targetFileType: FileType = {
   code: 'TEST_FILE',
   name: 'Test File',
   targetFields: [
-    { name: 'AdSoyad', type: 'string', order: 1, length: 50 },
-    { name: 'NetTutar', type: 'string', order: 2, length: 10 },
+    { name: 'AdSoyad', type: 'string', order: 1, length: 50, isRequired: false },
+    { name: 'NetTutar', type: 'string', order: 2, length: 10, isRequired: false },
   ],
 };
 
@@ -452,5 +452,31 @@ describe('MappingCanvas', () => {
     expect(described).toContainEqual({ id: expect.any(String), from: 'Ad', to: 'LPad.value' });
     expect(described).toContainEqual({ id: expect.any(String), from: 'LPad', to: 'Trim.value' });
     expect(described).toContainEqual({ id: expect.any(String), from: 'Trim', to: 'AdSoyad' });
+  });
+
+  it('keeps edges into the target node after a window resize (regression: resize used to rebuild-and-drop the target node, silently deleting every edge connected to it)', () => {
+    component.addSourceSchema(sourceSchema, 20, 20);
+    const internals = component as unknown as {
+      graph: any;
+      canvasWidth: number;
+      handleWindowResize: () => void;
+      computeCanvasWidth: () => number;
+    };
+
+    const schemaNode = internals.graph.getNodes().find((n: any) => n.getData()?.['kind'] === 'sourceSchema');
+    const edgeAttrs = { attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } }, zIndex: 0 };
+    internals.graph.addEdge({ source: { cell: schemaNode.id, port: 'Ad' }, target: { cell: 'tgt', port: 'AdSoyad' }, ...edgeAttrs });
+
+    expect(component.getSnapshot().edges.length).toBe(1);
+
+    // DevTools acmak/kapatmak gibi pencere genisligini degistiren herhangi bir
+    // olay - eskiden bu, hedef kutusunu silip yeniden ekleyen rebuildTargetNode()'u
+    // tetikliyordu, o da ona bagli edge'i (bu testte oldugu gibi) sessizce yok ediyordu.
+    vi.spyOn(internals, 'computeCanvasWidth').mockReturnValue(internals.canvasWidth + 100);
+    internals.handleWindowResize();
+
+    const snapshot = component.getSnapshot();
+    expect(snapshot.edges.length).toBe(1);
+    expect(component.describeEdges()).toContainEqual({ id: expect.any(String), from: 'Ad', to: 'AdSoyad' });
   });
 });

@@ -110,4 +110,23 @@ public class CsvParserTests
 
         Assert.Throws<ArgumentException>(() => new CsvParser().Parse(ToStream(csv), schema));
     }
+
+    [Fact]
+    public void Throws_on_genuinely_invalid_binary_content_instead_of_silently_producing_garbage_fields()
+    {
+        // Once StreamReader varsayilan (gevsek) kod cozme kullaniyordu -
+        // gecersiz byte dizilerini sessizce "?" ile degistirip devam ediyordu,
+        // boylece bir PDF/xlsx yanlislikla CSV olarak yuklenirse hata vermeden
+        // anlamsiz "basarili" alan adlari uretiliyordu (canli dogrulandi).
+        // "%PDF" + gecersiz UTF-8 devam baytlari (0x80 tek basina gecersiz).
+        var invalidUtf8 = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x80, 0x80, 0x80, 0x0A };
+        var schema = new SourceSchema
+        {
+            FileFormat = FileFormat.Csv,
+            FormatOptions = new SourceFormatOptions { HasHeader = true, Delimiter = "," },
+            Fields = [],
+        };
+
+        Assert.Throws<DecoderFallbackException>(() => new CsvParser().Parse(new MemoryStream(invalidUtf8), schema));
+    }
 }

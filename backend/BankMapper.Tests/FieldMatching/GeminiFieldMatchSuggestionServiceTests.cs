@@ -127,6 +127,86 @@ public class GeminiFieldMatchSuggestionServiceTests
             () => CreateService(handler).SuggestAsync(["Ad"], ["AdSoyad"]));
     }
 
+    [Fact]
+    public async Task Does_not_retry_a_non_transient_4xx_status()
+    {
+        // 401 gibi gercek istek hatalarinda tekrar denemek sonucu degistirmez -
+        // tek seferde firlatilmali, ikinci bir cagri yapilmamali.
+        var callCount = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CreateService(handler).SuggestAsync(["Ad"], ["AdSoyad"]));
+
+        Assert.Equal(1, callCount);
+    }
+
+    [Fact]
+    public async Task Retries_once_after_a_transient_5xx_and_succeeds_on_second_attempt()
+    {
+        var innerJson = """[{"sourceFields":["TC"],"targetField":"TCKimlikNo"}]""";
+        var callCount = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(WrapGeminiResponse(innerJson), Encoding.UTF8, "application/json"),
+                };
+        });
+
+        var result = await CreateService(handler).SuggestAsync(["TC"], ["TCKimlikNo"]);
+
+        Assert.Equal(2, callCount);
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task Retries_once_after_a_timeout_and_succeeds_on_second_attempt()
+    {
+        var innerJson = """[{"sourceFields":["TC"],"targetField":"TCKimlikNo"}]""";
+        var callCount = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            callCount++;
+            if (callCount == 1)
+            {
+                throw new TaskCanceledException("Zaman asimi (simule edildi)");
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(WrapGeminiResponse(innerJson), Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var result = await CreateService(handler).SuggestAsync(["TC"], ["TCKimlikNo"]);
+
+        Assert.Equal(2, callCount);
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task Gives_up_after_a_second_transient_failure()
+    {
+        var callCount = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            callCount++;
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CreateService(handler).SuggestAsync(["Ad"], ["AdSoyad"]));
+
+        Assert.Equal(2, callCount);
+    }
+
     private class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

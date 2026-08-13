@@ -1,14 +1,22 @@
 <section class="mapping-list">
   <div class="header">
     <h2>Kayıtlı Mapping'ler</h2>
-    <a mat-flat-button routerLink="/mapping" (click)="newMapping.emit()">+ Yeni Mapping</a>
+    <div class="header-actions">
+      <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
+        <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Son Güncelleme (Yeni→Eski)</option>
+        <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Son Güncelleme (Eski→Yeni)</option>
+        <option value="NameAscending" [selected]="sort() === 'NameAscending'">Ad (A→Z)</option>
+        <option value="NameDescending" [selected]="sort() === 'NameDescending'">Ad (Z→A)</option>
+      </select>
+      <a mat-flat-button routerLink="/mapping" (click)="newMapping.emit()">+ Yeni Mapping</a>
+    </div>
   </div>
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
-  @if (mappings().length === 0 && !error()) {
+  @if (totalCount() === 0 && !error()) {
     <p class="hint">Henüz kayıtlı mapping yok.</p>
   } @else {
     <table mat-table [dataSource]="mappings()">
@@ -31,11 +39,22 @@
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let mapping">
           <a mat-button [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>
+          <button type="button" mat-icon-button aria-label="Sil" (click)="deleteMapping(mapping)">
+            <mat-icon>delete</mat-icon>
+          </button>
         </td>
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="columns"></tr>
       <tr mat-row *matRowDef="let row; columns: columns"></tr>
     </table>
+
+    <mat-paginator
+      [length]="totalCount()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPageChange($event)"
+    />
   }
 </section>

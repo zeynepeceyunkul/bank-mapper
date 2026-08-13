@@ -11,6 +11,7 @@ namespace BankMapper.Application.Preview;
 public class PreviewService(
     IMappingRepository mappingRepository,
     ISourceSchemaRepository sourceSchemaRepository,
+    IFileTypeRepository fileTypeRepository,
     IFileParserFactory fileParserFactory,
     MappingExecutor mappingExecutor,
     IFileWriterFactory fileWriterFactory,
@@ -54,6 +55,9 @@ public class PreviewService(
         var sourceSchema = await sourceSchemaRepository.GetByIdAsync(schemaRef.SourceSchemaId)
             ?? throw new ArgumentException($"Source sema bulunamadi: {schemaRef.SourceSchemaId}");
 
+        var fileType = await fileTypeRepository.GetByIdAsync(mapping.FileTypeId)
+            ?? throw new ArgumentException($"Dosya tipi bulunamadi: {mapping.FileTypeId}");
+
         var parser = fileParserFactory.GetParser(sourceSchema.FileFormat);
         List<Dictionary<string, string?>> rawRows;
 
@@ -76,7 +80,7 @@ public class PreviewService(
         }
 
         var namespacedRows = rawRows.Select(row => Namespace(row, schemaRef.SourceSchemaId));
-        var results = namespacedRows.Select(row => mappingExecutor.Apply(mapping, row)).ToList();
+        var results = namespacedRows.Select(row => mappingExecutor.Apply(mapping, row, fileType.TargetFields)).ToList();
         return (results, []);
     }
 

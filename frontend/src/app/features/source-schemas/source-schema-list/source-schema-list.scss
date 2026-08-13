@@ -1,6 +1,27 @@
 .source-schemas {
   max-width: 640px;
 
+  .list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+
+    h3 {
+      margin: 0;
+    }
+  }
+
+  .sort-select {
+    padding: 6px 10px;
+    border: 1px solid var(--mat-sys-outline, #c4c4c4);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    color: #1a1a1a;
+    background: #fff;
+  }
+
   .field {
     display: block;
     width: 100%;

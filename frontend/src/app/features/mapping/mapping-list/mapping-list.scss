@@ -15,6 +15,21 @@
       font-weight: 500;
       color: #1a1a1a;
     }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+  }
+
+  .sort-select {
+    padding: 6px 10px;
+    border: 1px solid var(--mat-sys-outline, #c4c4c4);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    color: #1a1a1a;
+    background: #fff;
   }
 
   table {

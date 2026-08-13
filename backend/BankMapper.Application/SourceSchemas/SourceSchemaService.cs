@@ -1,4 +1,5 @@
 using BankMapper.Application.Abstractions;
+using BankMapper.Application.Common;
 using BankMapper.Application.FileParsing;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
@@ -15,6 +16,15 @@ public class SourceSchemaService(
     {
         var schemas = await repository.GetAllAsync();
         return schemas.Select(ToDto).ToList();
+    }
+
+    public async Task<PagedResult<SourceSchemaDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+    {
+        var clampedPageIndex = Math.Max(pageIndex, 0);
+        var clampedPageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (items, totalCount) = await repository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort);
+        return new PagedResult<SourceSchemaDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
     public async Task<SourceSchemaDto> CreateAsync(CreateSourceSchemaRequest request)
@@ -123,7 +133,25 @@ public class SourceSchemaService(
 
         var detectionSchema = new SourceSchema { FileFormat = request.FileFormat, FormatOptions = formatOptions };
         var parser = fileParserFactory.GetParser(request.FileFormat);
-        var parsed = parser.Parse(request.File, detectionSchema);
+        ParsedFileResult parsed;
+
+        try
+        {
+            parsed = parser.Parse(request.File, detectionSchema);
+        }
+        catch (Exception ex) when (ex is not ArgumentException)
+        {
+            // PreviewService.RunMappingAsync'deki ayni korumanin eslenigi -
+            // sema OLUSTURMA sirasindaki dosya yukleme yolu bu korumaya sahip
+            // degildi. ClosedXML/CsvHelper gecersiz bir dosyada kendi ic
+            // exception tiplerini (orn. FormatException) firlatiyor;
+            // yakalanmazsa GlobalExceptionHandler bunu yanlislikla "Gecersiz id
+            // formati" olarak yorumluyordu (FormatException'i baska bir amacla
+            // - route id parse hatalari icin - eslesen bir dal), tamamen
+            // alakasiz ve kafa karistirici bir mesaj.
+            throw new ArgumentException(
+                $"Yüklenen dosya geçerli bir {request.FileFormat} dosyası değil.", ex);
+        }
 
         return parsed.FieldNames
             .Select((name, index) => new SourceField { Name = name, Type = "string", Order = index + 1 })

@@ -29,7 +29,9 @@ public class FileTypeService(IFileTypeRepository fileTypeRepository) : IFileType
                 Name = tf.Name,
                 Type = tf.Type,
                 Order = tf.Order,
-                Length = tf.Length
+                Length = tf.Length,
+                IsRequired = tf.IsRequired,
+                ValidationFormat = tf.ValidationFormat
             })
             .ToList()
     };

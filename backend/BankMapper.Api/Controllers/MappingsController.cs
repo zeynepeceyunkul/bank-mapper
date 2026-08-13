@@ -1,3 +1,4 @@
+using BankMapper.Application.Common;
 using BankMapper.Application.Mappings;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,17 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     {
         var mappings = await mappingService.GetAllAsync();
         return Ok(mappings);
+    }
+
+    // "page" ASP.NET Core routing'inde {id} parametreli rotadan daha spesifik
+    // (duz metin) sayildigi icin GET /api/mappings/page her zaman buraya
+    // eslesir, {id}="page" olarak GetById'ye dusme riski yok.
+    [HttpGet("page")]
+    public async Task<ActionResult<PagedResult<MappingDto>>> GetPage(
+        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst)
+    {
+        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
@@ -33,5 +45,12 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     {
         var updated = await mappingService.UpdateAsync(id, request);
         return updated is null ? NotFound() : Ok(updated);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var deleted = await mappingService.DeleteAsync(id);
+        return deleted ? NoContent() : NotFound();
     }
 }

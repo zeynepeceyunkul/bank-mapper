@@ -1,4 +1,5 @@
 using BankMapper.Application.Abstractions;
+using BankMapper.Application.Common;
 using BankMapper.Application.FileParsing;
 using BankMapper.Application.Preview;
 using BankMapper.Domain.Entities;
@@ -14,6 +15,7 @@ namespace BankMapper.Tests.Preview;
 public class PreviewServiceTests
 {
     private const string SchemaA = "A";
+    private const string FileTypeId = "ft1";
 
     private static MappingExecutor CreateExecutor() => new(new FunctoidRegistry([new TrimFunctoid()]));
 
@@ -24,12 +26,20 @@ public class PreviewServiceTests
     {
         var mappingRepo = new FakeMappingRepository(mapping);
         var schemaRepo = new FakeSourceSchemaRepository(schemas);
+        var fileTypeRepo = new FakeFileTypeRepository(FileType());
         var parserFactory = new FakeFileParserFactory(new FakeFileParser(rowsBySchemaId));
         var writerFactory = new FileWriterFactory();
-        return new PreviewService(mappingRepo, schemaRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
+        return new PreviewService(mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
     }
 
     private static SourceSchema Schema(string id) => new() { Id = id, Name = id, FileFormat = FileFormat.Csv };
+
+    private static Domain.Entities.FileType FileType() => new()
+    {
+        Id = FileTypeId,
+        Name = "Test Dosya Tipi",
+        TargetFields = [new TargetField { Name = "AdOut" }],
+    };
 
     private static List<PreviewSourceFile> FilesFor(params string[] schemaIds) =>
         schemaIds.Select(id => new PreviewSourceFile { SourceSchemaId = id, Content = Stream.Null }).ToList();
@@ -74,9 +84,10 @@ public class PreviewServiceTests
 
         var mappingRepo = new FakeMappingRepository(mapping);
         var schemaRepo = new FakeSourceSchemaRepository(new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA) });
+        var fileTypeRepo = new FakeFileTypeRepository(FileType());
         var parserFactory = new FakeFileParserFactory(new FakeThrowingFileParser());
         var writerFactory = new FileWriterFactory();
-        var service = new PreviewService(mappingRepo, schemaRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
+        var service = new PreviewService(mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync("m1", FilesFor(SchemaA)));
 
@@ -91,22 +102,38 @@ public class PreviewServiceTests
     {
         public Task<List<Mapping>> GetAllAsync() => Task.FromResult(new List<Mapping> { mapping });
 
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) =>
+            Task.FromResult((new List<Mapping> { mapping }, 1L));
+
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(id == mapping.Id ? mapping : null);
 
         public Task<Mapping> CreateAsync(Mapping m) => Task.FromResult(m);
 
         public Task<Mapping?> UpdateAsync(Mapping m) => Task.FromResult<Mapping?>(m);
+
+        public Task<bool> DeleteAsync(string id) => Task.FromResult(true);
     }
 
     private class FakeSourceSchemaRepository(Dictionary<string, SourceSchema> schemas) : ISourceSchemaRepository
     {
         public Task<List<SourceSchema>> GetAllAsync() => Task.FromResult(schemas.Values.ToList());
 
+        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) =>
+            Task.FromResult((schemas.Values.ToList(), (long)schemas.Count));
+
         public Task<SourceSchema?> GetByIdAsync(string id) => Task.FromResult(schemas.GetValueOrDefault(id));
 
         public Task<SourceSchema> CreateAsync(SourceSchema s) => Task.FromResult(s);
 
         public Task<bool> DeleteAsync(string id) => Task.FromResult(schemas.Remove(id));
+    }
+
+    private class FakeFileTypeRepository(Domain.Entities.FileType fileType) : IFileTypeRepository
+    {
+        public Task<List<Domain.Entities.FileType>> GetByProductIdAsync(string productId) =>
+            Task.FromResult(new List<Domain.Entities.FileType> { fileType });
+
+        public Task<Domain.Entities.FileType?> GetByIdAsync(string id) => Task.FromResult<Domain.Entities.FileType?>(fileType);
     }
 
     private class FakeFileParser(Dictionary<string, List<Dictionary<string, string?>>> rowsBySchemaId) : IFileParser

@@ -1,3 +1,5 @@
+using BankMapper.Domain.Enums;
+
 namespace BankMapper.Application.FileTypes;
 
 public class TargetFieldDto
@@ -9,4 +11,8 @@ public class TargetFieldDto
     public int Order { get; set; }
 
     public int? Length { get; set; }
+
+    public bool IsRequired { get; set; }
+
+    public FieldValidationFormat ValidationFormat { get; set; }
 }

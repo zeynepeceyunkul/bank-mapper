@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BankMapper.Application.Abstractions;
+using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
 using BankMapper.Domain.Execution;
@@ -7,12 +8,25 @@ using Microsoft.Extensions.Logging;
 
 namespace BankMapper.Application.Mappings;
 
-public class MappingService(IMappingRepository mappingRepository, ILogger<MappingService> logger) : IMappingService
+public class MappingService(
+    IMappingRepository mappingRepository,
+    ISourceSchemaRepository sourceSchemaRepository,
+    IFileTypeRepository fileTypeRepository,
+    ILogger<MappingService> logger) : IMappingService
 {
     public async Task<List<MappingDto>> GetAllAsync()
     {
         var mappings = await mappingRepository.GetAllAsync();
         return mappings.Select(ToDto).ToList();
+    }
+
+    public async Task<PagedResult<MappingDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+    {
+        var clampedPageIndex = Math.Max(pageIndex, 0);
+        var clampedPageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort);
+        return new PagedResult<MappingDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
     public async Task<MappingDto?> GetByIdAsync(string id)
@@ -27,7 +41,7 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
         mapping.CreatedAt = DateTime.UtcNow;
         mapping.UpdatedAt = DateTime.UtcNow;
 
-        Validate(mapping);
+        await ValidateAsync(mapping);
 
         var created = await mappingRepository.CreateAsync(mapping);
         logger.LogInformation(
@@ -50,7 +64,7 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
         updatedMapping.CreatedBy = existing.CreatedBy;
         updatedMapping.UpdatedAt = DateTime.UtcNow;
 
-        Validate(updatedMapping);
+        await ValidateAsync(updatedMapping);
 
         var updated = await mappingRepository.UpdateAsync(updatedMapping);
         if (updated is not null)
@@ -60,6 +74,19 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
                 updated.Id, updated.SourceSchemas.Count);
         }
         return updated is null ? null : ToDto(updated);
+    }
+
+    // SourceSchema'nin aksine, hicbir baska kayit bir Mapping'e referans
+    // vermiyor - koşulsuz silinebilir, engelleyici bir bagimlilik kontrolune
+    // gerek yok.
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var deleted = await mappingRepository.DeleteAsync(id);
+        if (deleted)
+        {
+            logger.LogInformation("Mapping {MappingId} silindi", id);
+        }
+        return deleted;
     }
 
     private static Mapping BuildEntity(CreateMappingRequest request) => new()
@@ -72,11 +99,25 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
         Edges = request.Edges.Select(ToEntity).ToList()
     };
 
-    private static void Validate(Mapping mapping)
+    private async Task ValidateAsync(Mapping mapping)
     {
         if (string.IsNullOrWhiteSpace(mapping.Name))
         {
             throw new ArgumentException("Mapping adı zorunludur.");
+        }
+
+        // SourceSchema'nin aksine (ayni isimde otomatik " (1)" eklenir) burada
+        // sessizce yeniden adlandirmiyoruz, direkt reddediyoruz - mapping,
+        // Onizleme ekraninda ISME BAKILARAK secilip gercek bir donusturme
+        // calistirilan bir sey, neredeyse ayni iki isim orada yanlislikla
+        // birbirine karisabilir.
+        var allMappings = await mappingRepository.GetAllAsync();
+        var nameConflict = allMappings.Any(m =>
+            m.Id != mapping.Id && string.Equals(m.Name, mapping.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (nameConflict)
+        {
+            throw new ArgumentException($"Bu isimde bir mapping zaten var: {mapping.Name}");
         }
 
         if (mapping.SourceSchemas.Count != 1)
@@ -89,6 +130,16 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
             throw new ArgumentException("Dosya tipi seçilmelidir.");
         }
 
+        var sourceSchemaId = mapping.SourceSchemas[0].SourceSchemaId;
+        var sourceSchema = await sourceSchemaRepository.GetByIdAsync(sourceSchemaId)
+            ?? throw new ArgumentException($"Source şema bulunamadı: {sourceSchemaId}");
+
+        var fileType = await fileTypeRepository.GetByIdAsync(mapping.FileTypeId)
+            ?? throw new ArgumentException($"Dosya tipi bulunamadı: {mapping.FileTypeId}");
+
+        var sourceFieldNames = sourceSchema.Fields.Select(f => f.Name).ToHashSet();
+        var targetFieldNames = fileType.TargetFields.Select(f => f.Name).ToHashSet();
+
         var sourceSchemaIds = mapping.SourceSchemas.Select(s => s.SourceSchemaId).ToHashSet();
         var nodeIds = mapping.FunctoidNodes.Select(n => n.Id)
             .Concat(mapping.ConstantNodes.Select(c => c.Id))
@@ -96,9 +147,17 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
 
         foreach (var edge in mapping.Edges)
         {
-            if (edge.FromKind == EdgeEndpointKind.SourceField && !sourceSchemaIds.Contains(edge.FromSourceSchemaId ?? string.Empty))
+            if (edge.FromKind == EdgeEndpointKind.SourceField)
             {
-                throw new ArgumentException($"Bağlantı bilinmeyen bir source şemaya işaret ediyor: {edge.FromSourceSchemaId}");
+                if (!sourceSchemaIds.Contains(edge.FromSourceSchemaId ?? string.Empty))
+                {
+                    throw new ArgumentException($"Bağlantı bilinmeyen bir source şemaya işaret ediyor: {edge.FromSourceSchemaId}");
+                }
+
+                if (!sourceFieldNames.Contains(edge.FromFieldName ?? string.Empty))
+                {
+                    throw new ArgumentException($"Bağlantı, source şemada bulunmayan bir alana işaret ediyor: {edge.FromFieldName}");
+                }
             }
 
             if (edge.FromKind is EdgeEndpointKind.NodeOutput or EdgeEndpointKind.ConstantOutput && !nodeIds.Contains(edge.FromNodeId ?? string.Empty))
@@ -109,6 +168,11 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
             if (edge.ToKind == EdgeEndpointKind.NodeInput && !nodeIds.Contains(edge.ToNodeId ?? string.Empty))
             {
                 throw new ArgumentException($"Bağlantı bilinmeyen bir node'a işaret ediyor: {edge.ToNodeId}");
+            }
+
+            if (edge.ToKind == EdgeEndpointKind.TargetField && !targetFieldNames.Contains(edge.ToFieldName ?? string.Empty))
+            {
+                throw new ArgumentException($"Bağlantı, dosya tipinde bulunmayan bir hedef alana işaret ediyor: {edge.ToFieldName}");
             }
         }
 
@@ -144,6 +208,22 @@ public class MappingService(IMappingRepository mappingRepository, ILogger<Mappin
         catch (InvalidOperationException ex)
         {
             throw new ArgumentException(ex.Message);
+        }
+
+        var connectedTargetFields = mapping.Edges
+            .Where(e => e.ToKind == EdgeEndpointKind.TargetField)
+            .Select(e => e.ToFieldName)
+            .ToHashSet();
+
+        var missingRequiredFields = fileType.TargetFields
+            .Where(f => f.IsRequired && !connectedTargetFields.Contains(f.Name))
+            .Select(f => f.Name)
+            .ToList();
+
+        if (missingRequiredFields.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Şu zorunlu hedef alanlar bağlanmadan mapping kaydedilemez: {string.Join(", ", missingRequiredFields)}");
         }
     }
 

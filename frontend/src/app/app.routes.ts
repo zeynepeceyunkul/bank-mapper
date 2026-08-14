@@ -2,7 +2,11 @@ import { Routes } from '@angular/router';
 import { unsavedChangesGuard } from './core/guards/unsaved-changes.guard';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'mapping' },
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
+  },
   {
     path: 'mapping',
     loadComponent: () =>

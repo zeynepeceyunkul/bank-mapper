@@ -1,0 +1,111 @@
+<section class="dashboard">
+  <div class="hero-card">
+    <div class="hero-pattern" aria-hidden="true"></div>
+    <div class="hero-body">
+      <p class="hero-eyebrow">{{ greeting }}</p>
+      <h1>Bank Mapper</h1>
+      <p class="hero-subtitle">
+        Farklı dosya formatları arasında alan eşleştirmesi kurun, dönüştürme kuralları tanımlayın ve dosyaları tek
+        tıkla dönüştürün.
+      </p>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <div class="stat-grid">
+    <div class="stat-tile">
+      <span class="stat-label">Mapping</span>
+      <span class="stat-value">{{ mappingCount() ?? '—' }}</span>
+      <span class="stat-caption">kayıtlı mapping</span>
+    </div>
+    <div class="stat-tile">
+      <span class="stat-label">Kaynak Şema</span>
+      <span class="stat-value">{{ schemaCount() ?? '—' }}</span>
+      <span class="stat-caption">kayıtlı şema</span>
+    </div>
+    <a class="action-tile" routerLink="/mapping">
+      <span class="action-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#1a1a1a">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+        </svg>
+      </span>
+      <span class="action-text">
+        <span class="action-title">Yeni Mapping</span>
+        <span class="action-subtitle">Oluştur ve yapılandır</span>
+      </span>
+    </a>
+    <a class="action-tile action-tile-primary" routerLink="/preview">
+      <span class="action-icon action-icon-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#1a1a1a">
+          <path
+            d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+          />
+        </svg>
+      </span>
+      <span class="action-text">
+        <span class="action-title">Önizlemeye Git</span>
+        <span class="action-subtitle">Dosya dönüştür ve indir</span>
+      </span>
+    </a>
+  </div>
+
+  <div class="recent-card">
+    <div class="recent-header">
+      <div class="recent-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"
+          />
+        </svg>
+        <span>Son Güncellenen Mapping'ler</span>
+      </div>
+      <a class="view-all-link" [routerLink]="['/mapping']" [queryParams]="{ list: 1 }">
+        Tümünü gör
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+        </svg>
+      </a>
+    </div>
+
+    @if (mappingCount() === 0) {
+      <p class="hint">Henüz kayıtlı mapping yok.</p>
+    } @else {
+      <table class="recent-table">
+        <thead>
+          <tr>
+            <th>Mapping Adı</th>
+            <th>Alan Sayısı</th>
+            <th>Son Güncelleme</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (mapping of recentMappings(); track mapping.id) {
+            <tr [routerLink]="['/mapping/edit', mapping.id]">
+              <td>
+                <div class="mapping-name-cell">
+                  <span class="mapping-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#56708a">
+                      <path d="M14 6l-1-2H5v17h2v-7h5l1 2h7V6h-6zm4 8h-4l-1-2H7V6h5l1 2h5v6z" />
+                    </svg>
+                  </span>
+                  <span class="mapping-name">{{ mapping.name }}</span>
+                </div>
+              </td>
+              <td><span class="field-count-badge">{{ targetFieldEdgeCount(mapping) }} alan</span></td>
+              <td class="recent-date">{{ mapping.updatedAt | date: 'dd.MM.yyyy, HH:mm' }}</td>
+              <td class="chevron-cell">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                </svg>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

@@ -1,4 +1,6 @@
 .mapping-editor {
+  margin-top: 2.5rem;
+
   // Kurulum bolumu (baslik + Hedef/Kaynaklar sihirbazi) tam genislige
   // yayilmiyor, referansin gercek DOM'undan (DevTools > iframe > main
   // style="max-width:1400px") okunan degere sabitleniyor.
@@ -73,7 +75,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
 
     h2 {
       margin: 0;

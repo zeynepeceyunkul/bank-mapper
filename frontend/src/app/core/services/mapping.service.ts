@@ -16,10 +16,12 @@ export class MappingService {
   // Sadece liste ekrani (mapping-list) icin - dropdown'lar (preview-execute,
   // mapping-editor'daki kaynak sema secimi) hala tam listeye ihtiyac duydugu
   // icin getAll() ayrica duruyor, bu ikisi birbirinin yerine gecmiyor.
-  getPage(pageIndex: number, pageSize: number, sort: SortOption = 'RecentFirst'): Observable<PagedResult<Mapping>> {
-    return this.http.get<PagedResult<Mapping>>(`${environment.apiUrl}/mappings/page`, {
-      params: { pageIndex, pageSize, sort },
-    });
+  getPage(pageIndex: number, pageSize: number, sort: SortOption = 'RecentFirst', search = ''): Observable<PagedResult<Mapping>> {
+    const params: Record<string, string | number> = { pageIndex, pageSize, sort };
+    if (search.trim()) {
+      params['search'] = search.trim();
+    }
+    return this.http.get<PagedResult<Mapping>>(`${environment.apiUrl}/mappings/page`, { params });
   }
 
   getById(id: string): Observable<Mapping> {

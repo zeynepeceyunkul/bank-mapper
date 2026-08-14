@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 import { SourceSchemaList } from './source-schema-list';
 
@@ -56,20 +57,43 @@ describe('SourceSchemaList', () => {
     req.flush(emptyPage);
   });
 
-  it('defaults to NameAscending and re-fetches page 0 with the new sort when it changes', () => {
+  it('defaults to RecentFirst and re-fetches page 0 with the new sort when it changes', () => {
     fixture.detectChanges();
     const initialReq = httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page'));
-    expect(initialReq.request.params.get('sort')).toBe('NameAscending');
+    expect(initialReq.request.params.get('sort')).toBe('RecentFirst');
     initialReq.flush(emptyPage);
 
     component.onPageChange({ pageIndex: 1, pageSize: 5, length: 0, previousPageIndex: 0 });
     httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page')).flush(emptyPage);
 
-    component.onSortChange('RecentFirst');
+    component.onSortChange('NameAscending');
 
     const req = httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page'));
-    expect(req.request.params.get('sort')).toBe('RecentFirst');
+    expect(req.request.params.get('sort')).toBe('NameAscending');
     expect(req.request.params.get('pageIndex')).toBe('0');
     req.flush(emptyPage);
+  });
+
+  it('debounces search input and resets to page 0 before re-fetching', () => {
+    vi.useFakeTimers();
+    try {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page')).flush(emptyPage);
+
+      component.onPageChange({ pageIndex: 1, pageSize: 5, length: 0, previousPageIndex: 0 });
+      httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page')).flush(emptyPage);
+
+      component.onSearchChange('bordro');
+      httpMock.expectNone((req) => req.url.endsWith('/source-schemas/page'));
+
+      vi.advanceTimersByTime(300);
+
+      const req = httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page'));
+      expect(req.request.params.get('search')).toBe('bordro');
+      expect(req.request.params.get('pageIndex')).toBe('0');
+      req.flush(emptyPage);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

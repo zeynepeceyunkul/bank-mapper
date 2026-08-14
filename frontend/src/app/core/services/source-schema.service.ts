@@ -15,10 +15,12 @@ export class SourceSchemaService {
 
   // Sadece liste ekrani icin - mapping-editor'daki kaynak sema secimi hala tam
   // listeye ihtiyac duydugu icin getAll() ayrica duruyor.
-  getPage(pageIndex: number, pageSize: number, sort: SortOption = 'NameAscending'): Observable<PagedResult<SourceSchema>> {
-    return this.http.get<PagedResult<SourceSchema>>(`${environment.apiUrl}/source-schemas/page`, {
-      params: { pageIndex, pageSize, sort },
-    });
+  getPage(pageIndex: number, pageSize: number, sort: SortOption = 'NameAscending', search = ''): Observable<PagedResult<SourceSchema>> {
+    const params: Record<string, string | number> = { pageIndex, pageSize, sort };
+    if (search.trim()) {
+      params['search'] = search.trim();
+    }
+    return this.http.get<PagedResult<SourceSchema>>(`${environment.apiUrl}/source-schemas/page`, { params });
   }
 
   create(formData: FormData): Observable<SourceSchema> {

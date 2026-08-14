@@ -31,6 +31,8 @@ export class MappingList implements OnInit {
   readonly totalCount = signal(0);
   readonly pageSizeOptions = [5, 10, 25, 50];
   readonly sort = signal<SortOption>('RecentFirst');
+  readonly search = signal('');
+  private searchDebounceHandle?: ReturnType<typeof setTimeout>;
 
   @Output() readonly newMapping = new EventEmitter<void>();
   @Output() readonly mappingDeleted = new EventEmitter<string>();
@@ -41,7 +43,7 @@ export class MappingList implements OnInit {
 
   loadMappings(): void {
     this.error.set(null);
-    this.mappingService.getPage(this.pageIndex(), this.pageSize(), this.sort()).subscribe({
+    this.mappingService.getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search()).subscribe({
       next: (result) => {
         this.mappings.set(result.items);
         this.totalCount.set(result.totalCount);
@@ -60,6 +62,17 @@ export class MappingList implements OnInit {
     this.sort.set(value);
     this.pageIndex.set(0);
     this.loadMappings();
+  }
+
+  // Her tus vuruşunda istek atmamak icin kisa bir debounce - kullanici
+  // yazmayi biraktiktan 300ms sonra gerçek sorgu gidiyor.
+  onSearchChange(value: string): void {
+    this.search.set(value);
+    clearTimeout(this.searchDebounceHandle);
+    this.searchDebounceHandle = setTimeout(() => {
+      this.pageIndex.set(0);
+      this.loadMappings();
+    }, 300);
   }
 
   targetFieldEdgeCount(mapping: Mapping): number {

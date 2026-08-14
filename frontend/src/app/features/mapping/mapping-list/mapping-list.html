@@ -2,6 +2,14 @@
   <div class="header">
     <h2>Kayıtlı Mapping'ler</h2>
     <div class="header-actions">
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Ada göre ara..."
+        aria-label="Mapping ara"
+        [value]="search()"
+        (input)="onSearchChange($any($event.target).value)"
+      />
       <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
         <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Son Güncelleme (Yeni→Eski)</option>
         <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Son Güncelleme (Eski→Yeni)</option>
@@ -17,7 +25,7 @@
   }
 
   @if (totalCount() === 0 && !error()) {
-    <p class="hint">Henüz kayıtlı mapping yok.</p>
+    <p class="hint">{{ search() ? 'Aramanla eşleşen bir mapping bulunamadı.' : 'Henüz kayıtlı mapping yok.' }}</p>
   } @else {
     <table mat-table [dataSource]="mappings()">
       <ng-container matColumnDef="name">

@@ -142,12 +142,22 @@
   @if (showList()) {
     <div class="list-header">
       <h3>Kayıtlı Source Şemalar</h3>
-      <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
-        <option value="NameAscending" [selected]="sort() === 'NameAscending'">Ad (A→Z)</option>
-        <option value="NameDescending" [selected]="sort() === 'NameDescending'">Ad (Z→A)</option>
-        <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Eklenme (Yeni→Eski)</option>
-        <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Eklenme (Eski→Yeni)</option>
-      </select>
+      <div class="list-header-actions">
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Ada göre ara..."
+          aria-label="Şema ara"
+          [value]="search()"
+          (input)="onSearchChange($any($event.target).value)"
+        />
+        <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
+          <option value="NameAscending" [selected]="sort() === 'NameAscending'">Ad (A→Z)</option>
+          <option value="NameDescending" [selected]="sort() === 'NameDescending'">Ad (Z→A)</option>
+          <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Eklenme (Yeni→Eski)</option>
+          <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Eklenme (Eski→Yeni)</option>
+        </select>
+      </div>
     </div>
 
     @if (listError()) {
@@ -155,7 +165,7 @@
     }
 
     @if (totalCount() === 0 && !listError()) {
-      <p>Henüz kayıtlı source şema yok.</p>
+      <p>{{ search() ? 'Aramanla eşleşen bir şema bulunamadı.' : 'Henüz kayıtlı source şema yok.' }}</p>
     } @else {
       <table mat-table [dataSource]="schemas()" class="schema-list">
         <ng-container matColumnDef="name">

@@ -6,4 +6,5 @@ public static class MongoCollectionNames
     public const string FileTypes = "fileTypes";
     public const string SourceSchemas = "sourceSchemas";
     public const string Mappings = "mappings";
+    public const string MappingRuns = "mappingRuns";
 }

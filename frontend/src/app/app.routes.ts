@@ -20,4 +20,9 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/preview/preview-execute/preview-execute').then((m) => m.PreviewExecute),
   },
+  {
+    path: 'run-history',
+    loadComponent: () =>
+      import('./features/run-history/run-history-list/run-history-list').then((m) => m.RunHistoryList),
+  },
 ];

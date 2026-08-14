@@ -3,6 +3,7 @@ using BankMapper.Application.Functoids;
 using BankMapper.Application.Mappings;
 using BankMapper.Application.Preview;
 using BankMapper.Application.Products;
+using BankMapper.Application.RunHistory;
 using BankMapper.Application.SourceSchemas;
 using BankMapper.Domain.Execution;
 using BankMapper.Domain.Functoids;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IMappingService, MappingService>();
         services.AddScoped<IFunctoidService, FunctoidService>();
         services.AddScoped<IPreviewService, PreviewService>();
+        services.AddScoped<IRunHistoryService, RunHistoryService>();
 
         services.AddSingleton<IFunctoid, TrimFunctoid>();
         services.AddSingleton<IFunctoid, LPadFunctoid>();

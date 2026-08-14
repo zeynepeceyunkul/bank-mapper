@@ -50,6 +50,11 @@ public class PreviewController(IPreviewService previewService) : ControllerBase
 
     private static List<PreviewSourceFile> BuildSourceFiles(ExecutePreviewFormRequest form) =>
         form.Files
-            .Select((file, i) => new PreviewSourceFile { SourceSchemaId = form.SourceSchemaIds[i], Content = file.OpenReadStream() })
+            .Select((file, i) => new PreviewSourceFile
+            {
+                SourceSchemaId = form.SourceSchemaIds[i],
+                Content = file.OpenReadStream(),
+                FileName = file.FileName,
+            })
             .ToList();
 }

@@ -5,4 +5,6 @@ public class PreviewSourceFile
     public string SourceSchemaId { get; set; } = string.Empty;
 
     public Stream Content { get; set; } = Stream.Null;
+
+    public string FileName { get; set; } = string.Empty;
 }

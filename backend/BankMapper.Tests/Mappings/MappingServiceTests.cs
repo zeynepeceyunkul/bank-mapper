@@ -362,20 +362,42 @@ public class MappingServiceTests
         Assert.Equal(["Alfa", "Mike", "Zebra"], page.Items.Select(m => m.Name));
     }
 
+    [Fact]
+    public async Task GetPagedAsync_filters_by_name_search_case_insensitively()
+    {
+        var service = CreateService();
+        foreach (var name in new[] { "Maas Odeme Mapping", "Vergi Odeme Mapping", "Test" })
+        {
+            var request = ValidRequestBase();
+            request.Name = name;
+            request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+            await service.CreateAsync(request);
+        }
+
+        var page = await service.GetPagedAsync(pageIndex: 0, pageSize: 10, SortOption.NameAscending, search: "odeme");
+
+        Assert.Equal(2, page.TotalCount);
+        Assert.Equal(["Maas Odeme Mapping", "Vergi Odeme Mapping"], page.Items.Select(m => m.Name));
+    }
+
     private class FakeMappingRepository : IMappingRepository
     {
         private readonly Dictionary<string, Mapping> _store = [];
 
         public Task<List<Mapping>> GetAllAsync() => Task.FromResult(_store.Values.ToList());
 
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
         {
+            IEnumerable<Mapping> filtered = string.IsNullOrWhiteSpace(search)
+                ? _store.Values
+                : _store.Values.Where(m => m.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+
             IEnumerable<Mapping> ordered = sort switch
             {
-                SortOption.NameAscending => _store.Values.OrderBy(m => m.Name),
-                SortOption.NameDescending => _store.Values.OrderByDescending(m => m.Name),
-                SortOption.OldestFirst => _store.Values.OrderBy(m => m.UpdatedAt),
-                _ => _store.Values.OrderByDescending(m => m.UpdatedAt),
+                SortOption.NameAscending => filtered.OrderBy(m => m.Name),
+                SortOption.NameDescending => filtered.OrderByDescending(m => m.Name),
+                SortOption.OldestFirst => filtered.OrderBy(m => m.UpdatedAt),
+                _ => filtered.OrderByDescending(m => m.UpdatedAt),
             };
             var list = ordered.ToList();
             var page = list.Skip(pageIndex * pageSize).Take(pageSize).ToList();
@@ -416,7 +438,7 @@ public class MappingServiceTests
 
         public Task<List<SourceSchema>> GetAllAsync() => Task.FromResult(new List<SourceSchema> { _schema });
 
-        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) =>
+        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) =>
             Task.FromResult((new List<SourceSchema> { _schema }, 1L));
 
         public Task<SourceSchema?> GetByIdAsync(string id) => Task.FromResult(id == SchemaId ? _schema : null);

@@ -20,9 +20,10 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     // eslesir, {id}="page" olarak GetById'ye dusme riski yok.
     [HttpGet("page")]
     public async Task<ActionResult<PagedResult<MappingDto>>> GetPage(
-        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst)
+        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst,
+        [FromQuery] string? search = null)
     {
-        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort);
+        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search);
         return Ok(result);
     }
 

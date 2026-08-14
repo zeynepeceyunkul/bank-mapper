@@ -3,6 +3,7 @@ using BankMapper.Application.Common;
 using BankMapper.Application.Mappings;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
+using BankMapper.Domain.Functoids;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -13,10 +14,16 @@ public class MappingServiceTests
     private const string SchemaId = "src1";
     private const string FileTypeId = "ft1";
 
+    private static FunctoidRegistry CreateFunctoidRegistry() => new([
+        new TrimFunctoid(), new LPadFunctoid(), new RPadFunctoid(),
+        new ConcatFunctoid(), new UpperFunctoid(), new LowerFunctoid(),
+    ]);
+
     private static MappingService CreateService() => new(
         new FakeMappingRepository(),
         new FakeSourceSchemaRepository(),
         new FakeFileTypeRepository(),
+        CreateFunctoidRegistry(),
         NullLogger<MappingService>.Instance);
 
     private static CreateMappingRequest ValidRequestBase() => new()
@@ -60,6 +67,58 @@ public class MappingServiceTests
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => CreateService().CreateAsync(request));
         Assert.Contains("döngü", ex.Message);
+    }
+
+    [Fact]
+    public async Task Functoid_with_a_disconnected_input_that_still_reaches_a_target_field_is_rejected()
+    {
+        // n1 (LPad) ciktisi hedefe bagli oldugu icin sadece "hedefe giden bir
+        // edge var mi" bakan eski kontrol bunu "bagli" sayiyordu - n1'in KENDI
+        // girisinin bos oldugunu hic gormuyordu.
+        var request = ValidRequestBase();
+        request.FunctoidNodes = [new FunctoidNodeDto { Id = "n1", FunctoidCode = "LPad" }];
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.NodeOutput, FromNodeId = "n1", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => CreateService().CreateAsync(request));
+        Assert.Contains("LPad", ex.Message);
+        Assert.Contains("girişleri tam bağlanmadan", ex.Message);
+    }
+
+    [Fact]
+    public async Task Functoid_chain_with_a_disconnected_middle_link_is_rejected_even_for_a_non_required_field()
+    {
+        // Trim -> LPad -> hedef zincirinde Trim ile LPad arasindaki baglanti
+        // hic cekilmemis. Hedef alan (Ad) required degil, ama bu yine de
+        // reddedilmeli: required/non-required ayrimi bu kontrolde onemli
+        // degil, ikisi de sessizce yanlis/bos deger uretebilir.
+        var request = ValidRequestBase();
+        request.FunctoidNodes =
+        [
+            new FunctoidNodeDto { Id = "n1", FunctoidCode = "Trim" },
+            new FunctoidNodeDto { Id = "n2", FunctoidCode = "LPad" },
+        ];
+        request.Edges =
+        [
+            new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.NodeInput, ToNodeId = "n1", ToPort = "value" },
+            new GraphEdgeDto { FromKind = EdgeEndpointKind.NodeOutput, FromNodeId = "n2", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" },
+        ];
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => CreateService().CreateAsync(request));
+        Assert.Contains("LPad", ex.Message);
+    }
+
+    [Fact]
+    public async Task Functoid_with_a_disconnected_input_that_never_reaches_a_target_field_is_allowed()
+    {
+        // Canvas'ta unutulmus, hicbir yere baglanmamis bagimsiz bir functoid -
+        // calisma zamaninda hic kullanilmiyor, kaydetmeyi engellememeli.
+        var request = ValidRequestBase();
+        request.FunctoidNodes = [new FunctoidNodeDto { Id = "n1", FunctoidCode = "Trim" }];
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+
+        var result = await CreateService().CreateAsync(request);
+
+        Assert.Single(result.FunctoidNodes);
     }
 
     [Fact]
@@ -134,6 +193,7 @@ public class MappingServiceTests
             new FakeMappingRepository(),
             new FakeSourceSchemaRepository(),
             new FakeFileTypeRepository([new TargetField { Name = "Ad" }, new TargetField { Name = "IBAN", IsRequired = true }]),
+            CreateFunctoidRegistry(),
             NullLogger<MappingService>.Instance);
 
         var request = ValidRequestBase();
@@ -151,6 +211,7 @@ public class MappingServiceTests
             new FakeMappingRepository(),
             new FakeSourceSchemaRepository(),
             new FakeFileTypeRepository([new TargetField { Name = "Ad" }, new TargetField { Name = "IBAN", IsRequired = true }]),
+            CreateFunctoidRegistry(),
             NullLogger<MappingService>.Instance);
 
         var request = ValidRequestBase();

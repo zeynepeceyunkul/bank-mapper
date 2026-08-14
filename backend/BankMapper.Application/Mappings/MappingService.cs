@@ -4,6 +4,7 @@ using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
 using BankMapper.Domain.Execution;
+using BankMapper.Domain.Functoids;
 using Microsoft.Extensions.Logging;
 
 namespace BankMapper.Application.Mappings;
@@ -12,6 +13,7 @@ public class MappingService(
     IMappingRepository mappingRepository,
     ISourceSchemaRepository sourceSchemaRepository,
     IFileTypeRepository fileTypeRepository,
+    FunctoidRegistry functoidRegistry,
     ILogger<MappingService> logger) : IMappingService
 {
     public async Task<List<MappingDto>> GetAllAsync()
@@ -208,6 +210,62 @@ public class MappingService(
         catch (InvalidOperationException ex)
         {
             throw new ArgumentException(ex.Message);
+        }
+
+        // Bir hedef alana giden edge'in var olmasi, o degerin gercekten
+        // uretildigi anlamina gelmiyor: ara bir functoid'in girisi bos
+        // birakilmissa MappingExecutor o girisi sessizce null'a cozumluyor
+        // (bkz. MappingExecutor.ResolveNodeInput). Burada hedefe (dogrudan ya
+        // da baska functoid'ler uzerinden) ulasan her node'u geriye dogru
+        // izleyip TUM giris portlarinin dolu oldugunu dogruluyoruz - zorunlu/
+        // zorunlu-olmayan hedef alan ayrimi yapmiyoruz, ikisi de ayni sekilde
+        // sessizce yanlis/bos deger uretebilir. Hedefe hic ulasmayan, canvas'ta
+        // unutulmus bagimsiz functoid'ler bu kontrolun disinda birakiliyor
+        // (calisma zamaninda zaten hic kullanilmiyorlar).
+        var nodesReachingTarget = new HashSet<string>();
+        var toVisit = new Queue<string>(mapping.Edges
+            .Where(e => e.ToKind == EdgeEndpointKind.TargetField && e.FromKind == EdgeEndpointKind.NodeOutput)
+            .Select(e => e.FromNodeId!));
+
+        foreach (var id in toVisit)
+        {
+            nodesReachingTarget.Add(id);
+        }
+
+        while (toVisit.Count > 0)
+        {
+            var nodeId = toVisit.Dequeue();
+            var upstreamNodeIds = mapping.Edges
+                .Where(e => e.ToKind == EdgeEndpointKind.NodeInput && e.ToNodeId == nodeId && e.FromKind == EdgeEndpointKind.NodeOutput)
+                .Select(e => e.FromNodeId!);
+
+            foreach (var upstreamNodeId in upstreamNodeIds)
+            {
+                if (nodesReachingTarget.Add(upstreamNodeId))
+                {
+                    toVisit.Enqueue(upstreamNodeId);
+                }
+            }
+        }
+
+        var incompleteFunctoidCodes = mapping.FunctoidNodes
+            .Where(n => nodesReachingTarget.Contains(n.Id))
+            .Where(n =>
+            {
+                var connectedPorts = mapping.Edges
+                    .Where(e => e.ToKind == EdgeEndpointKind.NodeInput && e.ToNodeId == n.Id)
+                    .Select(e => e.ToPort)
+                    .ToHashSet();
+
+                return functoidRegistry.Get(n.FunctoidCode).InputPorts.Any(port => !connectedPorts.Contains(port));
+            })
+            .Select(n => n.FunctoidCode)
+            .ToList();
+
+        if (incompleteFunctoidCodes.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Şu functoid'lerin girişleri tam bağlanmadan mapping kaydedilemez: {string.Join(", ", incompleteFunctoidCodes)}");
         }
 
         var connectedTargetFields = mapping.Edges

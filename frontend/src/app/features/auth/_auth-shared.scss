@@ -1,0 +1,382 @@
+// 4 auth ekraninin (giris, kayit, e-posta kontrol, dogrulama basarili/
+// basarisiz) hepsinin paylastigi kart-ici bicimleme - Angular'in component
+// stil izolasyonu ng-content ile projekte edilen icerige parent'in
+// (AuthLayout) stillerini uygulamiyor, o yuzden her sayfa kendi .scss'inde
+// bunu @use ile iceriye aliyor (derleme zamaninda kopyalaniyor, calisma
+// zamaninda tekrar yok).
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.auth-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background: #1a1a1a;
+}
+
+.auth-card-subtitle {
+  margin: 0 0 28px;
+  font-size: 0.875rem;
+  color: #9e9e9e;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  input {
+    padding: 12px 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: #1a1a1a;
+
+    &::placeholder {
+      color: #9e9e9e;
+    }
+
+    transition: border-color 150ms, box-shadow 150ms;
+
+    &:focus {
+      outline: none;
+      border-color: #1a1a1a;
+      box-shadow: 0 0 0 4px rgba(255, 199, 44, 0.18);
+    }
+  }
+}
+
+.auth-password-wrapper {
+  position: relative;
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 44px;
+  }
+}
+
+.auth-password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #9e9e9e;
+  cursor: pointer;
+  outline: none;
+
+  // styles.scss'teki genel `button:hover` kurali burada da acik gri arka
+  // plan basiyordu - ikon butonu icin arka plani seffaf kalsin istiyoruz.
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.4);
+  }
+}
+
+.auth-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #b3261e;
+}
+
+.auth-submit {
+  position: relative;
+  overflow: hidden;
+  margin-top: 4px;
+  padding: 13px;
+  border: none;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: background-image 150ms;
+
+  // background-color'u burada tekrar belirtmek sart - projedeki genel
+  // `button:hover` kurali (styles.scss) aksi halde araya girip acik gri
+  // yapiyordu, koyu butonun uzerindeki beyaz yazi neredeyse kayboluyordu.
+  // Ustune eklenen hafif beyaz katman (%8 opaklik), "Onayla" (mat-flat-button)
+  // butonunun hover'inda Material'in kendi durum katmaninda (state layer)
+  // kullandigi ayni deger - DevTools'tan olculdu, ayni soluklasma hissini
+  // vermesi icin.
+  &:hover:not(:disabled) {
+    background-color: #1a1a1a;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+  }
+
+  // Alt cizgi ani belirmiyor, soldan saga "doluyor" - genislik 0'dan
+  // %100'e animasyonla buyuyor (Ece'nin istegi, sadece opacity/golge fade
+  // yerine gercekten dolan bir his).
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 3px;
+    background: #ffc72c;
+    transition: width 280ms ease-out;
+  }
+
+  &:hover:not(:disabled)::after {
+    width: 100%;
+  }
+
+  // Tarayicinin varsayilan (gri/soluk) focus cercevesi koyu butonun uzerine
+  // binip "renk arka planla karisip kayboluyor" gibi gorunmesine sebep
+  // oluyordu - klavyeyle gezinme icin erisilebilirligi kaybetmeden kendi
+  // marka rengimizle degistiriyoruz.
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(255, 199, 44, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+// .auth-submit bir <button>, ama dogrulama basarili ekranindaki "Giris Yap"
+// bir link (<a>) - ayni gorunumu almasi icin.
+.auth-submit-link {
+  display: block;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+}
+
+.auth-divider {
+  position: relative;
+  margin: 28px 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #9e9e9e;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 24px);
+    height: 1px;
+    background: #e5e5e5;
+  }
+
+  &::before {
+    left: 0;
+  }
+
+  &::after {
+    right: 0;
+  }
+}
+
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #56708a;
+
+  a {
+    color: #1a1a1a;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    outline: none;
+    border-radius: 4px;
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.4);
+    }
+  }
+}
+
+.auth-back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 16px auto 0;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #56708a;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+  width: fit-content;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.4);
+  }
+}
+
+// E-posta kontrol / dogrulama sonucu ekranlari - ortali icerik.
+.auth-card-centered {
+  text-align: center;
+
+  .auth-card-icon,
+  .auth-icon-square-lg,
+  .auth-icon-circle-lg {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.auth-icon-square-lg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 28px;
+  border-radius: 20px;
+  background: #1a1a1a;
+}
+
+.auth-icon-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2e7d32;
+  border: 2px solid #fff;
+}
+
+.auth-icon-circle-lg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 28px;
+  border-radius: 50%;
+  border: 3px solid;
+
+  &.success {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+  }
+
+  &.failure {
+    background: #fdecea;
+    border-color: #ffcdd2;
+  }
+}
+
+.auth-email-pill {
+  display: inline-block;
+  margin: 0 0 24px;
+  padding: 10px 16px;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+.auth-warning-box {
+  margin-bottom: 28px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #fff8e1;
+  border: 1px solid rgba(255, 199, 44, 0.4);
+  text-align: left;
+
+  p {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #b45309;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0 0 0 16px;
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: #b45309;
+  }
+}
+
+.auth-info-box {
+  margin-bottom: 20px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  text-align: left;
+
+  p {
+    margin: 0 0 12px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0 0 0 16px;
+    font-size: 0.8125rem;
+    line-height: 1.9;
+    color: #56708a;
+  }
+}
+
+.auth-card-description {
+  margin: 0 0 8px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #56708a;
+}
+
+.auth-card-hint {
+  margin: 0 0 28px;
+  font-size: 0.875rem;
+  color: #9e9e9e;
+}

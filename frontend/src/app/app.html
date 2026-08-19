@@ -1,17 +1,28 @@
-<mat-toolbar class="app-header">
-  <span class="app-logo" aria-hidden="true"><mat-icon>menu</mat-icon></span>
-  <h1>Bank Mapper</h1>
-  <nav>
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
-    <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
-    <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
-    <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
-  </nav>
-</mat-toolbar>
-
-<main class="app-content">
+@if (isAuthPage()) {
   <router-outlet />
-</main>
+} @else {
+  <mat-toolbar class="app-header">
+    <img src="logo.png" alt="" aria-hidden="true" class="app-logo" />
+    <h1>Bank Mapper</h1>
+    @if (isLoggedIn()) {
+      <nav>
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
+        <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
+        <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
+        <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
+      </nav>
+      <span class="app-spacer"></span>
+      <span class="app-username">{{ email() }}</span>
+      <button type="button" mat-icon-button class="app-logout" aria-label="Çıkış yap" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+      </button>
+    }
+  </mat-toolbar>
+
+  <main class="app-content">
+    <router-outlet />
+  </main>
+}
 
 <app-toast-container />
 <app-confirm-dialog />

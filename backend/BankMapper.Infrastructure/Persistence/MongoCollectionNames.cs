@@ -7,4 +7,5 @@ public static class MongoCollectionNames
     public const string SourceSchemas = "sourceSchemas";
     public const string Mappings = "mappings";
     public const string MappingRuns = "mappingRuns";
+    public const string Users = "users";
 }

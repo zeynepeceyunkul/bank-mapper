@@ -77,9 +77,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   readonly loadingExisting = signal(false);
 
   readonly showMappingsPanel = signal(false);
-  // Panel'deki "onay bekliyor" banner'i ?approval=1 ile buraya geliyor -
-  // mapping-list.ts'e initialStatusFilter olarak aktarilir.
-  readonly showPendingApprovalFilter = signal(false);
   readonly showSourceSchemaModal = signal(false);
   readonly showSavePopup = signal(false);
   readonly hedefExpanded = signal(true);
@@ -195,11 +192,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     // formu yerine dogrudan "Kayitli Mapping'ler" panelini acik karsilamali.
     if (this.route.snapshot.queryParamMap.get('list') === '1') {
       this.showMappingsPanel.set(true);
-    }
-
-    if (this.route.snapshot.queryParamMap.get('approval') === '1') {
-      this.showMappingsPanel.set(true);
-      this.showPendingApprovalFilter.set(true);
     }
   }
 

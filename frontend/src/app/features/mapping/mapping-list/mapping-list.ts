@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -56,14 +56,7 @@ export class MappingList implements OnInit {
   @Output() readonly newMapping = new EventEmitter<void>();
   @Output() readonly mappingDeleted = new EventEmitter<string>();
 
-  // Panel'deki "onay bekliyor" banner'i buraya bu input'la geliyor - panel
-  // acilir acilmaz dogrudan "Onay Bekliyor" filtresiyle karsilamasi icin.
-  @Input() initialStatusFilter?: MappingStatus;
-
   ngOnInit(): void {
-    if (this.initialStatusFilter) {
-      this.statusFilter.set(this.initialStatusFilter);
-    }
     this.loadMappings();
   }
 

@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ISourceSchemaRepository, SourceSchemaRepository>();
         services.AddScoped<IMappingRepository, MappingRepository>();
+        services.AddScoped<IMappingRunRepository, MappingRunRepository>();
         services.AddSingleton<IFileParserFactory, FileParserFactory>();
         services.AddSingleton<IFileWriterFactory, FileWriterFactory>();
 

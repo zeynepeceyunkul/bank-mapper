@@ -1,0 +1,99 @@
+<section class="run-history-list">
+  <div class="header">
+    <h2>Çalıştırma Geçmişi</h2>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label for="kindFilter">İşlem Türü</label>
+      <select id="kindFilter" class="filter-select" (change)="onKindFilterChange($any($event.target).value)">
+        <option value="">Tümü</option>
+        <option value="Preview">Önizleme</option>
+        <option value="Convert">Dönüştürme</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="successFilter">Durum</label>
+      <select id="successFilter" class="filter-select" (change)="onSuccessFilterChange($any($event.target).value)">
+        <option value="">Tümü</option>
+        <option value="true">Başarılı</option>
+        <option value="false">Başarısız</option>
+      </select>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (totalCount() === 0 && !error()) {
+    <p class="hint">Henüz bir mapping çalıştırılmamış.</p>
+  } @else {
+    <div class="runs-table-card">
+      <table class="runs-table">
+        <thead>
+          <tr>
+            <th>Mapping</th>
+            <th>İşlem</th>
+            <th>Durum</th>
+            <th>Detay</th>
+            <th>Zaman</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (run of runs(); track run.id) {
+            <tr>
+              <td class="run-mapping">
+                <a [routerLink]="['/mapping/edit', run.mappingId]">{{ run.mappingName }}</a>
+              </td>
+              <td>
+                @if (run.kind === 'Preview') {
+                  <span class="kind-badge preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                    </svg>
+                    Önizleme
+                  </span>
+                } @else {
+                  <span class="kind-badge convert">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                    </svg>
+                    Dönüştürme
+                  </span>
+                }
+              </td>
+              <td>
+                @if (run.success) {
+                  <span class="status-badge success">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+                    Başarılı
+                  </span>
+                } @else {
+                  <span class="status-badge failure">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+                    </svg>
+                    Başarısız
+                  </span>
+                }
+              </td>
+              <td class="detail-cell" [class.failure-detail]="!run.success">{{ detailText(run) }}</td>
+              <td class="run-date">{{ run.runAt | date: 'dd.MM.yyyy HH:mm' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <mat-paginator
+      [length]="totalCount()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPageChange($event)"
+    />
+  }
+</section>

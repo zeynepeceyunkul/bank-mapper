@@ -2,8 +2,10 @@
   <span class="app-logo" aria-hidden="true"><mat-icon>menu</mat-icon></span>
   <h1>Bank Mapper</h1>
   <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
     <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
     <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
+    <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
   </nav>
 </mat-toolbar>
 

@@ -1,39 +1,47 @@
 <section class="preview-execute">
-  <div class="setup-card">
+  <div class="page-header">
     <h2>Dosya Önizleme / Dönüştürme</h2>
+  </div>
 
-    <div class="field-group">
-      <label for="mapping">Mapping</label>
-      <mat-form-field appearance="outline" class="field">
-        <select matNativeControl id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
-          <option value="" selected>Mapping seçin</option>
-          @for (mapping of mappings(); track mapping.id) {
-            <option [value]="mapping.id">{{ mapping.name }}</option>
-          }
-        </select>
-      </mat-form-field>
+  <div class="setup-card">
+    <div class="setup-row run-row">
+      <div class="field-group">
+        <label for="mapping">Mapping</label>
+        <mat-form-field appearance="outline" class="field">
+          <select matNativeControl id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
+            <option value="" selected>Mapping seçin</option>
+            @for (mapping of mappings(); track mapping.id) {
+              <option [value]="mapping.id">{{ mapping.name }}</option>
+            }
+          </select>
+        </mat-form-field>
+      </div>
+
+      <button type="button" mat-flat-button class="primary-action" [disabled]="loading()" (click)="runPreview()">
+        {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
+      </button>
     </div>
 
     @if (selectedMapping; as mapping) {
-      @for (ref of mapping.sourceSchemas; track ref.sourceSchemaId) {
-        <div class="file-picker">
-          <span class="file-picker-label">{{ ref.alias }} dosyası</span>
-          <button type="button" mat-stroked-button (click)="fileInput.click()">Dosya Seç</button>
-          <span class="file-picker-name">{{ fileName(ref.sourceSchemaId) }}</span>
-          <input #fileInput type="file" hidden (change)="onFileSelected(ref.sourceSchemaId, $event)" />
-        </div>
-      }
+      <div class="setup-row file-row">
+        @for (ref of mapping.sourceSchemas; track ref.sourceSchemaId) {
+          <div class="field-group">
+            <label>{{ ref.alias }} dosyası</label>
+            <div class="file-picker">
+              <button type="button" mat-stroked-button (click)="fileInput.click()">Dosya Seç</button>
+              <span class="file-picker-name">{{ fileName(ref.sourceSchemaId) }}</span>
+              <input #fileInput type="file" hidden (change)="onFileSelected(ref.sourceSchemaId, $event)" />
+            </div>
+          </div>
+        }
+      </div>
     }
 
     @if (error()) {
       <p class="error">{{ error() }}</p>
     }
 
-    <button type="button" mat-flat-button class="primary-action" [disabled]="loading()" (click)="runPreview()">
-      {{ loading() ? 'Çalıştırılıyor...' : 'Önizle' }}
-    </button>
-
-    <div class="download-row">
+    <div class="setup-row download-row">
       <div class="field-group format-field">
         <label for="format">Format</label>
         <mat-form-field appearance="outline" class="field">
@@ -43,6 +51,7 @@
           </select>
         </mat-form-field>
       </div>
+
       <button type="button" mat-stroked-button class="ghost-action" [disabled]="downloading()" (click)="downloadFile()">
         {{ downloading() ? 'Hazırlanıyor...' : 'İndir' }}
       </button>
@@ -76,4 +85,83 @@
       }
     </div>
   }
+
+  <div class="recent-runs-section">
+    <div class="recent-runs-header">
+      <span class="recent-runs-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#56708A">
+          <path
+            d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"
+          />
+        </svg>
+        Son Çalıştırmalar
+      </span>
+      <a routerLink="/run-history" class="view-all-link">
+        Tüm geçmişi gör
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+        </svg>
+      </a>
+    </div>
+
+    @if (recentRuns().length === 0) {
+      <p class="hint">Henüz bir mapping çalıştırılmamış.</p>
+    } @else {
+      <table class="recent-runs-table">
+        <thead>
+          <tr>
+            <th>Mapping</th>
+            <th>İşlem</th>
+            <th>Durum</th>
+            <th>Ne Zaman</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (run of recentRuns(); track run.id) {
+            <tr>
+              <td class="run-mapping">{{ run.mappingName }}</td>
+              <td>
+                @if (run.kind === 'Preview') {
+                  <span class="kind-badge preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                    </svg>
+                    Önizleme
+                  </span>
+                } @else {
+                  <span class="kind-badge convert">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                    </svg>
+                    Dönüştürme
+                  </span>
+                }
+              </td>
+              <td>
+                <div class="status-cell">
+                  @if (run.success) {
+                    <span class="status-badge success">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                      </svg>
+                      Başarılı
+                    </span>
+                  } @else {
+                    <span class="status-badge failure">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+                      </svg>
+                      Başarısız
+                    </span>
+                    <span class="status-error-detail" [title]="run.errorMessage">{{ run.errorMessage }}</span>
+                  }
+                </div>
+              </td>
+              <td class="run-date">{{ relativeTime(run.runAt) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
 </section>

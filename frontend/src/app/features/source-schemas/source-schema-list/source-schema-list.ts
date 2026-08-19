@@ -63,7 +63,9 @@ export class SourceSchemaList implements OnInit {
   readonly pageSize = signal(10);
   readonly totalCount = signal(0);
   readonly pageSizeOptions = [5, 10, 25, 50];
-  readonly sort = signal<SortOption>('NameAscending');
+  readonly sort = signal<SortOption>('RecentFirst');
+  readonly search = signal('');
+  private searchDebounceHandle?: ReturnType<typeof setTimeout>;
 
   get isFixedLength(): boolean {
     return this.fileFormat === 'FixedLength';
@@ -75,7 +77,7 @@ export class SourceSchemaList implements OnInit {
 
   loadSchemas(): void {
     this.listError.set(null);
-    this.sourceSchemaService.getPage(this.pageIndex(), this.pageSize(), this.sort()).subscribe({
+    this.sourceSchemaService.getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search()).subscribe({
       next: (result) => {
         this.schemas.set(result.items);
         this.totalCount.set(result.totalCount);
@@ -94,6 +96,17 @@ export class SourceSchemaList implements OnInit {
     this.sort.set(value);
     this.pageIndex.set(0);
     this.loadSchemas();
+  }
+
+  // Her tus vuruşunda istek atmamak icin kisa bir debounce - kullanici
+  // yazmayi biraktiktan 300ms sonra gerçek sorgu gidiyor.
+  onSearchChange(value: string): void {
+    this.search.set(value);
+    clearTimeout(this.searchDebounceHandle);
+    this.searchDebounceHandle = setTimeout(() => {
+      this.pageIndex.set(0);
+      this.loadSchemas();
+    }, 300);
   }
 
   onFileSelected(event: Event): void {

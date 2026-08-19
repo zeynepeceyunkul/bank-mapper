@@ -19,7 +19,7 @@ public class PreviewServiceTests
 
     private static MappingExecutor CreateExecutor() => new(new FunctoidRegistry([new TrimFunctoid()]));
 
-    private static PreviewService CreateService(
+    private static (PreviewService Service, FakeMappingRunRepository RunRepo) CreateService(
         Mapping mapping,
         Dictionary<string, SourceSchema> schemas,
         Dictionary<string, List<Dictionary<string, string?>>> rowsBySchemaId)
@@ -29,7 +29,10 @@ public class PreviewServiceTests
         var fileTypeRepo = new FakeFileTypeRepository(FileType());
         var parserFactory = new FakeFileParserFactory(new FakeFileParser(rowsBySchemaId));
         var writerFactory = new FileWriterFactory();
-        return new PreviewService(mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
+        var runRepo = new FakeMappingRunRepository();
+        var service = new PreviewService(
+            mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, runRepo, NullLogger<PreviewService>.Instance);
+        return (service, runRepo);
     }
 
     private static SourceSchema Schema(string id) => new() { Id = id, Name = id, FileFormat = FileFormat.Csv };
@@ -42,7 +45,7 @@ public class PreviewServiceTests
     };
 
     private static List<PreviewSourceFile> FilesFor(params string[] schemaIds) =>
-        schemaIds.Select(id => new PreviewSourceFile { SourceSchemaId = id, Content = Stream.Null }).ToList();
+        schemaIds.Select(id => new PreviewSourceFile { SourceSchemaId = id, Content = Stream.Null, FileName = $"{id}.csv" }).ToList();
 
     [Fact]
     public async Task Single_schema_mapping_maps_fields_directly()
@@ -57,7 +60,7 @@ public class PreviewServiceTests
             ],
         };
 
-        var service = CreateService(
+        var (service, runRepo) = CreateService(
             mapping,
             new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA) },
             new Dictionary<string, List<Dictionary<string, string?>>> { [SchemaA] = [Row(("Ad", "Ahmet"))] });
@@ -67,6 +70,14 @@ public class PreviewServiceTests
         Assert.Single(result.Rows);
         Assert.Equal("Ahmet", result.Rows[0]["AdOut"]);
         Assert.Empty(result.Warnings);
+
+        var run = Assert.Single(runRepo.Runs);
+        Assert.Equal("m1", run.MappingId);
+        Assert.Equal(RunKind.Preview, run.Kind);
+        Assert.True(run.Success);
+        Assert.Equal(1, run.RowCount);
+        Assert.Null(run.ErrorMessage);
+        Assert.Equal(["A.csv"], run.FileNames);
     }
 
     [Fact]
@@ -87,12 +98,19 @@ public class PreviewServiceTests
         var fileTypeRepo = new FakeFileTypeRepository(FileType());
         var parserFactory = new FakeFileParserFactory(new FakeThrowingFileParser());
         var writerFactory = new FileWriterFactory();
-        var service = new PreviewService(mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, NullLogger<PreviewService>.Instance);
+        var runRepo = new FakeMappingRunRepository();
+        var service = new PreviewService(
+            mappingRepo, schemaRepo, fileTypeRepo, parserFactory, CreateExecutor(), writerFactory, runRepo, NullLogger<PreviewService>.Instance);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync("m1", FilesFor(SchemaA)));
 
         Assert.Contains("A", ex.Message);
         Assert.IsType<InvalidDataException>(ex.InnerException);
+
+        var run = Assert.Single(runRepo.Runs);
+        Assert.False(run.Success);
+        Assert.Equal(ex.Message, run.ErrorMessage);
+        Assert.Null(run.RowCount);
     }
 
     private static Dictionary<string, string?> Row(params (string Key, string? Value)[] fields) =>
@@ -102,7 +120,7 @@ public class PreviewServiceTests
     {
         public Task<List<Mapping>> GetAllAsync() => Task.FromResult(new List<Mapping> { mapping });
 
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) =>
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) =>
             Task.FromResult((new List<Mapping> { mapping }, 1L));
 
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(id == mapping.Id ? mapping : null);
@@ -118,7 +136,7 @@ public class PreviewServiceTests
     {
         public Task<List<SourceSchema>> GetAllAsync() => Task.FromResult(schemas.Values.ToList());
 
-        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) =>
+        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) =>
             Task.FromResult((schemas.Values.ToList(), (long)schemas.Count));
 
         public Task<SourceSchema?> GetByIdAsync(string id) => Task.FromResult(schemas.GetValueOrDefault(id));
@@ -150,5 +168,21 @@ public class PreviewServiceTests
     {
         public ParsedFileResult Parse(Stream fileStream, SourceSchema schema) =>
             throw new InvalidDataException("Gecersiz dosya icerigi");
+    }
+
+    private class FakeMappingRunRepository : IMappingRunRepository
+    {
+        public List<MappingRun> Runs { get; } = [];
+
+        public Task<MappingRun> CreateAsync(MappingRun run)
+        {
+            run.Id = Guid.NewGuid().ToString();
+            Runs.Add(run);
+            return Task.FromResult(run);
+        }
+
+        public Task<(List<MappingRun> Items, long TotalCount)> GetPagedAsync(
+            int pageIndex, int pageSize, RunKind? kind = null, bool? success = null) =>
+            Task.FromResult((Runs.OrderByDescending(r => r.RunAt).ToList(), (long)Runs.Count));
     }
 }

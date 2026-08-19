@@ -6,7 +6,7 @@ public interface IMappingService
 {
     Task<List<MappingDto>> GetAllAsync();
 
-    Task<PagedResult<MappingDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort);
+    Task<PagedResult<MappingDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null);
 
     Task<MappingDto?> GetByIdAsync(string id);
 

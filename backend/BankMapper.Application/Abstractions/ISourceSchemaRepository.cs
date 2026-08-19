@@ -7,7 +7,7 @@ public interface ISourceSchemaRepository
 {
     Task<List<SourceSchema>> GetAllAsync();
 
-    Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort);
+    Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null);
 
     Task<SourceSchema?> GetByIdAsync(string id);
 

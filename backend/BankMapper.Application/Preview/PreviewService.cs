@@ -15,38 +15,79 @@ public class PreviewService(
     IFileParserFactory fileParserFactory,
     MappingExecutor mappingExecutor,
     IFileWriterFactory fileWriterFactory,
+    IMappingRunRepository mappingRunRepository,
     ILogger<PreviewService> logger) : IPreviewService
 {
     private const int MaxPreviewRows = 50;
 
     public async Task<PreviewExecuteResult> ExecuteAsync(string mappingId, IReadOnlyList<PreviewSourceFile> files)
     {
-        var (rows, warnings) = await RunMappingAsync(mappingId, files);
-        logger.LogInformation(
-            "Onizleme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi",
-            mappingId, files.Count, rows.Count);
-        return new PreviewExecuteResult { Rows = rows.Take(MaxPreviewRows).ToList(), Warnings = warnings };
+        var mapping = await mappingRepository.GetByIdAsync(mappingId)
+            ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
+
+        try
+        {
+            var (rows, warnings) = await RunMappingAsync(mapping, files);
+            logger.LogInformation(
+                "Onizleme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi",
+                mappingId, files.Count, rows.Count);
+            await RecordRunAsync(mapping, RunKind.Preview, files, success: true, rowCount: rows.Count, errorMessage: null);
+            return new PreviewExecuteResult { Rows = rows.Take(MaxPreviewRows).ToList(), Warnings = warnings };
+        }
+        catch (ArgumentException ex)
+        {
+            await RecordRunAsync(mapping, RunKind.Preview, files, success: false, rowCount: null, errorMessage: ex.Message);
+            throw;
+        }
     }
 
     public async Task<ConvertResult> ConvertAsync(string mappingId, IReadOnlyList<PreviewSourceFile> files, FileFormat format)
     {
-        var (rows, _) = await RunMappingAsync(mappingId, files);
-        logger.LogInformation(
-            "Donusturme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi, format {Format}",
-            mappingId, files.Count, rows.Count, format);
-
-        var writer = fileWriterFactory.GetWriter(format);
-        var content = writer.Write(rows);
-        return new ConvertResult(content, writer.ContentType, $"donusturulen-dosya.{writer.FileExtension}");
-    }
-
-    private async Task<(List<Dictionary<string, object?>> Rows, List<string> Warnings)> RunMappingAsync(
-        string mappingId,
-        IReadOnlyList<PreviewSourceFile> files)
-    {
         var mapping = await mappingRepository.GetByIdAsync(mappingId)
             ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
 
+        try
+        {
+            var (rows, _) = await RunMappingAsync(mapping, files);
+            logger.LogInformation(
+                "Donusturme calistirildi: mapping {MappingId}, {FileCount} dosya, {RowCount} satir uretildi, format {Format}",
+                mappingId, files.Count, rows.Count, format);
+            await RecordRunAsync(mapping, RunKind.Convert, files, success: true, rowCount: rows.Count, errorMessage: null);
+
+            var writer = fileWriterFactory.GetWriter(format);
+            var content = writer.Write(rows);
+            return new ConvertResult(content, writer.ContentType, $"donusturulen-dosya.{writer.FileExtension}");
+        }
+        catch (ArgumentException ex)
+        {
+            await RecordRunAsync(mapping, RunKind.Convert, files, success: false, rowCount: null, errorMessage: ex.Message);
+            throw;
+        }
+    }
+
+    // Calistirma gecmisi kaydi - basarili da basarisiz da olsa "dun gece
+    // yukledigim dosya duzgun mu islendi" sorusuna cevap verebilmek icin her
+    // iki durumda da kaydediliyor. Sadece mapping id'si gecersizse (mapping
+    // hic bulunamadiginda) buraya hic ulasilmiyor - o durumda kaydedilecek
+    // anlamli bir mapping adi olmadigi icin gecmise hic yazilmiyor.
+    private async Task RecordRunAsync(
+        Mapping mapping, RunKind kind, IReadOnlyList<PreviewSourceFile> files, bool success, int? rowCount, string? errorMessage) =>
+        await mappingRunRepository.CreateAsync(new MappingRun
+        {
+            MappingId = mapping.Id,
+            MappingName = mapping.Name,
+            Kind = kind,
+            FileNames = files.Select(f => f.FileName).ToList(),
+            Success = success,
+            RowCount = rowCount,
+            ErrorMessage = errorMessage,
+            RunAt = DateTime.UtcNow,
+        });
+
+    private async Task<(List<Dictionary<string, object?>> Rows, List<string> Warnings)> RunMappingAsync(
+        Mapping mapping,
+        IReadOnlyList<PreviewSourceFile> files)
+    {
         var schemaRef = mapping.SourceSchemas[0];
 
         var file = files.FirstOrDefault(f => f.SourceSchemaId == schemaRef.SourceSchemaId)

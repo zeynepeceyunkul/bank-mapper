@@ -166,6 +166,13 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
         this.resetForNewMapping();
       }
     });
+
+    // Panel'deki "Tumunu gor" linki buraya ?list=1 ile geliyor - kullanici
+    // "kayitli mapping'lerin tumunu" gormek istedigi icin bos "Yeni Mapping"
+    // formu yerine dogrudan "Kayitli Mapping'ler" panelini acik karsilamali.
+    if (this.route.snapshot.queryParamMap.get('list') === '1') {
+      this.showMappingsPanel.set(true);
+    }
   }
 
   // routerLink="/mapping" zaten /mapping'deyken tıklanırsa Angular Router'ın

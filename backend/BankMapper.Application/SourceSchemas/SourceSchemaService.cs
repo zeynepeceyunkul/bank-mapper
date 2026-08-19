@@ -18,12 +18,12 @@ public class SourceSchemaService(
         return schemas.Select(ToDto).ToList();
     }
 
-    public async Task<PagedResult<SourceSchemaDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+    public async Task<PagedResult<SourceSchemaDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
     {
         var clampedPageIndex = Math.Max(pageIndex, 0);
         var clampedPageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, totalCount) = await repository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort);
+        var (items, totalCount) = await repository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search);
         return new PagedResult<SourceSchemaDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 

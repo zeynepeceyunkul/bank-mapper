@@ -20,9 +20,10 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
 
     [HttpGet("page")]
     public async Task<ActionResult<PagedResult<SourceSchemaDto>>> GetPage(
-        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.NameAscending)
+        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.NameAscending,
+        [FromQuery] string? search = null)
     {
-        var result = await sourceSchemaService.GetPagedAsync(pageIndex, pageSize, sort);
+        var result = await sourceSchemaService.GetPagedAsync(pageIndex, pageSize, sort, search);
         return Ok(result);
     }
 

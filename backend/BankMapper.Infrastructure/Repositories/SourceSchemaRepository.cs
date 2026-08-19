@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
@@ -23,9 +24,11 @@ public class SourceSchemaRepository(IMongoDbContext context) : ISourceSchemaRepo
     // (Once ayri bir CreatedAt alani denendi, ama bu alan eklenmeden once
     // olusturulmus butun eski kayitlarda deger default(DateTime) - yani hepsi
     // esit - oldugu icin "en yeni once" siralamasi rastgele/anlamsiz cikiyordu.)
-    public async Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+    public async Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
     {
-        var filter = FilterDefinition<SourceSchema>.Empty;
+        var filter = string.IsNullOrWhiteSpace(search)
+            ? FilterDefinition<SourceSchema>.Empty
+            : Builders<SourceSchema>.Filter.Regex(s => s.Name, new BsonRegularExpression(Regex.Escape(search.Trim()), "i"));
         var countTask = _collection.CountDocumentsAsync(filter);
         var find = _collection.Find(filter);
         var sorted = sort switch

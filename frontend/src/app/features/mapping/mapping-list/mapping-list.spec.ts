@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 
 import { MappingList } from './mapping-list';
 
@@ -71,5 +72,28 @@ describe('MappingList', () => {
     // sirada hic kayit olmayabilir.
     expect(req.request.params.get('pageIndex')).toBe('0');
     req.flush(emptyPage);
+  });
+
+  it('debounces search input and resets to page 0 before re-fetching', () => {
+    vi.useFakeTimers();
+    try {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.endsWith('/mappings/page')).flush(emptyPage);
+
+      component.onPageChange({ pageIndex: 2, pageSize: 25, length: 0, previousPageIndex: 0 });
+      httpMock.expectOne((req) => req.url.endsWith('/mappings/page')).flush(emptyPage);
+
+      component.onSearchChange('odeme');
+      httpMock.expectNone((req) => req.url.endsWith('/mappings/page'));
+
+      vi.advanceTimersByTime(300);
+
+      const req = httpMock.expectOne((req) => req.url.endsWith('/mappings/page'));
+      expect(req.request.params.get('search')).toBe('odeme');
+      expect(req.request.params.get('pageIndex')).toBe('0');
+      req.flush(emptyPage);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

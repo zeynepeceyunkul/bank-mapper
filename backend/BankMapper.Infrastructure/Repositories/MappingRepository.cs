@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
@@ -18,9 +19,14 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
     // Mongo tek sorguda hem sayfa hem toplam sayi donmuyor - ikisi paralel
     // calistiriliyor. Varsayilan (RecentFirst) UpdatedAt'e gore azalan sirali
     // (bankada "en cok ugrasilan/guncel" kayitlar en ustte gorunsun diye).
-    public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+    public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
     {
-        var filter = FilterDefinition<Mapping>.Empty;
+        // Regex.Escape ile kullanicinin girdigi metin regex ozel karakteri
+        // olarak degil duz metin olarak eslesiyor (orn. "test." metnindeki
+        // "." her karaktere degil sadece gercek noktaya eslessin diye).
+        var filter = string.IsNullOrWhiteSpace(search)
+            ? FilterDefinition<Mapping>.Empty
+            : Builders<Mapping>.Filter.Regex(m => m.Name, new BsonRegularExpression(Regex.Escape(search.Trim()), "i"));
         var countTask = _collection.CountDocumentsAsync(filter);
         var find = _collection.Find(filter);
         var sorted = sort switch

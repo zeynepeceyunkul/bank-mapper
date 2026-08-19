@@ -1,0 +1,227 @@
+.run-history-list {
+  max-width: 1400px;
+  margin: 2.5rem auto 0;
+
+  // Baslik/filtre alani - diger ust-seviye sayfalarla (mapping-list.scss,
+  // source-schema-list.scss) ayni desen: bu da onlar gibi bagimsiz bir sayfa,
+  // Onizleme'nin bir alt-ekrani degil (bkz. Ece'nin karari - "Gecmis" sekmesi
+  // ust menude kaliyor, o yuzden burada "geri" oku / Onizleme'ye baglilik
+  // ima eden bir tasarim yerine diger sayfalarla tutarli bir baslik kullanildi).
+  .header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    h2 {
+      margin: 0;
+      font-size: 1.375rem;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  // mapping-editor.scss'teki .wizard-accordion (mat-expansion-panel) ile ayni
+  // kart gorunumu - beyaz zemin + golge + 12px koseler, sadece sabit
+  // (acilir/kapanir degil), filtre kontrollerini gruplamak icin.
+  .filters {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    background: var(--mat-sys-surface);
+    box-shadow: var(--mat-sys-level1);
+    border-radius: 12px;
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+
+      label {
+        font-size: 0.75rem;
+        color: var(--app-muted);
+      }
+    }
+
+    .filter-select {
+      padding: 6px 10px;
+      border: 1px solid var(--mat-sys-outline, #c4c4c4);
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      color: #1a1a1a;
+      background: #fff;
+      min-width: 150px;
+    }
+  }
+
+  // Figma tasarimindan (Ece'nin dogrudan inspect ettigi computed style'lar)
+  // birebir aktarilan renk/olcu degerleri.
+  .runs-table-card {
+    background: var(--mat-sys-surface);
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .runs-table {
+    width: 100%;
+    // recent-runs-table (preview-execute.scss) ile ayni gerekce: sabit
+    // sutun genislikleri, uzun bir Detay metninin tabloyu yeniden dagitip
+    // Zaman sutununu sikistirmasini onluyor.
+    table-layout: fixed;
+    border-collapse: collapse;
+
+    th,
+    td {
+      box-sizing: border-box;
+    }
+
+    th:nth-child(1),
+    td:nth-child(1) {
+      width: 22%;
+    }
+
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 18%;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+      width: 16%;
+    }
+
+    th:nth-child(4),
+    td:nth-child(4) {
+      width: 26%;
+    }
+
+    th:nth-child(5),
+    td:nth-child(5) {
+      width: 18%;
+    }
+
+    th {
+      white-space: nowrap;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--app-muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 12px 16px;
+
+      &:first-child {
+        padding-left: 20px;
+      }
+
+      &:last-child {
+        padding-right: 20px;
+      }
+    }
+
+    td {
+      padding: 12px 16px;
+      border-top: 1px solid #f0f0f0;
+
+      &:first-child {
+        padding-left: 20px;
+      }
+
+      &:last-child {
+        padding-right: 20px;
+      }
+    }
+
+    .run-mapping {
+      overflow: hidden;
+
+      a {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    a {
+      color: #1a1a1a;
+      text-decoration: none;
+      font-weight: 500;
+
+      &:hover {
+        color: var(--mat-sys-tertiary);
+      }
+    }
+
+    .detail-cell {
+      font-size: 0.8125rem;
+      color: var(--app-muted);
+      max-width: 320px;
+      overflow-wrap: break-word;
+      white-space: normal;
+
+      &.failure-detail {
+        color: #b3261e;
+        font-family: 'Roboto Mono', monospace;
+      }
+    }
+
+    .run-date {
+      font-size: 0.8125rem;
+      color: #9e9e9e;
+      white-space: nowrap;
+    }
+  }
+
+  .kind-badge,
+  .status-badge {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+
+    svg {
+      flex: none;
+    }
+  }
+
+  .kind-badge {
+    width: 116px;
+  }
+
+  .kind-badge.preview {
+    background: #e8eaf6;
+    color: #3949ab;
+    border: 1px solid #c5cae9;
+  }
+
+  .kind-badge.convert {
+    background: #f0f0f0;
+    color: var(--app-muted);
+    border: 1px solid #e0e0e0;
+  }
+
+  .status-badge {
+    gap: 5px;
+    width: 96px;
+  }
+
+  .status-badge.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+  }
+
+  .status-badge.failure {
+    background: #fdecea;
+    color: #b3261e;
+    border: 1px solid #ffcdd2;
+  }
+}

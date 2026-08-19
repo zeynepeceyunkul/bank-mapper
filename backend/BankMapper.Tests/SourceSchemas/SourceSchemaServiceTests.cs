@@ -74,6 +74,20 @@ public class SourceSchemaServiceTests
         Assert.Empty(page.Items);
         Assert.Equal(1, page.TotalCount);
     }
+ 
+    [Fact]
+    public async Task GetPagedAsync_filters_by_name_search_case_insensitively()
+    {
+        var service = CreateService();
+        await service.CreateAsync(FixedLengthRequest("Musteri X Bordro CSV"));
+        await service.CreateAsync(FixedLengthRequest("Musteri Y Bordro Excel"));
+        await service.CreateAsync(FixedLengthRequest("Test Sema"));
+
+        var page = await service.GetPagedAsync(pageIndex: 0, pageSize: 10, SortOption.NameAscending, search: "bordro");
+
+        Assert.Equal(2, page.TotalCount);
+        Assert.Equal(["Musteri X Bordro CSV", "Musteri Y Bordro Excel"], page.Items.Select(s => s.Name));
+    }
 
     [Fact]
     public async Task Invalid_file_during_field_detection_throws_a_clear_error_instead_of_leaking_the_parsers_own_exception()
@@ -107,14 +121,18 @@ public class SourceSchemaServiceTests
 
         public Task<List<SourceSchema>> GetAllAsync() => Task.FromResult(_store.Values.ToList());
 
-        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort)
+        public Task<(List<SourceSchema> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
         {
+            IEnumerable<SourceSchema> filtered = string.IsNullOrWhiteSpace(search)
+                ? _store.Values
+                : _store.Values.Where(s => s.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+
             IEnumerable<SourceSchema> ordered = sort switch
             {
-                SortOption.NameDescending => _store.Values.OrderByDescending(s => s.Name, StringComparer.Ordinal),
-                SortOption.RecentFirst => _store.Values.OrderByDescending(s => s.Id, StringComparer.Ordinal),
-                SortOption.OldestFirst => _store.Values.OrderBy(s => s.Id, StringComparer.Ordinal),
-                _ => _store.Values.OrderBy(s => s.Name, StringComparer.Ordinal),
+                SortOption.NameDescending => filtered.OrderByDescending(s => s.Name, StringComparer.Ordinal),
+                SortOption.RecentFirst => filtered.OrderByDescending(s => s.Id, StringComparer.Ordinal),
+                SortOption.OldestFirst => filtered.OrderBy(s => s.Id, StringComparer.Ordinal),
+                _ => filtered.OrderBy(s => s.Name, StringComparer.Ordinal),
             };
             var list = ordered.ToList();
             var page = list.Skip(pageIndex * pageSize).Take(pageSize).ToList();
@@ -156,7 +174,7 @@ public class SourceSchemaServiceTests
     private class FakeMappingRepository : IMappingRepository
     {
         public Task<List<Mapping>> GetAllAsync() => Task.FromResult(new List<Mapping>());
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort) => Task.FromResult((new List<Mapping>(), 0L));
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) => Task.FromResult((new List<Mapping>(), 0L));
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(null);
         public Task<Mapping> CreateAsync(Mapping mapping) => Task.FromResult(mapping);
         public Task<Mapping?> UpdateAsync(Mapping mapping) => Task.FromResult<Mapping?>(null);

@@ -1,9 +1,14 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using BankMapper.Api;
 using BankMapper.Application;
 using BankMapper.Infrastructure;
+using BankMapper.Infrastructure.Auth;
 using BankMapper.Infrastructure.Persistence;
 using BankMapper.Infrastructure.Persistence.Seed;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Formatting.Compact;
 
@@ -26,6 +31,31 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey)),
+        };
+    });
+
+// Fallback policy: /api/auth altindakiler disinda HER endpoint varsayilan
+// olarak gecerli bir token istiyor - controller controller [Authorize]
+// eklemeyi unutma riskine girmek yerine "aksi belirtilmedikce herkes login
+// olmali" varsayilanini tercih ediyoruz (AuthController zaten [AllowAnonymous]).
+builder.Services.AddAuthorization(options =>
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -60,9 +90,10 @@ app.UseHttpsRedirection();
 
 app.UseCors(AngularDevClient);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();

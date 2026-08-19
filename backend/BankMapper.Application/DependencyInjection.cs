@@ -1,3 +1,4 @@
+using BankMapper.Application.Auth;
 using BankMapper.Application.FileTypes;
 using BankMapper.Application.Functoids;
 using BankMapper.Application.Mappings;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IFunctoidService, FunctoidService>();
         services.AddScoped<IPreviewService, PreviewService>();
         services.AddScoped<IRunHistoryService, RunHistoryService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         services.AddSingleton<IFunctoid, TrimFunctoid>();
         services.AddSingleton<IFunctoid, LPadFunctoid>();

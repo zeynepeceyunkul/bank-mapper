@@ -12,22 +12,12 @@
   box-shadow: rgba(0, 0, 0, 0.25) 0 2px 8px;
 
   .app-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 32px;
     height: 32px;
     border-radius: 6px;
-    background: var(--mat-sys-tertiary);
-    color: var(--mat-sys-on-tertiary);
     margin-right: 10px;
     flex-shrink: 0;
-
-    mat-icon {
-      font-size: 1.15rem;
-      height: 1.15rem;
-      width: 1.15rem;
-    }
+    object-fit: cover;
   }
 
   h1 {
@@ -35,6 +25,20 @@
     font-weight: 700;
     letter-spacing: 0.02em;
     margin: 0 32px 0 0;
+  }
+
+  .app-spacer {
+    flex: 1 1 auto;
+  }
+
+  .app-username {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.75);
+    margin-right: 4px;
+  }
+
+  .app-logout {
+    color: rgba(255, 255, 255, 0.75);
   }
 
   nav {
@@ -55,19 +59,29 @@
       position: relative;
       transition: color 150ms;
 
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 12px;
+        right: 12px;
+        height: 3px;
+        background: var(--mat-sys-tertiary);
+        border-radius: 3px 3px 0 0;
+        opacity: 0;
+        transform: scaleX(0);
+        transition:
+          opacity 200ms ease,
+          transform 200ms ease;
+      }
+
       &.active {
         color: var(--mat-sys-tertiary);
         font-weight: 600;
 
         &::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 12px;
-          right: 12px;
-          height: 3px;
-          background: var(--mat-sys-tertiary);
-          border-radius: 3px 3px 0 0;
+          opacity: 1;
+          transform: scaleX(1);
         }
       }
     }

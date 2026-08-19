@@ -1,17 +1,19 @@
 <div class="mapping-canvas">
-  <div class="functoid-palette">
-    <h3>Functoid'ler</h3>
-    <p class="hint">Canvas'a sürükleyip bırak.</p>
-    @for (def of functoidDefinitions; track def.code) {
-      <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
-        {{ def.name }}
-      </div>
-    }
+  @if (!viewOnly) {
+    <div class="functoid-palette">
+      <h3>Functoid'ler</h3>
+      <p class="hint">Canvas'a sürükleyip bırak.</p>
+      @for (def of functoidDefinitions; track def.code) {
+        <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
+          {{ def.name }}
+        </div>
+      }
 
-    <div class="palette-divider"></div>
+      <div class="palette-divider"></div>
 
-    <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
-  </div>
+      <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
+    </div>
+  }
 
   <div class="canvas-host-wrapper">
     <div class="canvas-host" #canvasHost></div>

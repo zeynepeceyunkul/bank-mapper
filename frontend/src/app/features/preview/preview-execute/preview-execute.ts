@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -11,6 +11,7 @@ import { ConvertFileFormat, PreviewService, PreviewSourceFileUpload } from '../.
 import { RunHistoryService } from '../../../core/services/run-history.service';
 import { Mapping } from '../../../core/models/mapping.model';
 import { MappingRun } from '../../../core/models/run-history.model';
+import { relativeTime as formatRelativeTime } from '../../../core/utils/relative-time';
 
 const RECENT_RUNS_PAGE_SIZE = 5;
 
@@ -20,7 +21,7 @@ const RECENT_RUNS_PAGE_SIZE = 5;
   templateUrl: './preview-execute.html',
   styleUrl: './preview-execute.scss',
 })
-export class PreviewExecute implements OnInit {
+export class PreviewExecute implements OnInit, OnDestroy {
   private readonly mappingService = inject(MappingService);
   private readonly previewService = inject(PreviewService);
   private readonly runHistoryService = inject(RunHistoryService);
@@ -32,10 +33,18 @@ export class PreviewExecute implements OnInit {
   readonly loading = signal(false);
   readonly downloading = signal(false);
   readonly recentRuns = signal<MappingRun[]>([]);
+  readonly errorTooltip = signal<{ text: string; left: number; top: number | null; bottom: number | null } | null>(
+    null,
+  );
 
   selectedMappingId = '';
   selectedFiles: Record<string, File | null> = {};
   selectedFormat: ConvertFileFormat = 'Csv';
+
+  // Sayfa scroll edilirken (veya ic kapsayicida scroll varsa) balon eski
+  // konumunda "asili" kalip satirdan kopmus gibi durmasin diye kapatiyoruz -
+  // capture:true nested scroll container'lari da yakalasin diye.
+  private readonly onScroll = () => this.hideErrorTooltip();
 
   ngOnInit(): void {
     this.mappingService.getAll().subscribe({
@@ -44,6 +53,11 @@ export class PreviewExecute implements OnInit {
     });
 
     this.loadRecentRuns();
+    window.addEventListener('scroll', this.onScroll, true);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('scroll', this.onScroll, true);
   }
 
   // Onizleme/Donusturme butonlarindan biri kullanildiktan hemen sonra da
@@ -58,16 +72,36 @@ export class PreviewExecute implements OnInit {
 
   // "Son Çalıştırmalar" burada goreli zaman kullanıyor (az önce/N dk önce) -
   // tam gecmis (/run-history) sayfası bunun aksine mutlak tarih gösteriyor,
-  // orası bir denetim kaydı, burası anlık bir ozet.
+  // orası bir denetim kaydı, burası anlık bir ozet. Ortak bicimleme mantigi
+  // core/utils/relative-time.ts'te (Panel'deki hero karti da ayni fonksiyonu
+  // kullaniyor).
   relativeTime(dateIso: string): string {
-    const diffMs = Date.now() - new Date(dateIso).getTime();
-    const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-    if (diffMin < 1) return 'Az önce';
-    if (diffMin < 60) return `${diffMin} dk önce`;
-    const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour} sa önce`;
-    const diffDay = Math.floor(diffHour / 24);
-    return `${diffDay} gün önce`;
+    return formatRelativeTime(dateIso);
+  }
+
+  // Native title tooltip'i yerine kendi baloncugumuz - uzun hata mesajlari
+  // taninabilir/okunabilir olsun, satiri genisletmeden. position:fixed
+  // kullaniliyor ki .recent-runs-section'daki overflow:hidden (kart
+  // koselerini yuvarlamak icin) balonu kesmesin.
+  showErrorTooltip(event: MouseEvent, message: string): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const tooltipWidth = 360;
+    const margin = 6;
+
+    // Satir ekranin alt kismina yakinsa balonu yukari ac ki ekran disina tasmasin.
+    const showAbove = window.innerHeight - rect.bottom < 120;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - tooltipWidth - 16));
+
+    this.errorTooltip.set({
+      text: message,
+      left,
+      top: showAbove ? null : rect.bottom + margin,
+      bottom: showAbove ? window.innerHeight - rect.top + margin : null,
+    });
+  }
+
+  hideErrorTooltip(): void {
+    this.errorTooltip.set(null);
   }
 
   get selectedMapping(): Mapping | undefined {

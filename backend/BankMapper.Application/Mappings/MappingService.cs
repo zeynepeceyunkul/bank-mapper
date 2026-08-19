@@ -37,11 +37,12 @@ public class MappingService(
         return mapping is null ? null : ToDto(mapping);
     }
 
-    public async Task<MappingDto> CreateAsync(CreateMappingRequest request)
+    public async Task<MappingDto> CreateAsync(CreateMappingRequest request, string? createdBy = null)
     {
         var mapping = BuildEntity(request);
         mapping.CreatedAt = DateTime.UtcNow;
         mapping.UpdatedAt = DateTime.UtcNow;
+        mapping.CreatedBy = createdBy;
 
         await ValidateAsync(mapping);
 

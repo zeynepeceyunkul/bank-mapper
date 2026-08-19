@@ -1,10 +1,12 @@
 using BankMapper.Application.Preview;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankMapper.Api.Controllers;
 
 [ApiController]
 [Route("api/preview")]
+[Authorize(Policy = "Convert")]
 public class PreviewController(IPreviewService previewService) : ControllerBase
 {
     [HttpPost("execute")]

@@ -42,6 +42,7 @@ class FakeMappingCanvas {
   @Input() targetFileType: FileType | null = null;
   @Input() allSourceSchemas: SourceSchema[] = [];
   @Input() initialSnapshot: MappingCanvasSnapshot | null = null;
+  @Input() viewOnly = false;
   @Output() readonly graphChanged = new EventEmitter<void>();
 
   snapshot: MappingCanvasSnapshot = emptySnapshot();

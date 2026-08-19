@@ -1,5 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
 using BankMapper.Application.Common;
 using BankMapper.Application.Mappings;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankMapper.Api.Controllers;
@@ -8,6 +10,8 @@ namespace BankMapper.Api.Controllers;
 [Route("api/mappings")]
 public class MappingsController(IMappingService mappingService) : ControllerBase
 {
+    private string? CurrentUserId => User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
     [HttpGet]
     public async Task<ActionResult<List<MappingDto>>> GetAll()
     {
@@ -35,13 +39,15 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "MappingManage")]
     public async Task<ActionResult<MappingDto>> Create(CreateMappingRequest request)
     {
-        var created = await mappingService.CreateAsync(request);
+        var created = await mappingService.CreateAsync(request, CurrentUserId);
         return Ok(created);
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "MappingManage")]
     public async Task<ActionResult<MappingDto>> Update(string id, CreateMappingRequest request)
     {
         var updated = await mappingService.UpdateAsync(id, request);
@@ -49,6 +55,7 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "MappingManage")]
     public async Task<IActionResult> Delete(string id)
     {
         var deleted = await mappingService.DeleteAsync(id);

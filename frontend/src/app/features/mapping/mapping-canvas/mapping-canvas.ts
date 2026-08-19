@@ -126,6 +126,11 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   @Input() functoidDefinitions: FunctoidDefinition[] = [];
   @Input() targetFileType: FileType | null = null;
   @Input() allSourceSchemas: SourceSchema[] = [];
+  // Yetkisi olmayan roller (Viewer/Approver) canvas'i acabilsin ama hicbir
+  // sey suruklenemesin/baglanamasin/silinemesin diye - degeri bilesenin
+  // omru boyunca sabit (kullanicinin rolu oturum icinde degismiyor), o
+  // yuzden sadece Graph kurulurken bir kere okunuyor.
+  @Input() viewOnly = false;
 
   @Input()
   set initialSnapshot(snapshot: MappingCanvasSnapshot | null) {
@@ -166,12 +171,14 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       height: this.canvasHeight,
       panning: false,
       mousewheel: false,
+      interacting: !this.viewOnly,
       connecting: {
         allowBlank: false,
         allowLoop: false,
         allowNode: false,
         snap: true,
         validateConnection: ({ sourceMagnet, targetMagnet, sourceCell, targetCell }) => {
+          if (this.viewOnly) return false;
           if (!sourceMagnet || !targetMagnet) return false;
           if (sourceCell === targetCell) return false;
           return sourceMagnet.getAttribute('port-group') === 'out' && targetMagnet.getAttribute('port-group') === 'in';
@@ -404,7 +411,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           args: { x: SCHEMA_BOX_WIDTH, y: TITLE_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2 },
         })),
       },
-      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: 8 } } }],
+      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: 8 } } }],
     };
   }
 
@@ -533,7 +540,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           { id: 'out', group: 'out', args: { x: width, y: height / 2 } },
         ],
       },
-      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
+      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
     };
   }
 
@@ -571,13 +578,14 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         },
         items: [{ id: 'out', group: 'out', args: { x: NODE_WIDTH, y: NODE_HEIGHT / 2 } }],
       },
-      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
+      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
     };
   }
 
   // --- Palet sürükle-bırak ---
 
   onPaletteMouseDown(event: MouseEvent, code: string): void {
+    if (this.viewOnly) return;
     event.preventDefault();
     const node = this.graph.createNode(this.functoidNodeConfig(randomId(), code, 0, 0, null));
     this.dnd.start(node, event);
@@ -586,6 +594,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // --- Node tıklama: parametre / sabit değer paneli ---
 
   private onNodeClick(node: Node): void {
+    if (this.viewOnly) return;
     const data = node.getData<Record<string, unknown>>();
     if (data?.['kind'] === 'functoid') {
       if (this.paramPanel()?.nodeId === node.id) {
@@ -686,6 +695,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // tarafinda da "+ Kaynak Ekle" bir kaynak eklendikten sonra disabled oluyor,
   // ama bu guard burada da savunma amacli tekrarlaniyor.
   addSourceSchema(schema: SourceSchema, x: number, y: number): void {
+    if (this.viewOnly) return;
     if (this.getSourceSchemaIds().length > 0) return;
     if (this.graph.getCellById(srcId(schema.id))) return;
     this.graph.addNode(this.schemaNodeConfig(schema, x, y));
@@ -1094,10 +1104,12 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   addConstant(x: number, y: number): void {
+    if (this.viewOnly) return;
     this.graph.addNode(this.constantNodeConfig(randomId(), '', x, y));
   }
 
   removeEdge(id: string): void {
+    if (this.viewOnly) return;
     this.graph.removeCell(id);
   }
 

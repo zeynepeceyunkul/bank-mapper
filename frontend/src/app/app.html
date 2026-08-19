@@ -8,7 +8,9 @@
       <nav>
         <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
         <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
-        <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
+        @if (canConvert()) {
+          <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
+        }
         <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
       </nav>
       <span class="app-spacer"></span>

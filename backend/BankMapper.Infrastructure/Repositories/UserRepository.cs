@@ -14,6 +14,9 @@ public class UserRepository(IMongoDbContext context) : IUserRepository
     public async Task<User?> GetByEmailAsync(string email) =>
         await _collection.Find(u => u.Email == email).FirstOrDefaultAsync();
 
+    public async Task<User?> GetByIdAsync(string id) =>
+        await _collection.Find(u => u.Id == id).FirstOrDefaultAsync();
+
     public async Task<User> CreateAsync(User user)
     {
         user.Id = ObjectId.GenerateNewId().ToString();

@@ -12,6 +12,7 @@ export interface LoginRequest {
 export interface LoginResult {
   token: string;
   email: string;
+  role: string;
 }
 
 export interface VerifyEmailRequest {

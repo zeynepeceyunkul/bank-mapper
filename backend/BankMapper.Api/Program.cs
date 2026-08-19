@@ -6,6 +6,7 @@ using BankMapper.Infrastructure;
 using BankMapper.Infrastructure.Auth;
 using BankMapper.Infrastructure.Persistence;
 using BankMapper.Infrastructure.Persistence.Seed;
+using BankMapper.Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -36,6 +37,13 @@ var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Varsayilan davranista JwtBearer bazi claim tiplerini (orn. "sub" ->
+        // ClaimTypes.NameIdentifier) sessizce baska bir tipe yeniden esliyor -
+        // bu, token uretilirken yazilan claim tipiyle (JwtRegisteredClaimNames.Sub)
+        // okunurken aranan claim tipinin uyusmamasina yol acabilir. Bunu kapatip
+        // token'a ne yazildiysa controller'da da ayni tipte okunmasini garanti
+        // ediyoruz.
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -48,14 +56,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddScoped<IAuthorizationHandler, FreshRoleAuthorizationHandler>();
+
 // Fallback policy: /api/auth altindakiler disinda HER endpoint varsayilan
 // olarak gecerli bir token istiyor - controller controller [Authorize]
 // eklemeyi unutma riskine girmek yerine "aksi belirtilmedikce herkes login
 // olmali" varsayilanini tercih ediyoruz (AuthController zaten [AllowAnonymous]).
+//
+// Hassas/degistirici uclar (mapping/sema olustur-sil, donusturme) burada
+// tanimlanan policy'lerle FreshRoleRequirement kullaniyor - JWT'nin icine
+// login aninda damgalanmis role claim'ine degil, o an Mongo'daki gercek
+// role'e bakiyor (bkz. FreshRoleAuthorizationHandler'daki yorum).
 builder.Services.AddAuthorization(options =>
+{
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
-        .Build());
+        .Build();
+
+    options.AddPolicy("MappingManage", policy =>
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.MappingDefiner)));
+
+    options.AddPolicy("Convert", policy =>
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
+});
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

@@ -10,28 +10,32 @@
     <div class="header-actions">
       <button type="button" mat-stroked-button (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler</button>
 
-      <a
-        mat-icon-button
-        class="outlined-icon-btn"
-        routerLink="/mapping"
-        title="Yeni Mapping"
-        aria-label="Yeni Mapping"
-        (click)="startNewMapping()"
-      >
-        <mat-icon>add</mat-icon>
-      </a>
+      @if (canEditMapping()) {
+        <a
+          mat-icon-button
+          class="outlined-icon-btn"
+          routerLink="/mapping"
+          title="Yeni Mapping"
+          aria-label="Yeni Mapping"
+          (click)="startNewMapping()"
+        >
+          <mat-icon>add</mat-icon>
+        </a>
+      }
 
-      <button
-        type="button"
-        mat-mini-fab
-        color="primary"
-        [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-        [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-        [disabled]="!canSave()"
-        (click)="toggleSavePopup()"
-      >
-        <mat-icon>save</mat-icon>
-      </button>
+      @if (canEditMapping()) {
+        <button
+          type="button"
+          mat-mini-fab
+          color="primary"
+          [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+          [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+          [disabled]="!canSave()"
+          (click)="toggleSavePopup()"
+        >
+          <mat-icon>save</mat-icon>
+        </button>
+      }
     </div>
   </div>
 
@@ -66,7 +70,13 @@
         <div class="field-group">
           <label for="product">Ürün</label>
           <mat-form-field appearance="outline" class="field">
-            <select matNativeControl id="product" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()">
+            <select
+              matNativeControl
+              id="product"
+              [disabled]="!canEditMapping()"
+              [(ngModel)]="selectedProductId"
+              (ngModelChange)="onProductChange()"
+            >
               <option value="" selected>Ürün seçin</option>
               @for (product of products(); track product.id) {
                 <option [value]="product.id">{{ product.name }}</option>
@@ -82,7 +92,7 @@
               matNativeControl
               id="fileType"
               [(ngModel)]="selectedFileTypeId"
-              [disabled]="fileTypes().length === 0"
+              [disabled]="fileTypes().length === 0 || !canEditMapping()"
             >
               <option value="" selected>Dosya tipi seçin</option>
               @for (fileType of fileTypes(); track fileType.id) {
@@ -92,7 +102,9 @@
           </mat-form-field>
         </div>
 
-        <button type="button" mat-flat-button [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
+        @if (canEditMapping()) {
+          <button type="button" mat-flat-button [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
+        }
       </div>
     </mat-expansion-panel>
 
@@ -128,7 +140,7 @@
               matNativeControl
               id="sourceSchema"
               #schemaSelectRef
-              [disabled]="usedSourceSchemaIds().length > 0"
+              [disabled]="usedSourceSchemaIds().length > 0 || !canEditMapping()"
               (change)="onSourceSchemaSelectChange(schemaSelectRef)"
             >
               <option value="" selected>Kaynak şema seçin</option>
@@ -142,12 +154,14 @@
           type="button"
           matButton="tonal"
           class="pill-btn"
-          [disabled]="!newSourceSchemaId || usedSourceSchemaIds().length > 0"
+          [disabled]="!newSourceSchemaId || usedSourceSchemaIds().length > 0 || !canEditMapping()"
           (click)="addSourceSchema()"
         >
           + Kaynak Ekle
         </button>
-        <button type="button" mat-button class="muted-text-btn" (click)="toggleSourceSchemaModal()">+ Yeni Şema</button>
+        @if (canEditMapping()) {
+          <button type="button" mat-button class="muted-text-btn" (click)="toggleSourceSchemaModal()">+ Yeni Şema</button>
+        }
       </div>
     </mat-expansion-panel>
   </mat-accordion>
@@ -164,12 +178,14 @@
           soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
           taşınabilir.
         </p>
-        <div class="ai-suggest-col">
-          <button type="button" matButton="filled" class="ai-suggest-btn" [disabled]="suggestingMatches()" (click)="suggestMatches()">
-            <mat-icon>auto_awesome</mat-icon>
-            {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
-          </button>
-        </div>
+        @if (canEditMapping()) {
+          <div class="ai-suggest-col">
+            <button type="button" matButton="filled" class="ai-suggest-btn" [disabled]="suggestingMatches()" (click)="suggestMatches()">
+              <mat-icon>auto_awesome</mat-icon>
+              {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
+            </button>
+          </div>
+        }
       </div>
       @if (suggestError()) {
         <p class="error">{{ suggestError() }}</p>
@@ -187,6 +203,7 @@
         [targetFileType]="activeFileType()"
         [allSourceSchemas]="sourceSchemas()"
         [initialSnapshot]="effectiveSnapshot()"
+        [viewOnly]="!canEditMapping()"
         (graphChanged)="onGraphChanged()"
       />
 
@@ -202,9 +219,11 @@
             @for (edge of connections(); track edge.id) {
               <li>
                 <span class="connection-label">{{ edge.from }} → {{ edge.to }}</span>
-                <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
-                  <mat-icon>delete</mat-icon>
-                </button>
+                @if (canEditMapping()) {
+                  <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
               </li>
             }
           </ul>

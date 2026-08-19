@@ -23,6 +23,7 @@ import { SourceSchemaList } from '../../source-schemas/source-schema-list/source
 import { HasUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-mapping-editor',
@@ -52,6 +53,15 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly authService = inject(AuthService);
+
+  // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti -
+  // Viewer bu ekrana gelip goruntuleyebilsin ama Kaydet/Yeni Sema gibi
+  // degistirici aksiyonlari gormesin (backend zaten 403 donuyor, burasi
+  // sadece kullanici deneyimini duzeltiyor).
+  canEditMapping(): boolean {
+    return this.authService.hasRole('Admin', 'MappingDefiner');
+  }
 
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);

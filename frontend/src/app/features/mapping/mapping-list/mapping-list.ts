@@ -5,15 +5,25 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { Mapping } from '../../../core/models/mapping.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
   selector: 'app-mapping-list',
-  imports: [RouterLink, DatePipe, MatButtonModule, MatIconModule, MatTableModule, MatPaginatorModule],
+  imports: [
+    RouterLink,
+    DatePipe,
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatPaginatorModule,
+    MatProgressSpinnerModule,
+  ],
   templateUrl: './mapping-list.html',
   styleUrl: './mapping-list.scss',
 })
@@ -21,10 +31,16 @@ export class MappingList implements OnInit {
   private readonly mappingService = inject(MappingService);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly authService = inject(AuthService);
 
   readonly mappings = signal<Mapping[]>([]);
   readonly error = signal<string | null>(null);
   readonly columns = ['name', 'fieldCount', 'updatedAt', 'actions'];
+
+  // Sadece ilk yukleme icin - sayfalama/arama/silme sonrasi yeniden
+  // yuklemede tekrar true'ya donmuyor (bkz. loadMappings), tablo her
+  // seferinde spinner'a gecip gorunumu bozmasin.
+  readonly loading = signal(true);
 
   readonly pageIndex = signal(0);
   readonly pageSize = signal(10);
@@ -47,8 +63,12 @@ export class MappingList implements OnInit {
       next: (result) => {
         this.mappings.set(result.items);
         this.totalCount.set(result.totalCount);
+        this.loading.set(false);
       },
-      error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
+      error: () => {
+        this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?');
+        this.loading.set(false);
+      },
     });
   }
 
@@ -77,6 +97,13 @@ export class MappingList implements OnInit {
 
   targetFieldEdgeCount(mapping: Mapping): number {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
+  }
+
+  // "Yeni Mapping"/"Sil" gibi degistirici islemler sadece Admin ve
+  // MappingDefiner rolune acik - backend'de de ayni kisitlama var
+  // (MappingsController), burasi sadece butonlari gizliyor.
+  canManageMappings(): boolean {
+    return this.authService.hasRole('Admin', 'MappingDefiner');
   }
 
   async deleteMapping(mapping: Mapping): Promise<void> {

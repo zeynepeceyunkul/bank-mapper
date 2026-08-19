@@ -7,9 +7,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { FileFormat, SourceSchema } from '../../../core/models/source-schema.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
@@ -30,6 +32,7 @@ interface ManualFieldRow {
     MatInputModule,
     MatTableModule,
     MatPaginatorModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './source-schema-list.html',
   styleUrl: './source-schema-list.scss',
@@ -38,6 +41,7 @@ export class SourceSchemaList implements OnInit {
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly authService = inject(AuthService);
 
   @Output() readonly schemaCreated = new EventEmitter<SourceSchema>();
   @Output() readonly schemaDeleted = new EventEmitter<string>();
@@ -59,6 +63,10 @@ export class SourceSchemaList implements OnInit {
   // Liste durumu
   readonly schemas = signal<SourceSchema[]>([]);
   readonly listError = signal<string | null>(null);
+
+  // Sadece ilk yukleme icin - mapping-list.ts'teki ayni desen (bkz. oradaki
+  // yorum).
+  readonly loading = signal(true);
   readonly pageIndex = signal(0);
   readonly pageSize = signal(10);
   readonly totalCount = signal(0);
@@ -71,6 +79,11 @@ export class SourceSchemaList implements OnInit {
     return this.fileFormat === 'FixedLength';
   }
 
+  // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti.
+  canManageSchemas(): boolean {
+    return this.authService.hasRole('Admin', 'MappingDefiner');
+  }
+
   ngOnInit(): void {
     this.loadSchemas();
   }
@@ -81,8 +94,12 @@ export class SourceSchemaList implements OnInit {
       next: (result) => {
         this.schemas.set(result.items);
         this.totalCount.set(result.totalCount);
+        this.loading.set(false);
       },
-      error: () => this.listError.set('Şema listesi yüklenemedi. API çalışıyor mu?'),
+      error: () => {
+        this.listError.set('Şema listesi yüklenemedi. API çalışıyor mu?');
+        this.loading.set(false);
+      },
     });
   }
 

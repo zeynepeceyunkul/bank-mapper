@@ -10,7 +10,7 @@ public interface IMappingService
 
     Task<MappingDto?> GetByIdAsync(string id);
 
-    Task<MappingDto> CreateAsync(CreateMappingRequest request);
+    Task<MappingDto> CreateAsync(CreateMappingRequest request, string? createdBy = null);
 
     Task<MappingDto?> UpdateAsync(string id, CreateMappingRequest request);
 

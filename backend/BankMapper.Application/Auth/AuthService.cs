@@ -62,7 +62,7 @@ public class AuthService(
             throw new ArgumentException("Önce e-postanı doğrulaman gerekiyor.");
         }
 
-        return new LoginResult { Token = jwtTokenGenerator.GenerateToken(user), Email = user.Email };
+        return new LoginResult { Token = jwtTokenGenerator.GenerateToken(user), Email = user.Email, Role = user.Role.ToString() };
     }
 
     public async Task VerifyEmailAsync(VerifyEmailRequest request)

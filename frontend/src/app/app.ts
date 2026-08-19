@@ -38,6 +38,11 @@ export class App {
   readonly email = this.authService.email;
   readonly isAuthPage = computed(() => STANDALONE_AUTH_PATHS.some((p) => this.currentUrl().startsWith(p)));
 
+  // Onizleme/Donusturme rotasi role.guard.ts ile sadece Admin'e acik -
+  // erisimi olmayana menude gostermenin (tiklayip geri sekmesindense)
+  // anlami yok.
+  readonly canConvert = computed(() => this.authService.hasRole('Admin'));
+
   constructor() {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.currentUrl.set(this.router.url);

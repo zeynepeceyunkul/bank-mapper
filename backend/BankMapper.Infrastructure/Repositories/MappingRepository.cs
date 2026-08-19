@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
+using BankMapper.Domain.Enums;
 using BankMapper.Infrastructure.Persistence;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -13,20 +14,34 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
     private readonly IMongoCollection<Mapping> _collection =
         context.GetCollection<Mapping>(MongoCollectionNames.Mappings);
 
-    public async Task<List<Mapping>> GetAllAsync() =>
-        await _collection.Find(FilterDefinition<Mapping>.Empty).ToListAsync();
+    public async Task<List<Mapping>> GetAllAsync(MappingStatus? status = null)
+    {
+        var filter = status is null
+            ? FilterDefinition<Mapping>.Empty
+            : Builders<Mapping>.Filter.Eq(m => m.Status, status.Value);
+        return await _collection.Find(filter).ToListAsync();
+    }
 
     // Mongo tek sorguda hem sayfa hem toplam sayi donmuyor - ikisi paralel
     // calistiriliyor. Varsayilan (RecentFirst) UpdatedAt'e gore azalan sirali
     // (bankada "en cok ugrasilan/guncel" kayitlar en ustte gorunsun diye).
-    public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
+    public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null)
     {
         // Regex.Escape ile kullanicinin girdigi metin regex ozel karakteri
         // olarak degil duz metin olarak eslesiyor (orn. "test." metnindeki
         // "." her karaktere degil sadece gercek noktaya eslessin diye).
-        var filter = string.IsNullOrWhiteSpace(search)
-            ? FilterDefinition<Mapping>.Empty
-            : Builders<Mapping>.Filter.Regex(m => m.Name, new BsonRegularExpression(Regex.Escape(search.Trim()), "i"));
+        var filters = new List<FilterDefinition<Mapping>>();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            filters.Add(Builders<Mapping>.Filter.Regex(m => m.Name, new BsonRegularExpression(Regex.Escape(search.Trim()), "i")));
+        }
+        if (status is not null)
+        {
+            filters.Add(Builders<Mapping>.Filter.Eq(m => m.Status, status.Value));
+        }
+        var filter = filters.Count == 0 ? FilterDefinition<Mapping>.Empty : Builders<Mapping>.Filter.And(filters);
+
         var countTask = _collection.CountDocumentsAsync(filter);
         var find = _collection.Find(filter);
         var sorted = sort switch

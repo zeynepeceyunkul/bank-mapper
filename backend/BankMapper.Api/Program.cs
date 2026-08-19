@@ -76,6 +76,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("MappingManage", policy =>
         policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.MappingDefiner)));
 
+    options.AddPolicy("MappingApprove", policy =>
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.Approver)));
+
     options.AddPolicy("Convert", policy =>
         policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
 });

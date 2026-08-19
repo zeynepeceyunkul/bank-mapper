@@ -1,6 +1,7 @@
-using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using BankMapper.Application.Common;
 using BankMapper.Application.Mappings;
+using BankMapper.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,12 +11,17 @@ namespace BankMapper.Api.Controllers;
 [Route("api/mappings")]
 public class MappingsController(IMappingService mappingService) : ControllerBase
 {
-    private string? CurrentUserId => User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+    // CreatedBy/ApprovedBy/RejectedBy alanlarinda goruntulenebilir bir deger
+    // (e-posta) tutmak icin JWT'nin "sub" (Mongo ObjectId) claim'i yerine
+    // e-posta claim'i kullaniliyor - sub, FreshRoleAuthorizationHandler gibi
+    // yetkilendirme amacli kod disinda insan tarafindan okunacak bir alanda
+    // anlamsiz bir ObjectId string'i olarak kalirdi.
+    private string? CurrentUserEmail => User.FindFirst(ClaimTypes.Email)?.Value;
 
     [HttpGet]
-    public async Task<ActionResult<List<MappingDto>>> GetAll()
+    public async Task<ActionResult<List<MappingDto>>> GetAll([FromQuery] MappingStatus? status = null)
     {
-        var mappings = await mappingService.GetAllAsync();
+        var mappings = await mappingService.GetAllAsync(status);
         return Ok(mappings);
     }
 
@@ -25,9 +31,9 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     [HttpGet("page")]
     public async Task<ActionResult<PagedResult<MappingDto>>> GetPage(
         [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null, [FromQuery] MappingStatus? status = null)
     {
-        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search);
+        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search, status);
         return Ok(result);
     }
 
@@ -42,7 +48,7 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     [Authorize(Policy = "MappingManage")]
     public async Task<ActionResult<MappingDto>> Create(CreateMappingRequest request)
     {
-        var created = await mappingService.CreateAsync(request, CurrentUserId);
+        var created = await mappingService.CreateAsync(request, CurrentUserEmail);
         return Ok(created);
     }
 
@@ -60,5 +66,21 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     {
         var deleted = await mappingService.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
+    }
+
+    [HttpPost("{id}/approve")]
+    [Authorize(Policy = "MappingApprove")]
+    public async Task<ActionResult<MappingDto>> Approve(string id)
+    {
+        var approved = await mappingService.ApproveAsync(id, CurrentUserEmail);
+        return approved is null ? NotFound() : Ok(approved);
+    }
+
+    [HttpPost("{id}/reject")]
+    [Authorize(Policy = "MappingApprove")]
+    public async Task<ActionResult<MappingDto>> Reject(string id, RejectMappingRequest request)
+    {
+        var rejected = await mappingService.RejectAsync(id, request.Reason, CurrentUserEmail);
+        return rejected is null ? NotFound() : Ok(rejected);
     }
 }

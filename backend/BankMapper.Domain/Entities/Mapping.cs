@@ -1,3 +1,4 @@
+using BankMapper.Domain.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -30,4 +31,21 @@ public class Mapping
     public DateTime UpdatedAt { get; set; }
 
     public string? CreatedBy { get; set; }
+
+    // Her kayit (olusturma ya da guncelleme) otomatik PendingApproval'a
+    // duser - onaylanmis bir mapping duzenlenirse tekrar onaya dusmesi
+    // bilincli bir karar (bkz. Ece ile 2026-08-19 tartismasi), onay
+    // adiminin gercek bir anlami olsun diye.
+    [BsonRepresentation(BsonType.String)]
+    public MappingStatus Status { get; set; } = MappingStatus.PendingApproval;
+
+    public string? ApprovedBy { get; set; }
+
+    public DateTime? ApprovedAt { get; set; }
+
+    public string? RejectionReason { get; set; }
+
+    public string? RejectedBy { get; set; }
+
+    public DateTime? RejectedAt { get; set; }
 }

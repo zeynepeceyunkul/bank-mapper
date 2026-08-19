@@ -24,6 +24,7 @@ public class PreviewService(
     {
         var mapping = await mappingRepository.GetByIdAsync(mappingId)
             ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
+        EnsureApproved(mapping);
 
         try
         {
@@ -45,6 +46,7 @@ public class PreviewService(
     {
         var mapping = await mappingRepository.GetByIdAsync(mappingId)
             ?? throw new ArgumentException($"Mapping bulunamadi: {mappingId}");
+        EnsureApproved(mapping);
 
         try
         {
@@ -83,6 +85,18 @@ public class PreviewService(
             ErrorMessage = errorMessage,
             RunAt = DateTime.UtcNow,
         });
+
+    // Frontend zaten Onizleme dropdown'unu sadece Onaylanmis mapping'lerle
+    // dolduruyor, ama bu sadece bir UI kolayligi - asil koruma burada olmali,
+    // yoksa API'ye dogrudan istek atarak henuz onaylanmamis bir mapping'i
+    // calistirmak mumkun olurdu.
+    private static void EnsureApproved(Mapping mapping)
+    {
+        if (mapping.Status != MappingStatus.Approved)
+        {
+            throw new ArgumentException($"'{mapping.Name}' mapping'i henuz onaylanmadi, donusturmede kullanilamaz.");
+        }
+    }
 
     private async Task<(List<Dictionary<string, object?>> Rows, List<string> Warnings)> RunMappingAsync(
         Mapping mapping,

@@ -173,8 +173,8 @@ public class SourceSchemaServiceTests
 
     private class FakeMappingRepository : IMappingRepository
     {
-        public Task<List<Mapping>> GetAllAsync() => Task.FromResult(new List<Mapping>());
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) => Task.FromResult((new List<Mapping>(), 0L));
+        public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null) => Task.FromResult(new List<Mapping>());
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null) => Task.FromResult((new List<Mapping>(), 0L));
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(null);
         public Task<Mapping> CreateAsync(Mapping mapping) => Task.FromResult(mapping);
         public Task<Mapping?> UpdateAsync(Mapping mapping) => Task.FromResult<Mapping?>(null);

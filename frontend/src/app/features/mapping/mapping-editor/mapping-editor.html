@@ -10,32 +10,28 @@
     <div class="header-actions">
       <button type="button" mat-stroked-button (click)="toggleMappingsPanel()">Kayıtlı Mapping'ler</button>
 
-      @if (canEditMapping()) {
-        <a
-          mat-icon-button
-          class="outlined-icon-btn"
-          routerLink="/mapping"
-          title="Yeni Mapping"
-          aria-label="Yeni Mapping"
-          (click)="startNewMapping()"
-        >
-          <mat-icon>add</mat-icon>
-        </a>
-      }
+      <a
+        mat-icon-button
+        class="outlined-icon-btn"
+        routerLink="/mapping"
+        title="Yeni Mapping"
+        aria-label="Yeni Mapping"
+        (click)="startNewMapping()"
+      >
+        <mat-icon>add</mat-icon>
+      </a>
 
-      @if (canEditMapping()) {
-        <button
-          type="button"
-          mat-mini-fab
-          color="primary"
-          [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-          [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
-          [disabled]="!canSave()"
-          (click)="toggleSavePopup()"
-        >
-          <mat-icon>save</mat-icon>
-        </button>
-      }
+      <button
+        type="button"
+        mat-mini-fab
+        color="primary"
+        [title]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+        [attr.aria-label]="isEditMode ? 'Mapping\'i Güncelle' : 'Mapping\'i Kaydet'"
+        [disabled]="!canSave()"
+        (click)="onSaveClick()"
+      >
+        <mat-icon>save</mat-icon>
+      </button>
     </div>
   </div>
 
@@ -102,9 +98,7 @@
           </mat-form-field>
         </div>
 
-        @if (canEditMapping()) {
-          <button type="button" mat-flat-button [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
-        }
+        <button type="button" mat-flat-button [disabled]="!selectedFileType" (click)="confirmHedef()">Onayla</button>
       </div>
     </mat-expansion-panel>
 
@@ -154,14 +148,12 @@
           type="button"
           matButton="tonal"
           class="pill-btn"
-          [disabled]="!newSourceSchemaId || usedSourceSchemaIds().length > 0 || !canEditMapping()"
+          [disabled]="!newSourceSchemaId || usedSourceSchemaIds().length > 0"
           (click)="addSourceSchema()"
         >
           + Kaynak Ekle
         </button>
-        @if (canEditMapping()) {
-          <button type="button" mat-button class="muted-text-btn" (click)="toggleSourceSchemaModal()">+ Yeni Şema</button>
-        }
+        <button type="button" mat-button class="muted-text-btn" (click)="onNewSchemaClick()">+ Yeni Şema</button>
       </div>
     </mat-expansion-panel>
   </mat-accordion>
@@ -178,14 +170,12 @@
           soldaki paletten canvas'a sürükle. Kaynak şema kutuları ve node'lar canvas üzerinde serbestçe
           taşınabilir.
         </p>
-        @if (canEditMapping()) {
-          <div class="ai-suggest-col">
-            <button type="button" matButton="filled" class="ai-suggest-btn" [disabled]="suggestingMatches()" (click)="suggestMatches()">
-              <mat-icon>auto_awesome</mat-icon>
-              {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
-            </button>
-          </div>
-        }
+        <div class="ai-suggest-col">
+          <button type="button" matButton="filled" class="ai-suggest-btn" [disabled]="suggestingMatches()" (click)="suggestMatches()">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ suggestingMatches() ? 'Öneriler alınıyor...' : 'AI ile eşleştirme öner' }}
+          </button>
+        </div>
       </div>
       @if (suggestError()) {
         <p class="error">{{ suggestError() }}</p>
@@ -219,11 +209,9 @@
             @for (edge of connections(); track edge.id) {
               <li>
                 <span class="connection-label">{{ edge.from }} → {{ edge.to }}</span>
-                @if (canEditMapping()) {
-                  <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                }
+                <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
+                  <mat-icon>delete</mat-icon>
+                </button>
               </li>
             }
           </ul>
@@ -253,7 +241,11 @@
   @if (showMappingsPanel()) {
     <div class="modal-backdrop" (click)="toggleMappingsPanel()">
       <div class="modal-box" (click)="$event.stopPropagation()">
-        <app-mapping-list (newMapping)="startNewMapping()" (mappingDeleted)="onMappingDeleted($event)" />
+        <app-mapping-list
+          [initialStatusFilter]="showPendingApprovalFilter() ? 'PendingApproval' : undefined"
+          (newMapping)="startNewMapping()"
+          (mappingDeleted)="onMappingDeleted($event)"
+        />
       </div>
     </div>
   }

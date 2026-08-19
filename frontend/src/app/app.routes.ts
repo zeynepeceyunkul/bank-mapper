@@ -60,6 +60,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/run-history/run-history-list/run-history-list').then((m) => m.RunHistoryList),
       },
+      {
+        path: 'approvals',
+        canActivate: [roleGuard],
+        data: { roles: ['Admin', 'Approver'] },
+        loadComponent: () =>
+          import('./features/approvals/approval-queue/approval-queue').then((m) => m.ApprovalQueue),
+      },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,7 +10,7 @@ import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { Mapping } from '../../../core/models/mapping.model';
+import { Mapping, MappingStatus } from '../../../core/models/mapping.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
@@ -35,7 +35,7 @@ export class MappingList implements OnInit {
 
   readonly mappings = signal<Mapping[]>([]);
   readonly error = signal<string | null>(null);
-  readonly columns = ['name', 'fieldCount', 'updatedAt', 'actions'];
+  readonly columns = ['name', 'fieldCount', 'status', 'updatedAt', 'actions'];
 
   // Sadece ilk yukleme icin - sayfalama/arama/silme sonrasi yeniden
   // yuklemede tekrar true'ya donmuyor (bkz. loadMappings), tablo her
@@ -50,26 +50,38 @@ export class MappingList implements OnInit {
   readonly search = signal('');
   private searchDebounceHandle?: ReturnType<typeof setTimeout>;
 
+  // "Onayımı Bekleyenler" filtresi - bos ise tum durumlar listelenir.
+  readonly statusFilter = signal<MappingStatus | ''>('');
+
   @Output() readonly newMapping = new EventEmitter<void>();
   @Output() readonly mappingDeleted = new EventEmitter<string>();
 
+  // Panel'deki "onay bekliyor" banner'i buraya bu input'la geliyor - panel
+  // acilir acilmaz dogrudan "Onay Bekliyor" filtresiyle karsilamasi icin.
+  @Input() initialStatusFilter?: MappingStatus;
+
   ngOnInit(): void {
+    if (this.initialStatusFilter) {
+      this.statusFilter.set(this.initialStatusFilter);
+    }
     this.loadMappings();
   }
 
   loadMappings(): void {
     this.error.set(null);
-    this.mappingService.getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search()).subscribe({
-      next: (result) => {
-        this.mappings.set(result.items);
-        this.totalCount.set(result.totalCount);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?');
-        this.loading.set(false);
-      },
-    });
+    this.mappingService
+      .getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search(), this.statusFilter() || undefined)
+      .subscribe({
+        next: (result) => {
+          this.mappings.set(result.items);
+          this.totalCount.set(result.totalCount);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?');
+          this.loading.set(false);
+        },
+      });
   }
 
   onPageChange(event: PageEvent): void {
@@ -95,18 +107,41 @@ export class MappingList implements OnInit {
     }, 300);
   }
 
+  onStatusFilterChange(value: string): void {
+    this.statusFilter.set(value as MappingStatus | '');
+    this.pageIndex.set(0);
+    this.loadMappings();
+  }
+
   targetFieldEdgeCount(mapping: Mapping): number {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
   }
 
-  // "Yeni Mapping"/"Sil" gibi degistirici islemler sadece Admin ve
-  // MappingDefiner rolune acik - backend'de de ayni kisitlama var
-  // (MappingsController), burasi sadece butonlari gizliyor.
+  // "Sil" butonu artik herkese gorunur (Ece'nin karari, 2026-08-19: yetkisi
+  // olmayana gizlemek yerine tiklayinca uyarmak) - gercek kisitlama burada,
+  // deleteMapping()'in basinda yapiliyor. Backend'de de ayni kisitlama var
+  // (MappingsController).
   canManageMappings(): boolean {
     return this.authService.hasRole('Admin', 'MappingDefiner');
   }
 
+  statusLabel(status: MappingStatus): string {
+    switch (status) {
+      case 'Approved':
+        return 'Onaylandı';
+      case 'Rejected':
+        return 'Reddedildi';
+      default:
+        return 'Onay Bekliyor';
+    }
+  }
+
   async deleteMapping(mapping: Mapping): Promise<void> {
+    if (!this.canManageMappings()) {
+      this.toastService.error('Bu işlem için yetkiniz yok.');
+      return;
+    }
+
     const confirmed = await this.confirmService.confirm(`'${mapping.name}' mapping'ini silmek istediğinize emin misiniz?`);
     if (!confirmed) return;
 

@@ -34,6 +34,8 @@ export interface MappingSourceSchemaRef {
   positionY: number;
 }
 
+export type MappingStatus = 'PendingApproval' | 'Approved' | 'Rejected';
+
 export interface Mapping {
   id: string;
   name: string;
@@ -45,6 +47,12 @@ export interface Mapping {
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
+  status: MappingStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  rejectedBy: string | null;
+  rejectedAt: string | null;
 }
 
 export interface CreateMappingRequest {

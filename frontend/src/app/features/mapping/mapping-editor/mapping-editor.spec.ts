@@ -103,6 +103,15 @@ describe('MappingEditor', () => {
   }
 
   beforeEach(async () => {
+    // Bu suite'teki testler Kaydet/Onayla/AI oner/Sil gibi duzenleme
+    // aksiyonlarini dogrudan cagiriyor - bu aksiyonlar artik
+    // requireEditPermission() ile yetki kontrolu yapiyor (bkz.
+    // mapping-editor.ts), o yuzden AuthService'in okudugu localStorage'a
+    // duzenleme yapabilen bir rol yaziyoruz. Rol/yetki testleri role.guard
+    // ve auth.service seviyesinde ayrica var, burasi sadece bu suite'in
+    // zaten varsaydigi "duzenleyebilen kullanici" durumunu kuruyor.
+    localStorage.setItem('bankmapper_role', 'Admin');
+
     await TestBed.configureTestingModule({
       imports: [MappingEditor],
       providers: [
@@ -134,6 +143,7 @@ describe('MappingEditor', () => {
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.removeItem('bankmapper_role');
   });
 
   function selectTarget(): void {

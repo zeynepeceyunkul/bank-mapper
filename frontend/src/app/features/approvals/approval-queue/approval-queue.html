@@ -1,0 +1,177 @@
+<section class="approval-queue">
+  <div class="header">
+    <h2>Onaylar</h2>
+    <p class="subtitle">
+      @if (!loading()) {
+        @switch (activeTab()) {
+          @case ('PendingApproval') {
+            {{ totalCount() }} mapping onayınızı bekliyor.
+          }
+          @case ('Approved') {
+            {{ totalCount() }} mapping onaylandı.
+          }
+          @default {
+            {{ totalCount() }} mapping reddedildi.
+          }
+        }
+      }
+    </p>
+  </div>
+
+  <div class="tab-bar" role="tablist">
+    <button type="button" role="tab" [class.active]="activeTab() === 'PendingApproval'" (click)="setTab('PendingApproval')">
+      Bekleyenler
+    </button>
+    <button type="button" role="tab" [class.active]="activeTab() === 'Approved'" (click)="setTab('Approved')">
+      Onaylanan
+    </button>
+    <button type="button" role="tab" [class.active]="activeTab() === 'Rejected'" (click)="setTab('Rejected')">
+      Reddedilen
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="28" />
+    </div>
+  } @else if (totalCount() === 0 && !error()) {
+    <div class="empty-state">
+      <span class="empty-state-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </svg>
+      </span>
+      <p class="hint">
+        @switch (activeTab()) {
+          @case ('PendingApproval') {
+            Onay bekleyen mapping yok.
+          }
+          @case ('Approved') {
+            Henüz onaylanmış mapping yok.
+          }
+          @default {
+            Henüz reddedilmiş mapping yok.
+          }
+        }
+      </p>
+    </div>
+  } @else {
+    <div class="queue-table-card">
+      <table class="queue-table" [class.cols-3]="activeTab() === 'Approved'">
+        <thead>
+          <tr>
+            <th>Mapping Adı</th>
+            @switch (activeTab()) {
+              @case ('PendingApproval') {
+                <th>Oluşturan</th>
+                <th>Oluşturulma</th>
+                <th>Aksiyon</th>
+              }
+              @case ('Approved') {
+                <th>Onaylayan</th>
+                <th>Onay Tarihi</th>
+              }
+              @default {
+                <th>Reddeden</th>
+                <th>Red Tarihi</th>
+                <th>Red Gerekçesi</th>
+              }
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (mapping of mappings(); track mapping.id) {
+            <tr>
+              <td class="name-cell">
+                <a [routerLink]="['/mapping/edit', mapping.id]">
+                  <span class="mapping-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+                      <rect x="2" y="1" width="9" height="12" rx="1" fill="none" />
+                      <path d="M5 5h5M5 8h5M5 11h3" stroke-linecap="round" />
+                      <path d="M11 4l3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </span>
+                  <span class="mapping-name">{{ mapping.name }}</span>
+                </a>
+              </td>
+              @switch (activeTab()) {
+                @case ('PendingApproval') {
+                  <td class="creator-cell">{{ mapping.createdBy ?? '—' }}</td>
+                  <td class="date-cell">{{ mapping.createdAt | date: 'dd.MM.yyyy, HH:mm' }}</td>
+                  <td class="actions-cell">
+                    <button type="button" class="approve-btn" (click)="approveMapping(mapping)">
+                      <mat-icon>check</mat-icon>
+                      Onayla
+                    </button>
+                    <button type="button" class="reject-btn" (click)="openRejectPopup(mapping)">
+                      <mat-icon>close</mat-icon>
+                      Reddet
+                    </button>
+                  </td>
+                }
+                @case ('Approved') {
+                  <td class="creator-cell">{{ mapping.approvedBy ?? '—' }}</td>
+                  <td class="date-cell">{{ mapping.approvedAt ? (mapping.approvedAt | date: 'dd.MM.yyyy, HH:mm') : '—' }}</td>
+                }
+                @default {
+                  <td class="creator-cell">{{ mapping.rejectedBy ?? '—' }}</td>
+                  <td class="date-cell">{{ mapping.rejectedAt ? (mapping.rejectedAt | date: 'dd.MM.yyyy, HH:mm') : '—' }}</td>
+                  <td
+                    class="reason-cell"
+                    (mouseenter)="showReasonTooltip($event, mapping.rejectionReason ?? '—')"
+                    (mouseleave)="hideReasonTooltip()"
+                  >
+                    {{ mapping.rejectionReason ?? '—' }}
+                  </td>
+                }
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <mat-paginator
+      [length]="totalCount()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPageChange($event)"
+    />
+  }
+
+  @if (rejectTarget(); as target) {
+    <div class="modal-backdrop" (click)="closeRejectPopup()">
+      <div class="modal-box" (click)="$event.stopPropagation()">
+        <h3>'{{ target.name }}' mapping'ini reddet</h3>
+        <label for="rejectReason">Red gerekçesi</label>
+        <textarea
+          id="rejectReason"
+          class="reject-reason-input"
+          rows="3"
+          [(ngModel)]="rejectReason"
+          placeholder="Örn. Alan eşleştirmesi eksik/hatalı"
+        ></textarea>
+        <div class="reject-actions">
+          <button type="button" mat-stroked-button (click)="closeRejectPopup()">İptal</button>
+          <button type="button" mat-flat-button [disabled]="!rejectReason.trim()" (click)="confirmReject()">Reddet</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (reasonTooltip(); as tooltip) {
+    <div
+      class="reason-tooltip"
+      [style.left.px]="tooltip.left"
+      [style.top.px]="tooltip.top"
+      [style.bottom.px]="tooltip.bottom"
+    >
+      {{ tooltip.text }}
+    </div>
+  }
+</section>

@@ -47,7 +47,7 @@ export class PreviewExecute implements OnInit, OnDestroy {
   private readonly onScroll = () => this.hideErrorTooltip();
 
   ngOnInit(): void {
-    this.mappingService.getAll().subscribe({
+    this.mappingService.getAll('Approved').subscribe({
       next: (mappings) => this.mappings.set(mappings),
       error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
     });

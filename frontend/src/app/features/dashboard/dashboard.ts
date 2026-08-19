@@ -24,6 +24,10 @@ export class Dashboard implements OnInit {
   readonly recentMappings = signal<Mapping[]>([]);
   readonly error = signal<string | null>(null);
 
+  // Sadece Admin/Approver'a - digerleri onaylama yapamadigi icin bu sayi
+  // onlar icin islevsiz bir bilgi olurdu.
+  readonly pendingApprovalCount = signal<number | null>(null);
+
   // Ilk yukleme sirasinda spinner gostermek icin - mapping ve sema sayilari
   // ayri iki istekten geldigi icin, ikisi de donene kadar true kalıyor.
   // Sayfalama/arama gibi sonraki yeniden-yuklemelerde tekrar true'ya
@@ -74,6 +78,13 @@ export class Dashboard implements OnInit {
         this.updateLoading();
       },
     });
+
+    if (this.canApprove()) {
+      this.mappingService.getPage(0, 1, 'RecentFirst', '', 'PendingApproval').subscribe({
+        next: (result) => this.pendingApprovalCount.set(result.totalCount),
+        error: () => {}, // sessiz gec - bu banner ikincil bir bilgi, ana Panel'i engellememeli
+      });
+    }
   }
 
   private updateLoading(): void {
@@ -86,15 +97,9 @@ export class Dashboard implements OnInit {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
   }
 
-  // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti.
-  canManageMappings(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner');
-  }
-
-  // app.ts'teki canConvert ile ayni gerekce - /preview zaten role.guard.ts
-  // ile Admin'e kapali, bu sadece o rotaya goturen kutuyu gizliyor.
-  canConvert(): boolean {
-    return this.authService.hasRole('Admin');
+  // mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.
+  canApprove(): boolean {
+    return this.authService.hasRole('Admin', 'Approver');
   }
 
   // Buyuk harfe CSS'teki text-transform:uppercase yerine burada elle

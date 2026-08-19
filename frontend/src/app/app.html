@@ -8,10 +8,14 @@
       <nav>
         <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Panel</a>
         <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
-        @if (canConvert()) {
-          <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
-        }
+        <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
         <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
+        <a routerLink="/approvals" routerLinkActive="active" class="approvals-link">
+          Onaylar
+          @if (pendingApprovalCount(); as count) {
+            <span class="nav-badge">{{ count }}</span>
+          }
+        </a>
       </nav>
       <span class="app-spacer"></span>
       <span class="app-username">{{ email() }}</span>

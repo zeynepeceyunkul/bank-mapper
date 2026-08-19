@@ -57,16 +57,29 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti -
   // Viewer bu ekrana gelip goruntuleyebilsin ama Kaydet/Yeni Sema gibi
-  // degistirici aksiyonlari gormesin (backend zaten 403 donuyor, burasi
-  // sadece kullanici deneyimini duzeltiyor).
+  // degistirici aksiyonlari yapamasin (backend zaten 403 donuyor, burasi
+  // sadece kullanici deneyimini duzeltiyor). Butonlar artik (Ece'nin karari,
+  // 2026-08-19) gizlenmiyor, gorunur kalip tiklaninca requireEditPermission
+  // ile uyariyor.
   canEditMapping(): boolean {
     return this.authService.hasRole('Admin', 'MappingDefiner');
+  }
+
+  private requireEditPermission(): boolean {
+    if (this.canEditMapping()) {
+      return true;
+    }
+    this.toastService.error('Bu işlem için yetkiniz yok.');
+    return false;
   }
 
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);
 
   readonly showMappingsPanel = signal(false);
+  // Panel'deki "onay bekliyor" banner'i ?approval=1 ile buraya geliyor -
+  // mapping-list.ts'e initialStatusFilter olarak aktarilir.
+  readonly showPendingApprovalFilter = signal(false);
   readonly showSourceSchemaModal = signal(false);
   readonly showSavePopup = signal(false);
   readonly hedefExpanded = signal(true);
@@ -182,6 +195,11 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     // formu yerine dogrudan "Kayitli Mapping'ler" panelini acik karsilamali.
     if (this.route.snapshot.queryParamMap.get('list') === '1') {
       this.showMappingsPanel.set(true);
+    }
+
+    if (this.route.snapshot.queryParamMap.get('approval') === '1') {
+      this.showMappingsPanel.set(true);
+      this.showPendingApprovalFilter.set(true);
     }
   }
 
@@ -373,6 +391,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // (onProductChange/[(ngModel)]) hicbir sey silmiyor, sadece burada "Onayla"
   // ile commit ediliyor.
   async confirmHedef(): Promise<void> {
+    if (!this.requireEditPermission()) return;
+
     const newFileType = this.selectedFileType;
     if (!newFileType) return;
 
@@ -488,8 +508,23 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.showSourceSchemaModal.update((v) => !v);
   }
 
+  // "+ Yeni Şema" butonunun kendi tetikleyicisi - toggleSourceSchemaModal()
+  // modali kapatmak icin de kullanildigi icin (bkz. modal-backdrop/X butonu)
+  // yetki kontrolunu direkt oraya koymak kapatmayi da engellerdi.
+  onNewSchemaClick(): void {
+    if (!this.requireEditPermission()) return;
+    this.toggleSourceSchemaModal();
+  }
+
   toggleSavePopup(): void {
     this.showSavePopup.update((v) => !v);
+  }
+
+  // Kaydet butonunun kendi tetikleyicisi - toggleSavePopup() ile ayni
+  // gerekce (bkz. onNewSchemaClick).
+  onSaveClick(): void {
+    if (!this.requireEditPermission()) return;
+    this.toggleSavePopup();
   }
 
   onMappingNameChanged(value: string): void {
@@ -517,6 +552,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   addSourceSchema(): void {
+    if (!this.requireEditPermission()) return;
     if (!this.newSourceSchemaId || this.usedSourceSchemaIds().length > 0) {
       return;
     }
@@ -537,6 +573,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   removeEdge(id: string): void {
+    if (!this.requireEditPermission()) return;
     this.canvas.removeEdge(id);
   }
 
@@ -545,6 +582,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // gosteriyor, kullanicinin her birini tek tek onaylamasi/reddetmesi gerekiyor
   // (bkz. proje karari: otomatik/sessiz baglanti kurulmuyor).
   suggestMatches(): void {
+    if (!this.requireEditPermission()) return;
+
     const schemaId = this.usedSourceSchemaIds()[0];
     const schema = this.sourceSchemas().find((s) => s.id === schemaId);
     const targetFileType = this.activeFileType();
@@ -575,6 +614,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   saveMapping(): void {
+    if (!this.requireEditPermission()) return;
     if (!this.mappingName.trim()) {
       this.toastService.error('Mapping adı zorunlu.');
       return;

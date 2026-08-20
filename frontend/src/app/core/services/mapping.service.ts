@@ -14,10 +14,13 @@ export class MappingService {
   // icin getAll() ayrica duruyor, bu ikisi birbirinin yerine gecmiyor.
   // Onizleme dropdown'u status:'Approved' geciyor - henuz onaylanmamis bir
   // mapping'le donusturme calistirilamaz (backend de ayrica bunu zorluyor).
-  getAll(status?: MappingStatus): Observable<Mapping[]> {
+  getAll(status?: MappingStatus, kurumId?: string): Observable<Mapping[]> {
     const params: Record<string, string> = {};
     if (status) {
       params['status'] = status;
+    }
+    if (kurumId) {
+      params['kurumId'] = kurumId;
     }
     return this.http.get<Mapping[]>(`${environment.apiUrl}/mappings`, { params });
   }

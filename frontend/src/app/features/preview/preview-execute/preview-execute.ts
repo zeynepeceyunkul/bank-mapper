@@ -7,9 +7,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { MappingService } from '../../../core/services/mapping.service';
+import { InstitutionService } from '../../../core/services/institution.service';
 import { ConvertFileFormat, PreviewService, PreviewSourceFileUpload } from '../../../core/services/preview.service';
 import { RunHistoryService } from '../../../core/services/run-history.service';
 import { Mapping } from '../../../core/models/mapping.model';
+import { Institution } from '../../../core/models/institution.model';
 import { MappingRun } from '../../../core/models/run-history.model';
 import { relativeTime as formatRelativeTime } from '../../../core/utils/relative-time';
 
@@ -23,10 +25,12 @@ const RECENT_RUNS_PAGE_SIZE = 5;
 })
 export class PreviewExecute implements OnInit, OnDestroy {
   private readonly mappingService = inject(MappingService);
+  private readonly institutionService = inject(InstitutionService);
   private readonly previewService = inject(PreviewService);
   private readonly runHistoryService = inject(RunHistoryService);
 
   readonly mappings = signal<Mapping[]>([]);
+  readonly institutions = signal<Institution[]>([]);
   readonly rows = signal<Record<string, unknown>[]>([]);
   readonly warnings = signal<string[]>([]);
   readonly error = signal<string | null>(null);
@@ -38,6 +42,7 @@ export class PreviewExecute implements OnInit, OnDestroy {
   );
 
   selectedMappingId = '';
+  selectedKurumId = '';
   selectedFiles: Record<string, File | null> = {};
   selectedFormat: ConvertFileFormat = 'Csv';
 
@@ -47,13 +52,30 @@ export class PreviewExecute implements OnInit, OnDestroy {
   private readonly onScroll = () => this.hideErrorTooltip();
 
   ngOnInit(): void {
-    this.mappingService.getAll('Approved').subscribe({
-      next: (mappings) => this.mappings.set(mappings),
-      error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
+    this.loadMappings();
+
+    this.institutionService.getAll().subscribe({
+      next: (institutions) => this.institutions.set(institutions),
+      error: () => {}, // sessiz gec - filtre ikincil bir bilgi, ana akisi engellememeli
     });
 
     this.loadRecentRuns();
     window.addEventListener('scroll', this.onScroll, true);
+  }
+
+  private loadMappings(): void {
+    this.mappingService.getAll('Approved', this.selectedKurumId || undefined).subscribe({
+      next: (mappings) => this.mappings.set(mappings),
+      error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
+    });
+  }
+
+  // Kurum filtresi degisince secili mapping artik listede olmayabilir -
+  // onMappingChange() ile ayni temizlik (dosya secimleri/onceki sonuc).
+  onKurumFilterChange(): void {
+    this.selectedMappingId = '';
+    this.onMappingChange();
+    this.loadMappings();
   }
 
   ngOnDestroy(): void {

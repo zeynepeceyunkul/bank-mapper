@@ -53,6 +53,7 @@ export interface Mapping {
   rejectionReason: string | null;
   rejectedBy: string | null;
   rejectedAt: string | null;
+  kurumIds: string[];
 }
 
 export interface CreateMappingRequest {
@@ -62,4 +63,5 @@ export interface CreateMappingRequest {
   functoidNodes: FunctoidNode[];
   constantNodes: ConstantNode[];
   edges: GraphEdge[];
+  kurumIds: string[];
 }

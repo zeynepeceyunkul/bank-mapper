@@ -50,6 +50,11 @@
         <td mat-cell *matCellDef="let mapping">{{ mapping.name }}</td>
       </ng-container>
 
+      <ng-container matColumnDef="kurum">
+        <th mat-header-cell *matHeaderCellDef>Kurum</th>
+        <td mat-cell *matCellDef="let mapping" class="kurum-cell">{{ kurumNames(mapping) }}</td>
+      </ng-container>
+
       <ng-container matColumnDef="fieldCount">
         <th mat-header-cell *matHeaderCellDef>Alan Sayısı</th>
         <td mat-cell *matCellDef="let mapping">{{ targetFieldEdgeCount(mapping) }}</td>

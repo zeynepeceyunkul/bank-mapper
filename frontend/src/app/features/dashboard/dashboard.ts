@@ -5,7 +5,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MappingService } from '../../core/services/mapping.service';
 import { SourceSchemaService } from '../../core/services/source-schema.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Mapping } from '../../core/models/mapping.model';
+import { InstitutionService } from '../../core/services/institution.service';
+import { Mapping, MappingStatus } from '../../core/models/mapping.model';
+import { Institution } from '../../core/models/institution.model';
 import { relativeTime } from '../../core/utils/relative-time';
 
 @Component({
@@ -18,10 +20,12 @@ export class Dashboard implements OnInit {
   private readonly mappingService = inject(MappingService);
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly authService = inject(AuthService);
+  private readonly institutionService = inject(InstitutionService);
 
   readonly mappingCount = signal<number | null>(null);
   readonly schemaCount = signal<number | null>(null);
   readonly recentMappings = signal<Mapping[]>([]);
+  readonly institutions = signal<Institution[]>([]);
   readonly error = signal<string | null>(null);
 
   // Sadece Admin/Approver'a - digerleri onaylama yapamadigi icin bu sayi
@@ -85,6 +89,11 @@ export class Dashboard implements OnInit {
         error: () => {}, // sessiz gec - bu banner ikincil bir bilgi, ana Panel'i engellememeli
       });
     }
+
+    this.institutionService.getAll().subscribe({
+      next: (institutions) => this.institutions.set(institutions),
+      error: () => {}, // sessiz gec - mapping-list.ts'teki ayni desen, Kurum sutunu ikincil bir bilgi
+    });
   }
 
   private updateLoading(): void {
@@ -95,6 +104,24 @@ export class Dashboard implements OnInit {
 
   targetFieldEdgeCount(mapping: Mapping): number {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
+  }
+
+  // mapping-list.ts'teki kurumNames/statusLabel ile ayni mantik.
+  kurumNames(mapping: Mapping): string {
+    if (mapping.kurumIds.length === 0) return '—';
+    const names = this.institutions();
+    return mapping.kurumIds.map((id) => names.find((k) => k.id === id)?.name ?? '—').join(', ');
+  }
+
+  statusLabel(status: MappingStatus): string {
+    switch (status) {
+      case 'Approved':
+        return 'Onaylandı';
+      case 'Rejected':
+        return 'Reddedildi';
+      default:
+        return 'Onay Bekliyor';
+    }
   }
 
   // mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.

@@ -120,7 +120,9 @@
         <thead>
           <tr>
             <th>Mapping Adı</th>
+            <th>Kurum</th>
             <th>Alan Sayısı</th>
+            <th>Durum</th>
             <th>Son Güncelleme</th>
             <th></th>
           </tr>
@@ -140,7 +142,13 @@
                   <span class="mapping-name">{{ mapping.name }}</span>
                 </div>
               </td>
+              <td class="kurum-cell">{{ kurumNames(mapping) }}</td>
               <td><span class="field-count-badge">{{ targetFieldEdgeCount(mapping) }} alan</span></td>
+              <td>
+                <span class="status-badge" [class]="'status-' + mapping.status.toLowerCase()">
+                  {{ statusLabel(mapping.status) }}
+                </span>
+              </td>
               <td class="recent-date">{{ mapping.updatedAt | date: 'dd.MM.yyyy, HH:mm' }}</td>
               <td class="chevron-cell">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

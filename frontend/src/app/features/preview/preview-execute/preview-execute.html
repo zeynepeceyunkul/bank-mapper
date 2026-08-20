@@ -6,6 +6,18 @@
   <div class="setup-card">
     <div class="setup-row run-row">
       <div class="field-group">
+        <label for="kurumFilter">Kurum</label>
+        <mat-form-field appearance="outline" class="field">
+          <select matNativeControl id="kurumFilter" [(ngModel)]="selectedKurumId" (ngModelChange)="onKurumFilterChange()">
+            <option value="" selected>Kurum seçin</option>
+            @for (kurum of institutions(); track kurum.id) {
+              <option [value]="kurum.id">{{ kurum.name }}</option>
+            }
+          </select>
+        </mat-form-field>
+      </div>
+
+      <div class="field-group">
         <label for="mapping">Mapping</label>
         <mat-form-field appearance="outline" class="field">
           <select matNativeControl id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">

@@ -116,6 +116,16 @@
     margin: 0;
   }
 
+  // Kurum listesi birden fazla ismi virgulle birlestirebiliyor (bkz.
+  // kurumNames()) - dar (640px) modal genisliginde satiri bozmasin diye
+  // kesip "..." ile gosteriyoruz.
+  .kurum-cell {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .status-badge {
     display: inline-flex;
     align-items: center;

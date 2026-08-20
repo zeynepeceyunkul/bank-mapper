@@ -67,6 +67,19 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/approvals/approval-queue/approval-queue').then((m) => m.ApprovalQueue),
       },
+      {
+        path: 'institutions',
+        canActivate: [roleGuard],
+        data: { roles: ['Admin', 'MappingDefiner'] },
+        loadComponent: () =>
+          import('./features/institutions/institution-list/institution-list').then((m) => m.InstitutionList),
+      },
+      {
+        path: 'users',
+        canActivate: [roleGuard],
+        data: { roles: ['Admin'] },
+        loadComponent: () => import('./features/users/user-list/user-list').then((m) => m.UserList),
+      },
     ],
   },
 ];

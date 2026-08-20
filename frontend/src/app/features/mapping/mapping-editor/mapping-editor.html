@@ -158,6 +158,38 @@
     </mat-expansion-panel>
   </mat-accordion>
 
+  <div class="kurum-section">
+    <div class="kurum-section-header">
+      <span class="kurum-section-title">Kurumlar</span>
+      <span class="optional-tag">(opsiyonel)</span>
+    </div>
+    <div class="kurum-section-body">
+      <div class="kurum-picker">
+        <mat-form-field appearance="outline" class="field">
+          <select matNativeControl id="kurumSelect" aria-label="Kurum seçin" [(ngModel)]="newKurumId">
+            <option value="" selected>Kurum seçin</option>
+            @for (kurum of availableKurumsToAdd; track kurum.id) {
+              <option [value]="kurum.id">{{ kurum.name }}</option>
+            }
+          </select>
+        </mat-form-field>
+        <button type="button" mat-stroked-button [disabled]="!newKurumId" (click)="addKurum()">+ Ekle</button>
+      </div>
+      @if (usedKurumIds().length > 0) {
+        <div class="kurum-pills">
+          @for (kurumId of usedKurumIds(); track kurumId) {
+            <span class="kurum-pill">
+              {{ kurumName(kurumId) }}
+              <button type="button" aria-label="Kaldır" (click)="removeKurum(kurumId)">
+                <mat-icon>close</mat-icon>
+              </button>
+            </span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }

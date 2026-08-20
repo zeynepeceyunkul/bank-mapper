@@ -10,7 +10,9 @@ import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { InstitutionService } from '../../../core/services/institution.service';
 import { Mapping, MappingStatus } from '../../../core/models/mapping.model';
+import { Institution } from '../../../core/models/institution.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
@@ -32,10 +34,12 @@ export class MappingList implements OnInit {
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
   private readonly authService = inject(AuthService);
+  private readonly institutionService = inject(InstitutionService);
 
   readonly mappings = signal<Mapping[]>([]);
+  readonly institutions = signal<Institution[]>([]);
   readonly error = signal<string | null>(null);
-  readonly columns = ['name', 'fieldCount', 'status', 'updatedAt', 'actions'];
+  readonly columns = ['name', 'kurum', 'fieldCount', 'status', 'updatedAt', 'actions'];
 
   // Sadece ilk yukleme icin - sayfalama/arama/silme sonrasi yeniden
   // yuklemede tekrar true'ya donmuyor (bkz. loadMappings), tablo her
@@ -58,6 +62,11 @@ export class MappingList implements OnInit {
 
   ngOnInit(): void {
     this.loadMappings();
+
+    this.institutionService.getAll().subscribe({
+      next: (institutions) => this.institutions.set(institutions),
+      error: () => {}, // sessiz gec - preview-execute.ts'teki ayni desen, Kurum sutunu ikincil bir bilgi
+    });
   }
 
   loadMappings(): void {
@@ -108,6 +117,12 @@ export class MappingList implements OnInit {
 
   targetFieldEdgeCount(mapping: Mapping): number {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
+  }
+
+  kurumNames(mapping: Mapping): string {
+    if (mapping.kurumIds.length === 0) return '—';
+    const names = this.institutions();
+    return mapping.kurumIds.map((id) => names.find((k) => k.id === id)?.name ?? '—').join(', ');
   }
 
   // "Sil" butonu artik herkese gorunur (Ece'nin karari, 2026-08-19: yetkisi

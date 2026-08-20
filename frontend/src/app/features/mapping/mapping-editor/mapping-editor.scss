@@ -6,6 +6,7 @@
   // style="max-width:1400px") okunan degere sabitleniyor.
   > .page-header,
   > .wizard-accordion,
+  > .kurum-section,
   > .hint,
   > .error,
   > .canvas-placeholder,
@@ -213,13 +214,29 @@
   }
 
   .wizard-accordion {
-    margin-bottom: 0.75rem;
+    // Ece'nin "kirmizi genislik dogru, mavi dar" geri bildirimiyle olculen
+    // gercek deger: acik panelin altina Angular Material kendiliginden
+    // "mat-expansion-panel-spacing" class'i uzerinden 16px margin ekliyor
+    // (DevTools'ta dogrulandi) - bizim 0.5rem (8px) gap'imizle toplaminca
+    // Hedef-Kaynaklar arasi 24px oluyordu, ama bu SADECE panel acikken
+    // devreye giriyordu, kapaliyken (Kaynaklar, Kurumlar-oncesi) sadece
+    // 8px kaliyordu - hangi panelin acik oldugu degisince genislik de
+    // degisen tutarsiz bir davranisti. Asagida bu otomatik margin'i
+    // sifirlayip 24px'i sabit/her zaman ayni hale getiriyoruz.
+    margin-bottom: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1.5rem;
 
     mat-expansion-panel {
       border-radius: 12px !important;
+    }
+
+    // Material'in "acik panelin altina otomatik 16px ekle" davranisini
+    // iptal ediyoruz - bosluk artik sadece yukaridaki sabit 'gap' ile
+    // kontrol ediliyor, panel acik/kapali fark etmiyor.
+    .mat-expansion-panel-spacing {
+      margin: 0 !important;
     }
 
     mat-expansion-panel-header {
@@ -315,6 +332,115 @@
   .muted-text-btn {
     color: var(--app-muted) !important;
     font-size: 0.8125rem;
+  }
+
+  // Kurum etiketleme - Hedef/Kaynaklar gibi yapisal/sirali bir wizard adimi
+  // DEGIL (canvas'in aksine Hedef'e bagimli degil, istenilen an
+  // doldurulabilir - bkz. proje karari), bu yuzden rozet/kilit yok. Ama
+  // Ece'nin geri bildirimiyle artik gorsel olarak da wizard kartlariyla ayni
+  // dilde - sadece renk/golge degil, ORANLAR da: mat-expansion-panel gibi
+  // ayri bir 64px baslik seridi + ayirac + govde (onceki halinde tek bir duz
+  // padding'li kutuydu, bu yuzden Hedef/Kaynaklar'a gore fark edilir sekilde
+  // daha kisa/sikisik duruyordu - Ece'nin "boyut" olarak isaret ettigi sey).
+  .kurum-section {
+    // wizard-accordion ile ayni disaridan-bosluk degeri (1.5rem = 24px,
+    // Ece'nin "kirmizi genislik dogru" dedigi deger) - tum bilesenler arasi
+    // dikey ritim tutarli olsun diye.
+    margin-bottom: 1.5rem;
+    border-radius: 12px;
+    background: var(--mat-sys-surface);
+    // mat-expansion-panel'in (Hedef/Kaynaklar) gercek golgesiyle birebir
+    // eslessin diye - Angular Material kaynagi (_m3-expansion.scss)
+    // "elevation.get-box-shadow(2)" kullaniyor, level1 degil; onceki halinde
+    // bu farktan dolayi kutu Hedef/Kaynaklar'a gore daha soluk duruyordu.
+    box-shadow: var(--mat-sys-level2);
+    // Kose yuvarlakligi ic elemanlarda (header/body) da korunsun diye -
+    // aksi halde header'in duz kenarlari yuvarlak kutudan tasar.
+    overflow: hidden;
+  }
+
+  // mat-expansion-panel-header ile birebir ayni yukseklik/padding (bkz.
+  // .wizard-accordion mat-expansion-panel-header kurali) - Hedef/Kaynaklar
+  // basliklariyla ayni dikey ritmi tutturmak icin.
+  .kurum-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 64px;
+    padding: 0 20px;
+  }
+
+  .kurum-section-title {
+    font-weight: 500;
+    font-size: 0.9375rem;
+    color: #1a1a1a;
+  }
+
+  // .locked-text ile ayni notr/italik dil - "opsiyonel" de bir kisitlama
+  // degil ama benzer sekilde ikincil bir aciklama metni.
+  .optional-tag {
+    font-size: 0.8125rem;
+    color: #9e9e9e;
+    font-style: italic;
+  }
+
+  // .mat-expansion-panel-body ile ayni ayirac + ust bosluk deseni.
+  .kurum-section-body {
+    padding: 1rem 20px 1.25rem;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .kurum-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .field {
+      width: 220px;
+    }
+  }
+
+  .kurum-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+  }
+
+  .kurum-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 20px;
+    background: #f0f0f0;
+    color: #1a1a1a;
+    font-size: 0.8125rem;
+    font-weight: 500;
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: var(--app-muted);
+      cursor: pointer;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+    }
   }
 
   .canvas-placeholder {

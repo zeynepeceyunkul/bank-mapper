@@ -46,7 +46,9 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     httpMock.expectOne((req) => req.url.endsWith('/mappings/page')).flush({
-      items: [{ id: 'm1', name: 'Maas Odeme Mapping', edges: [], updatedAt: new Date().toISOString() }],
+      items: [
+        { id: 'm1', name: 'Maas Odeme Mapping', edges: [], updatedAt: new Date().toISOString(), status: 'Approved', kurumIds: [] },
+      ],
       totalCount: 1,
     });
     httpMock.expectOne((req) => req.url.endsWith('/source-schemas/page')).flush({ items: [], totalCount: 0 });

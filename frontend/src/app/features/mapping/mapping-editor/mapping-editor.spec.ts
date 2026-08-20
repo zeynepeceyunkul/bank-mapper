@@ -139,6 +139,7 @@ describe('MappingEditor', () => {
     httpMock.expectOne((req) => req.url.endsWith('/products')).flush([]);
     httpMock.expectOne((req) => req.url.endsWith('/source-schemas')).flush([sampleSourceSchema]);
     httpMock.expectOne((req) => req.url.endsWith('/functoids')).flush([]);
+    httpMock.expectOne((req) => req.url.endsWith('/institutions')).flush([]);
   });
 
   afterEach(() => {

@@ -11,6 +11,9 @@ public class UserRepository(IMongoDbContext context) : IUserRepository
     private readonly IMongoCollection<User> _collection =
         context.GetCollection<User>(MongoCollectionNames.Users);
 
+    public async Task<List<User>> GetAllAsync() =>
+        await _collection.Find(FilterDefinition<User>.Empty).ToListAsync();
+
     public async Task<User?> GetByEmailAsync(string email) =>
         await _collection.Find(u => u.Email == email).FirstOrDefaultAsync();
 

@@ -14,11 +14,18 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
     private readonly IMongoCollection<Mapping> _collection =
         context.GetCollection<Mapping>(MongoCollectionNames.Mappings);
 
-    public async Task<List<Mapping>> GetAllAsync(MappingStatus? status = null)
+    public async Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null)
     {
-        var filter = status is null
-            ? FilterDefinition<Mapping>.Empty
-            : Builders<Mapping>.Filter.Eq(m => m.Status, status.Value);
+        var filters = new List<FilterDefinition<Mapping>>();
+        if (status is not null)
+        {
+            filters.Add(Builders<Mapping>.Filter.Eq(m => m.Status, status.Value));
+        }
+        if (!string.IsNullOrWhiteSpace(kurumId))
+        {
+            filters.Add(Builders<Mapping>.Filter.AnyEq(m => m.KurumIds, kurumId));
+        }
+        var filter = filters.Count == 0 ? FilterDefinition<Mapping>.Empty : Builders<Mapping>.Filter.And(filters);
         return await _collection.Find(filter).ToListAsync();
     }
 
@@ -26,7 +33,7 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
     // calistiriliyor. Varsayilan (RecentFirst) UpdatedAt'e gore azalan sirali
     // (bankada "en cok ugrasilan/guncel" kayitlar en ustte gorunsun diye).
     public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null)
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
     {
         // Regex.Escape ile kullanicinin girdigi metin regex ozel karakteri
         // olarak degil duz metin olarak eslesiyor (orn. "test." metnindeki
@@ -39,6 +46,10 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
         if (status is not null)
         {
             filters.Add(Builders<Mapping>.Filter.Eq(m => m.Status, status.Value));
+        }
+        if (!string.IsNullOrWhiteSpace(kurumId))
+        {
+            filters.Add(Builders<Mapping>.Filter.AnyEq(m => m.KurumIds, kurumId));
         }
         var filter = filters.Count == 0 ? FilterDefinition<Mapping>.Empty : Builders<Mapping>.Filter.And(filters);
 

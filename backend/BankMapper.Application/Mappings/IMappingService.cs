@@ -5,10 +5,10 @@ namespace BankMapper.Application.Mappings;
 
 public interface IMappingService
 {
-    Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null);
+    Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null, string? kurumId = null);
 
     Task<PagedResult<MappingDto>> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null);
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null);
 
     Task<MappingDto?> GetByIdAsync(string id);
 

@@ -16,19 +16,19 @@ public class MappingService(
     FunctoidRegistry functoidRegistry,
     ILogger<MappingService> logger) : IMappingService
 {
-    public async Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null)
+    public async Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null, string? kurumId = null)
     {
-        var mappings = await mappingRepository.GetAllAsync(status);
+        var mappings = await mappingRepository.GetAllAsync(status, kurumId);
         return mappings.Select(ToDto).ToList();
     }
 
     public async Task<PagedResult<MappingDto>> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null)
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
     {
         var clampedPageIndex = Math.Max(pageIndex, 0);
         var clampedPageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, status);
+        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, status, kurumId);
         return new PagedResult<MappingDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
@@ -161,7 +161,8 @@ public class MappingService(
         FileTypeId = request.FileTypeId,
         FunctoidNodes = request.FunctoidNodes.Select(ToEntity).ToList(),
         ConstantNodes = request.ConstantNodes.Select(ToEntity).ToList(),
-        Edges = request.Edges.Select(ToEntity).ToList()
+        Edges = request.Edges.Select(ToEntity).ToList(),
+        KurumIds = request.KurumIds
     };
 
     private async Task ValidateAsync(Mapping mapping)
@@ -459,6 +460,7 @@ public class MappingService(
         ApprovedAt = mapping.ApprovedAt,
         RejectionReason = mapping.RejectionReason,
         RejectedBy = mapping.RejectedBy,
-        RejectedAt = mapping.RejectedAt
+        RejectedAt = mapping.RejectedAt,
+        KurumIds = mapping.KurumIds
     };
 }

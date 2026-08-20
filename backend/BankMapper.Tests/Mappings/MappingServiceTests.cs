@@ -463,11 +463,11 @@ public class MappingServiceTests
     {
         private readonly Dictionary<string, Mapping> _store = [];
 
-        public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null) =>
+        public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null) =>
             Task.FromResult((status is null ? _store.Values : _store.Values.Where(m => m.Status == status)).ToList());
 
         public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
-            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null)
+            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
         {
             IEnumerable<Mapping> filtered = string.IsNullOrWhiteSpace(search)
                 ? _store.Values

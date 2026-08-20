@@ -81,6 +81,9 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("Convert", policy =>
         policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
+
+    options.AddPolicy("UserManage", policy =>
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

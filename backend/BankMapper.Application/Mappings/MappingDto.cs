@@ -35,4 +35,6 @@ public class MappingDto
     public string? RejectedBy { get; set; }
 
     public DateTime? RejectedAt { get; set; }
+
+    public List<string> KurumIds { get; set; } = [];
 }

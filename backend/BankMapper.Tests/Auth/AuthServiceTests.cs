@@ -214,6 +214,8 @@ public class AuthServiceTests
     {
         private readonly Dictionary<string, User> _store = [];
 
+        public Task<List<User>> GetAllAsync() => Task.FromResult(_store.Values.ToList());
+
         public Task<User?> GetByEmailAsync(string email) => Task.FromResult(_store.GetValueOrDefault(email));
 
         public Task<User?> GetByIdAsync(string id) => Task.FromResult(_store.Values.FirstOrDefault(u => u.Id == id));

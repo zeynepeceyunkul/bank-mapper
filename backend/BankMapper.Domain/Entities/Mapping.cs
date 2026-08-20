@@ -48,4 +48,9 @@ public class Mapping
     public string? RejectedBy { get; set; }
 
     public DateTime? RejectedAt { get; set; }
+
+    // Ece'nin karari (2026-08-19, Faz 3 Asama B): bir mapping birden fazla
+    // Kurum'a etiketlenebilir - duz bir id listesi, MappingSourceSchema gibi
+    // pozisyon/alias tasiyan bir sarmalayiciya gerek yok, sadece bir etiket.
+    public List<string> KurumIds { get; set; } = [];
 }

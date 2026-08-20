@@ -19,9 +19,9 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     private string? CurrentUserEmail => User.FindFirst(ClaimTypes.Email)?.Value;
 
     [HttpGet]
-    public async Task<ActionResult<List<MappingDto>>> GetAll([FromQuery] MappingStatus? status = null)
+    public async Task<ActionResult<List<MappingDto>>> GetAll([FromQuery] MappingStatus? status = null, [FromQuery] string? kurumId = null)
     {
-        var mappings = await mappingService.GetAllAsync(status);
+        var mappings = await mappingService.GetAllAsync(status, kurumId);
         return Ok(mappings);
     }
 
@@ -31,9 +31,9 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     [HttpGet("page")]
     public async Task<ActionResult<PagedResult<MappingDto>>> GetPage(
         [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst,
-        [FromQuery] string? search = null, [FromQuery] MappingStatus? status = null)
+        [FromQuery] string? search = null, [FromQuery] MappingStatus? status = null, [FromQuery] string? kurumId = null)
     {
-        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search, status);
+        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search, status, kurumId);
         return Ok(result);
     }
 

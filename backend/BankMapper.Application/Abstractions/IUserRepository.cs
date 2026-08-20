@@ -4,6 +4,8 @@ namespace BankMapper.Application.Abstractions;
 
 public interface IUserRepository
 {
+    Task<List<User>> GetAllAsync();
+
     Task<User?> GetByEmailAsync(string email);
 
     Task<User?> GetByIdAsync(string id);

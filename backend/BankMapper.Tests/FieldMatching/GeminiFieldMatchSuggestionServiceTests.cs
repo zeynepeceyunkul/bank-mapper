@@ -298,7 +298,32 @@ public class GeminiFieldMatchSuggestionServiceTests
     }
 
     [Fact]
-    public async Task Gives_up_after_a_second_transient_failure()
+    public async Task Retries_twice_after_transient_5xx_and_succeeds_on_third_attempt()
+    {
+        // Ece'nin 2026-08-21'de canli yasadigi vakanin testi: Gemini'nin
+        // "high demand" 503'u art arda 2 denemede de gecmeyebiliyor, ucuncu
+        // denemede gecmesi hala kurtarilabilir olmali.
+        var innerJson = """[{"sourceFields":["TC"],"targetField":"TCKimlikNo"}]""";
+        var callCount = 0;
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            callCount++;
+            return callCount < 3
+                ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(WrapGeminiResponse(innerJson), Encoding.UTF8, "application/json"),
+                };
+        });
+
+        var result = await CreateService(handler).SuggestAsync(["TC"], Targets("TCKimlikNo"));
+
+        Assert.Equal(3, callCount);
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task Gives_up_after_repeated_transient_failures()
     {
         var callCount = 0;
         var handler = new FakeHttpMessageHandler(_ =>
@@ -310,7 +335,7 @@ public class GeminiFieldMatchSuggestionServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => CreateService(handler).SuggestAsync(["Ad"], Targets("AdSoyad")));
 
-        Assert.Equal(2, callCount);
+        Assert.Equal(3, callCount);
     }
 
     private class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

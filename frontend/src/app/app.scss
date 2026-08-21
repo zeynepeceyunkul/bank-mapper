@@ -31,16 +31,6 @@
     flex: 1 1 auto;
   }
 
-  .app-username {
-    font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.75);
-    margin-right: 4px;
-  }
-
-  .app-logout {
-    color: rgba(255, 255, 255, 0.75);
-  }
-
   nav {
     display: flex;
     gap: 0;
@@ -109,4 +99,203 @@
 
 .app-content {
   padding: 1.5rem;
+}
+
+// Figma Make'ten secilen "B" kompozisyonu (avatar-only tetikleyici) - eskiden
+// sag ustte hep acik duran duz e-posta yazisi + ayri bir cikis ikonuydu.
+// Gradyan/golge Figma taslaginda vardi ama bu uygulamanin genel "duz/minimal"
+// dilinde hicbir yerde gradyan kullanilmiyor - burada da duz renklere
+// sadelestirildi, modal-box'larda zaten kullanilan golge formulu tekrarlandi.
+.profile-menu-wrapper {
+  // Yukseklik tam toolbar kadar (56px) olmali - yoksa (icerigi kadar,
+  // avatar'in ~32px'i) dikey ortalanmis kucuk kutunun ALT kenari toolbar'in
+  // kendi alt kenarindan once bitiyor, ve dropdown'un "top: %100 + 8px"
+  // hesabi o erken noktaya gore yapilinca dropdown toolbar'in siyah zemininin
+  // ICINE tasiyordu (Ece'nin canli yakaladigi bug - "toolbarin ustune biniyor").
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+// Ece'nin Figma Make'ten sectigi "A" kompozisyonu: kompakt tetikleyici
+// (avatar + e-posta + chevron), toolbar icinde nav linkleriyle ayni satirda.
+.profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background-color 150ms;
+
+  // styles.scss'teki genel button:hover kurali (:not(:disabled):not(.mat-mdc-button-base))
+  // ozgullukte bundan daha guclu - onceki auth butonlarindaki ayni sorunun
+  // tekrari (bkz. proje hafizasi), !important ile ayni sekilde eziliyor.
+  &:hover,
+  &.open {
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+}
+
+.profile-trigger-email {
+  font-size: 0.8125rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-trigger-chevron {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  transition: transform 150ms;
+
+  .profile-trigger.open & {
+    transform: rotate(180deg);
+  }
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--mat-sys-tertiary);
+  color: #1a1a1a;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: transparent;
+}
+
+// Duz beyaz panel (koyu baslik yok) - modal-box'larda kullanilan ayni
+// golge/koseleri kullaniyor, "havada" durmasin diye bosluk kucuk (6px, tam
+// toolbar-ustune-binmeyecek kadar) tutuluyor.
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  z-index: 120;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.profile-menu-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.profile-email {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--app-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Rol renkleri - Onaylar ekranindaki .tab-icon-badge ile ayni acik-zemin +
+// koyu-ton mantigi. Admin/Approver zaten bu uygulamada var olan
+// reddedilen/bekleyen renkleriyle birebir ayni (kasitli tekrar), sadece
+// MappingDefiner icin bu uygulamada ilk kez bir mavi ton, Viewer icin de
+// zaten notr renklerde kullanilan gri tonu (bkz. .mapping-icon).
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 0.25rem;
+  padding: 2px 10px 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+
+  .role-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &.role-admin {
+    background: #fdecea;
+    color: #b3261e;
+    .role-dot {
+      background: #b3261e;
+    }
+  }
+
+  &.role-approver {
+    background: #fff8e1;
+    color: #a86500;
+    .role-dot {
+      background: #a86500;
+    }
+  }
+
+  &.role-mappingdefiner {
+    background: #e3f2fd;
+    color: #1565c0;
+    .role-dot {
+      background: #1565c0;
+    }
+  }
+
+  &.role-viewer {
+    background: #f0f0f0;
+    color: #6b7280;
+    .role-dot {
+      background: #6b7280;
+    }
+  }
+}
+
+.profile-menu-actions {
+  padding: 0.5rem;
+}
+
+.profile-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #b3261e;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  // Ayni ozgullul sorunu (bkz. .profile-trigger'daki ayni yorum) - genel
+  // button:hover kurali burada da eziyordu.
+  &:hover {
+    background: #fdecea !important;
+  }
 }

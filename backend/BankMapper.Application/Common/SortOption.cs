@@ -9,5 +9,15 @@ public enum SortOption
     NameAscending,
     NameDescending,
     RecentFirst,
-    OldestFirst
+    OldestFirst,
+
+    // Onaylar ekranindaki uc sekmenin (Bekleyenler/Onaylanan/Reddedilen) her
+    // birinin kendi gosterdigi tarih sutununa gore siralamasi icin -
+    // RecentFirst/OldestFirst'un aksine BURADA "hangi alan" status filtresine
+    // gore degisiyor (Bekleyenler->CreatedAt, Onaylanan->ApprovedAt,
+    // Reddedilen->RejectedAt), bu yuzden ayri bir isim: mapping-list gibi
+    // baska bir ekranin hep UpdatedAt'e gore sirali RecentFirst/OldestFirst
+    // davranisini bozmadan sadece Onaylar'in kendi mantigini tasiyor.
+    StatusDateRecentFirst,
+    StatusDateOldestFirst
 }

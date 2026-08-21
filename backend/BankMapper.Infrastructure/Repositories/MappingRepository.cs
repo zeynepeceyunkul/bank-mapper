@@ -60,6 +60,8 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
             SortOption.NameAscending => find.SortBy(m => m.Name),
             SortOption.NameDescending => find.SortByDescending(m => m.Name),
             SortOption.OldestFirst => find.SortBy(m => m.UpdatedAt),
+            SortOption.StatusDateRecentFirst => SortByStatusDate(find, status, descending: true),
+            SortOption.StatusDateOldestFirst => SortByStatusDate(find, status, descending: false),
             _ => find.SortByDescending(m => m.UpdatedAt),
         };
         var itemsTask = sorted
@@ -68,6 +70,23 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
             .ToListAsync();
         await Task.WhenAll(countTask, itemsTask);
         return (itemsTask.Result, countTask.Result);
+    }
+
+    // Onaylar ekraninin uc sekmesi (Bekleyenler/Onaylanan/Reddedilen) ayni
+    // "tarihe gore sirala" toggle'ini kullaniyor ama her biri kendi tarih
+    // sutununu gostiriyor - status burada zaten filtre olarak gelmis
+    // oluyor, hangi alanin kullanilacagini da o belirliyor. status null ise
+    // (bu iki SortOption degeri baska bir yerden status'suz cagrilmaz ama
+    // yine de) CreatedAt'e dusuluyor.
+    private static IFindFluent<Mapping, Mapping> SortByStatusDate(
+        IFindFluent<Mapping, Mapping> find, MappingStatus? status, bool descending)
+    {
+        return status switch
+        {
+            MappingStatus.Approved => descending ? find.SortByDescending(m => m.ApprovedAt) : find.SortBy(m => m.ApprovedAt),
+            MappingStatus.Rejected => descending ? find.SortByDescending(m => m.RejectedAt) : find.SortBy(m => m.RejectedAt),
+            _ => descending ? find.SortByDescending(m => m.CreatedAt) : find.SortBy(m => m.CreatedAt),
+        };
     }
 
     public async Task<Mapping?> GetByIdAsync(string id) =>

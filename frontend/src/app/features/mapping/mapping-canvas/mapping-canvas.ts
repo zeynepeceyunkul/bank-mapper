@@ -158,6 +158,16 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   private pendingSnapshot: MappingCanvasSnapshot | null = null;
   private hydrated = false;
   private suppress = false;
+  // acceptSuggestion/attachFunctoidToSuggestion kendi Trim/Pad node'larini
+  // programatik olarak eklerken de 'node:added' tetikleniyor -
+  // tryAttachToNearbyConnection bu YENI node'u, halen bekleyen BASKA bir
+  // AI onerisinin cizgisine "yakin" bulup o oneriyi de sessizce/istemsiz
+  // onaylayabiliyordu (Ece'nin canli yakaladigi bug: bir oneriyi onaylamak
+  // yakinindaki baska bir oneriyi de ayni functoid node'una kaynastiriyordu).
+  // Bu bayrak sadece kullanicinin paletten GERCEKTEN surukleyip biraktigi
+  // node'larda calismasi gereken bu kisayolu, bizim kendi programatik
+  // addNode cagrilarimiz sirasinda devre disi birakiyor.
+  private suppressAutoAttach = false;
   private canvasWidth = CANVAS_WIDTH;
   private canvasHeight = CANVAS_HEIGHT;
   private readonly onWindowResize = (): void => this.handleWindowResize();
@@ -211,7 +221,9 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     });
     this.graph.on('edge:removed', () => this.emitGraphChanged());
     this.graph.on('node:added', ({ node }) => {
-      this.tryAttachToNearbyConnection(node);
+      if (!this.suppress && !this.suppressAutoAttach) {
+        this.tryAttachToNearbyConnection(node);
+      }
       this.applyCanvasSize(this.canvasWidth, this.canvasHeight);
       this.emitGraphChanged();
     });
@@ -781,13 +793,16 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
     if (!schemaNode) return;
 
-    // Onceden (node eklemeden ONCE) listeden cikariyoruz - 'node:added' olayi
-    // her addNode'da tryAttachToNearbyConnection'i tetikliyor, ve tek girdili
-    // (arity 1) bir functoid (Trim/LPad/RPad - Concat arity 2 oldugu icin bu
-    // sorunu hic yasamiyordu) tam bu onerinin kendi cizgisinin uzerine
-    // yerlestirilince, s hala listedeyse kendi onerisini "yakin" bulup
-    // attachFunctoidToSuggestion'i tekrar tetikliyor - sonsuz ozyineleme.
+    // Onceden (node eklemeden ONCE) listeden cikariyoruz - kendi onerisinin
+    // (s) cizgisine tekrar "yakin" bulunup sonsuz ozyinelemeye girmesin diye.
+    // Ayrica suppressAutoAttach ile 'node:added'in tryAttachToNearbyConnection
+    // kismini asagidaki TUM addNode cagrilari icin kapatiyoruz - yoksa aynen
+    // s'de oldugu gibi, HALA bekleyen BASKA bir oneri de (rastgele yakin
+    // konumlandiysa) burada eklenen node'a istemsizce kaynasabiliyordu (Ece'nin
+    // canli yakaladigi bug: bir oneriyi onaylamak yaninda duran baska bir
+    // oneriyi de sessizce onayliyordu).
     this.suggestions.update((list) => list.filter((x) => x.key !== s.key));
+    this.suppressAutoAttach = true;
 
     if (s.chainFunctoidCode && s.chainBox && s.functoidCode && s.box) {
       // Trim -> Pad zinciri: kaynak alan -> Trim -> Pad -> hedef, iki ayri
@@ -846,6 +861,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       });
     }
 
+    this.suppressAutoAttach = false;
     this.emitGraphChanged();
   }
 
@@ -1015,7 +1031,11 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       // eklem yapilirsa Trim adimi atlanmis olur; kapsam disi birakildi, kabul
       // dugmesi (acceptSuggestion) uzerinden gecen normal akis her zaman dogru.
       const suggestedFunctoidId = randomId();
+      // Bu addNode da programatik - ayni suppressAutoAttach korumasi (bkz.
+      // acceptSuggestion'daki ayni gerekce) burada da gerekli.
+      this.suppressAutoAttach = true;
       this.graph.addNode(this.functoidNodeConfig(suggestedFunctoidId, match.functoidCode, match.box.x, match.box.y, match.params));
+      this.suppressAutoAttach = false;
       const suggestedPorts = suggestedDef?.inputPorts ?? [];
       match.sourceFields.forEach((field, i) => {
         this.graph.addEdge({

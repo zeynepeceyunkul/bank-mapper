@@ -358,6 +358,37 @@ describe('MappingCanvas', () => {
     expect(described).toContainEqual({ id: expect.any(String), from: 'Trim', to: 'AdSoyad' });
   });
 
+  it('accepting a suggestion does not silently auto-attach another still-pending suggestion positioned nearby (regression: approving one AI suggestion could weld an unrelated nearby suggestion into the same brand-new functoid node)', () => {
+    component.addSourceSchema(sourceSchema, 20, 20);
+    component.showSuggestions([
+      { sourceFields: ['Ad'], targetField: 'TCKimlikNo', functoidCode: 'LPad', length: 11, padChar: '0' },
+      { sourceFields: ['Soyad'], targetField: 'NetTutar', functoidCode: 'LPad', length: 10, padChar: '0' },
+    ]);
+
+    const adSuggestion = component.suggestions().find((s) => s.sourceFields[0] === 'Ad')!;
+    const soyadSuggestion = component.suggestions().find((s) => s.sourceFields[0] === 'Soyad')!;
+
+    // Soyad onerisinin kutusunu, Ad onerisinin kutusuyla TAM ust uste binecek
+    // sekilde tasi - boylece Ad'i onaylarken olusan yeni Pad node'u, Soyad
+    // onerisinin cizgisine mesafe-0 kadar "yakin" dusuyor (eski koddaki
+    // tryAttachToNearbyConnection bunu otomatik onaylardi).
+    const dx = adSuggestion.box!.x - soyadSuggestion.box!.x;
+    const dy = adSuggestion.box!.y - soyadSuggestion.box!.y;
+    dragSuggestionBy(soyadSuggestion, dx, dy);
+
+    component.acceptSuggestion(adSuggestion);
+
+    // Soyad onerisi hala bekliyor olmali - Ad'i onaylamak onu sessizce
+    // onaylamamali.
+    expect(component.suggestions().length).toBe(1);
+    expect(component.suggestions()[0].sourceFields[0]).toBe('Soyad');
+
+    const snapshot = component.getSnapshot();
+    expect(snapshot.functoidNodes.map((n) => n.functoidCode).sort()).toEqual(['LPad', 'Trim']);
+    const described = component.describeEdges();
+    expect(described.some((e) => e.from === 'Soyad')).toBe(false);
+  });
+
   it('dropping a single-input functoid near a Concat suggestion materializes the Concat and chains onto its output', () => {
     component.addSourceSchema(sourceSchema, 20, 20);
     component.showSuggestions([{ sourceFields: ['Ad', 'Soyad'], targetField: 'AdSoyad', functoidCode: 'Concat' }]);

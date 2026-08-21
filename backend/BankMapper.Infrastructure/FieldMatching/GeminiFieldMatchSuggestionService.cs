@@ -35,24 +35,32 @@ public class GeminiFieldMatchSuggestionService(HttpClient httpClient, IOptions<G
         return ParseSuggestions(responseJson, sourceFieldNames, targetFields);
     }
 
-    // Gemini (ozellikle ucretsiz katmanda) ara sira tek seferlik gecici bir
-    // yavaslik/hata gosterebiliyor - zaman asimina ugrayip 20s Timeout'a takilan
-    // ya da 429/5xx donen bir cagriyi bir kez daha deniyoruz, boylece kullanici
-    // manuel "tekrar dene"ye basmak zorunda kalmiyor. Gercek istek hatalari
-    // (401/400 gibi) tekrar denemeden hemen firlatiliyor - tekrar denemek onlari
-    // duzeltmez, sadece gecikmeyi ikiye katlar.
+    // Gemini (ozellikle ucretsiz katmanda) ara sira gecici bir yavaslik/hata
+    // gosterebiliyor - zaman asimina ugrayan ya da 429/5xx donen bir cagriyi
+    // en fazla iki kez daha (toplam 3 deneme) deniyoruz, aralarda artan bir
+    // bekleme (1sn, 2sn) ile - Google'in "high demand" 503'u genelde saniyeler
+    // icinde geciyor, tek seferlik 500ms'lik eski bekleme bunun icin cok
+    // kisaydi (Ece'nin 2026-08-21'de canli yasadigi, art arda 2 denemenin de
+    // basarisiz oldugu bir vaka sonrasi buyutuldu). Gercek istek hatalari
+    // (401/400 gibi) tekrar denemeden hemen firlatiliyor - tekrar denemek
+    // onlari duzeltmez, sadece gecikmeyi katlar.
+    private const int MaxAttempts = 3;
+    private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)];
+
     private async Task<string> SendWithRetryAsync(string url, HttpContent content)
     {
-        for (var attempt = 1; attempt <= 2; attempt++)
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
+            var isLastAttempt = attempt == MaxAttempts;
+
             HttpResponseMessage response;
             try
             {
                 response = await httpClient.PostAsync(url, content);
             }
-            catch (TaskCanceledException) when (attempt == 1)
+            catch (TaskCanceledException) when (!isLastAttempt)
             {
-                await Task.Delay(500);
+                await Task.Delay(RetryDelays[attempt - 1]);
                 continue;
             }
 
@@ -64,9 +72,9 @@ public class GeminiFieldMatchSuggestionService(HttpClient httpClient, IOptions<G
                 }
 
                 var errorBody = await response.Content.ReadAsStringAsync();
-                if (attempt == 1 && IsTransientStatusCode(response.StatusCode))
+                if (!isLastAttempt && IsTransientStatusCode(response.StatusCode))
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(RetryDelays[attempt - 1]);
                     continue;
                 }
 
@@ -74,9 +82,9 @@ public class GeminiFieldMatchSuggestionService(HttpClient httpClient, IOptions<G
             }
         }
 
-        // Buraya sadece 2. deneme de zaman asimina ugrarsa (TaskCanceledException)
-        // ulasilir - o durumda catch filtresi (attempt == 1) devreye girmedigi icin
-        // istisna zaten yukari firladi, bu satira asla fiilen erisilmez.
+        // Buraya sadece son deneme de zaman asimina ugrarsa (TaskCanceledException)
+        // ulasilir - o durumda catch filtresi (!isLastAttempt) devreye girmedigi
+        // icin istisna zaten yukari firladi, bu satira asla fiilen erisilmez.
         throw new InvalidOperationException("Gemini API'den yanit alinamadi.");
     }
 

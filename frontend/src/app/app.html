@@ -20,10 +20,39 @@
         <a routerLink="/users" routerLinkActive="active">Kullanıcılar</a>
       </nav>
       <span class="app-spacer"></span>
-      <span class="app-username">{{ email() }}</span>
-      <button type="button" mat-icon-button class="app-logout" aria-label="Çıkış yap" (click)="logout()">
-        <mat-icon>logout</mat-icon>
-      </button>
+      <div class="profile-menu-wrapper">
+        <button
+          type="button"
+          class="profile-trigger"
+          [class.open]="showProfileMenu()"
+          [attr.aria-expanded]="showProfileMenu()"
+          aria-haspopup="true"
+          aria-label="Profil menüsü"
+          (click)="toggleProfileMenu()"
+        >
+          <span class="profile-avatar">{{ avatarInitial }}</span>
+          <span class="profile-trigger-email">{{ email() }}</span>
+          <mat-icon class="profile-trigger-chevron">expand_more</mat-icon>
+        </button>
+
+        @if (showProfileMenu()) {
+          <div class="profile-menu-backdrop" (click)="showProfileMenu.set(false)"></div>
+          <div class="profile-menu">
+            <div class="profile-menu-header">
+              <p class="profile-email">{{ email() }}</p>
+              <span class="role-pill" [class]="'role-' + roleClass()">
+                <span class="role-dot"></span>{{ role() }}
+              </span>
+            </div>
+            <div class="profile-menu-actions">
+              <button type="button" class="profile-logout-btn" (click)="logout()">
+                <mat-icon>logout</mat-icon>
+                Çıkış Yap
+              </button>
+            </div>
+          </div>
+        }
+      </div>
     }
   </mat-toolbar>
 

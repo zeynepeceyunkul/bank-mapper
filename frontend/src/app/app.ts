@@ -40,7 +40,26 @@ export class App {
 
   readonly isLoggedIn = computed(() => this.authService.token() !== null);
   readonly email = this.authService.email;
+  readonly role = this.authService.role;
   readonly isAuthPage = computed(() => STANDALONE_AUTH_PATHS.some((p) => this.currentUrl().startsWith(p)));
+
+  // Figma Make'ten secilen "B" kompozisyonu (avatar-only tetikleyici, koyu
+  // baslikli dropdown) - eskiden sag ustte hep acik duran duz e-posta yazisi +
+  // ayri bir cikis ikonuydu, simdi tek bir avatara tiklayinca acilan kucuk bir
+  // panelde e-posta+rol+cikis birlikte gosteriliyor.
+  readonly showProfileMenu = signal(false);
+
+  toggleProfileMenu(): void {
+    this.showProfileMenu.update((v) => !v);
+  }
+
+  get avatarInitial(): string {
+    return (this.email() ?? '?').charAt(0).toUpperCase();
+  }
+
+  roleClass(): string {
+    return (this.role() ?? '').toLowerCase();
+  }
 
   // Ece'nin karari (2026-08-19): Onizleme/Onaylar nav linkleri artik
   // yetkisi olmayana da gorunur - tiklayinca role.guard.ts onları Panel'e
@@ -81,6 +100,7 @@ export class App {
   }
 
   logout(): void {
+    this.showProfileMenu.set(false);
     this.authService.logout();
     this.router.navigateByUrl('/login');
   }

@@ -9,5 +9,5 @@ public class FieldMatchSuggestionsController(IFieldMatchSuggestionService servic
 {
     [HttpPost]
     public async Task<ActionResult<List<FieldMatchSuggestion>>> Suggest(SuggestFieldMatchesRequest request) =>
-        Ok(await service.SuggestAsync(request.SourceFieldNames, request.TargetFieldNames));
+        Ok(await service.SuggestAsync(request.SourceFieldNames, request.TargetFields));
 }

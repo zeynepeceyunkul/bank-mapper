@@ -19,6 +19,7 @@ import { FunctoidDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
 import { Institution } from '../../../core/models/institution.model';
+import { MappingStatus } from '../../../core/models/mapping.model';
 import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
 import { MappingList } from '../mapping-list/mapping-list';
 import { SourceSchemaList } from '../../source-schemas/source-schema-list/source-schema-list';
@@ -76,8 +77,30 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     return false;
   }
 
+  // dashboard.ts/mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.
+  canApprove(): boolean {
+    return this.authService.hasRole('Admin', 'Approver');
+  }
+
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);
+
+  // Onay Bekleyenler tablosundan gelindiginde (bkz. approval-queue.html'deki
+  // routerLink [queryParams]="{fromApproval:1}") mapping'in kendi ekraninda
+  // da Onayla/Reddet gorunsun diye - Ece'nin acik karari: bu SADECE bu
+  // senaryo icin, mapping-editor'e genel bir onay bolumu eklenmiyor. Route
+  // paramMap'teki mappingId gibi bu da paramMap subscription'i icinde
+  // okunuyor (ngOnInit, asagida) - snapshot degil, cunku /mapping/edit/:id
+  // -> /mapping/edit/:baska-id gecisinde Angular ayni component instance'ini
+  // yeniden kullaniyor.
+  readonly fromApproval = signal(false);
+  readonly mappingStatus = signal<MappingStatus | null>(null);
+  readonly showApprovalSection = computed(
+    () => this.fromApproval() && this.mappingStatus() === 'PendingApproval' && this.canApprove()
+  );
+  readonly approving = signal(false);
+  readonly showRejectPopup = signal(false);
+  rejectReason = '';
 
   readonly showMappingsPanel = signal(false);
   readonly showSourceSchemaModal = signal(false);
@@ -201,6 +224,14 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       }
     });
 
+    // route.paramMap ile ayni gerekce: snapshot degil subscribe, çünkü Onay
+    // Bekleyenler'den bir mapping'e, oradan "Kayıtlı Mapping'ler" panelinden
+    // baska (query param'siz) bir mapping'e gecilirse fromApproval eski
+    // deger uzerinde takili kalmamali.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.fromApproval.set(params.get('fromApproval') === '1');
+    });
+
     // Panel'deki "Tumunu gor" linki buraya ?list=1 ile geliyor - kullanici
     // "kayitli mapping'lerin tumunu" gormek istedigi icin bos "Yeni Mapping"
     // formu yerine dogrudan "Kayitli Mapping'ler" panelini acik karsilamali.
@@ -248,6 +279,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.activeFileType.set(null);
     this.resetGraphState();
     this.usedKurumIds.set([]);
+    this.mappingStatus.set(null);
     this.awaitingInitialGraphReady = false;
     this.isDirty.set(false);
   }
@@ -259,6 +291,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       next: (mapping) => {
         this.mappingName = mapping.name;
         this.usedKurumIds.set(mapping.kurumIds);
+        this.mappingStatus.set(mapping.status);
 
         // hedefConfirmedOnce'i sifirlamak, template'teki
         // `@if (hedefConfirmedOnce())` bloğunu anlik olarak kapatip
@@ -629,9 +662,9 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.suggestError.set(null);
 
     const sourceFieldNames = schema.fields.map((f) => f.name);
-    const targetFieldNames = targetFileType.targetFields.map((f) => f.name);
+    const targetFields = targetFileType.targetFields.map((f) => ({ name: f.name, length: f.length }));
 
-    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFieldNames).subscribe({
+    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFields).subscribe({
       next: (suggestions) => {
         this.suggestingMatches.set(false);
         this.canvas.showSuggestions(suggestions);
@@ -718,6 +751,52 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
           return;
         }
         this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping kaydedilemedi. API çalışıyor mu?');
+      },
+    });
+  }
+
+  // approval-queue.ts'teki approveMapping/openRejectPopup/confirmReject ile
+  // ayni backend cagrilari (MappingService.approve/reject) - buradaki tek
+  // fark, karardan sonra kullaniciyi Onay Bekleyenler listesine geri
+  // yonlendirmemiz: bu ekrana zaten o listeden gelindi, karar verildikten
+  // sonra mapping burada goruntulenmeye devam etmeyecek (showApprovalSection
+  // zaten mappingStatus PendingApproval degilse kapanir).
+  approveMappingFromEditor(): void {
+    if (!this.mappingId) return;
+    this.approving.set(true);
+    this.mappingService.approve(this.mappingId).subscribe({
+      next: (mapping) => {
+        this.approving.set(false);
+        this.toastService.success(`Onaylandı: ${mapping.name}`);
+        this.router.navigate(['/approvals']);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.approving.set(false);
+        this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping onaylanamadı. API çalışıyor mu?');
+      },
+    });
+  }
+
+  openRejectPopup(): void {
+    this.rejectReason = '';
+    this.showRejectPopup.set(true);
+  }
+
+  closeRejectPopup(): void {
+    this.showRejectPopup.set(false);
+  }
+
+  confirmRejectFromEditor(): void {
+    if (!this.mappingId || !this.rejectReason.trim()) return;
+
+    this.mappingService.reject(this.mappingId, this.rejectReason.trim()).subscribe({
+      next: (mapping) => {
+        this.showRejectPopup.set(false);
+        this.toastService.success(`Reddedildi: ${mapping.name}`);
+        this.router.navigate(['/approvals']);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping reddedilemedi. API çalışıyor mu?');
       },
     });
   }

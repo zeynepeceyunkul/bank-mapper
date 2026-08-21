@@ -39,6 +39,25 @@
     <p class="hint">Mapping yükleniyor...</p>
   }
 
+  @if (showApprovalSection()) {
+    <div class="approval-section">
+      <span class="approval-section-text">
+        <mat-icon>schedule</mat-icon>
+        Bu mapping onay bekliyor.
+      </span>
+      <div class="approval-section-actions">
+        <button type="button" class="approve-btn" [disabled]="approving()" (click)="approveMappingFromEditor()">
+          <mat-icon>check</mat-icon>
+          Onayla
+        </button>
+        <button type="button" class="reject-btn" (click)="openRejectPopup()">
+          <mat-icon>close</mat-icon>
+          Reddet
+        </button>
+      </div>
+    </div>
+  }
+
   <mat-accordion class="wizard-accordion" multi="false">
     <mat-expansion-panel
       class="wizard-panel"
@@ -160,34 +179,33 @@
 
   <div class="kurum-section">
     <div class="kurum-section-header">
+      <mat-icon class="kurum-section-icon">account_balance</mat-icon>
       <span class="kurum-section-title">Kurumlar</span>
       <span class="optional-tag">(opsiyonel)</span>
     </div>
-    <div class="kurum-section-body">
-      <div class="kurum-picker">
-        <mat-form-field appearance="outline" class="field">
-          <select matNativeControl id="kurumSelect" aria-label="Kurum seçin" [(ngModel)]="newKurumId">
-            <option value="" selected>Kurum seçin</option>
-            @for (kurum of availableKurumsToAdd; track kurum.id) {
-              <option [value]="kurum.id">{{ kurum.name }}</option>
-            }
-          </select>
-        </mat-form-field>
-        <button type="button" mat-stroked-button [disabled]="!newKurumId" (click)="addKurum()">+ Ekle</button>
-      </div>
-      @if (usedKurumIds().length > 0) {
-        <div class="kurum-pills">
-          @for (kurumId of usedKurumIds(); track kurumId) {
-            <span class="kurum-pill">
-              {{ kurumName(kurumId) }}
-              <button type="button" aria-label="Kaldır" (click)="removeKurum(kurumId)">
-                <mat-icon>close</mat-icon>
-              </button>
-            </span>
+    <div class="kurum-picker">
+      <mat-form-field appearance="outline" class="field">
+        <select matNativeControl id="kurumSelect" aria-label="Kurum seçin" [(ngModel)]="newKurumId">
+          <option value="" selected>Kurum seçin</option>
+          @for (kurum of availableKurumsToAdd; track kurum.id) {
+            <option [value]="kurum.id">{{ kurum.name }}</option>
           }
-        </div>
-      }
+        </select>
+      </mat-form-field>
+      <button type="button" mat-flat-button [disabled]="!newKurumId" (click)="addKurum()">Ekle</button>
     </div>
+    @if (usedKurumIds().length > 0) {
+      <div class="kurum-pills">
+        @for (kurumId of usedKurumIds(); track kurumId) {
+          <span class="kurum-pill">
+            {{ kurumName(kurumId) }}
+            <button type="button" aria-label="Kaldır" (click)="removeKurum(kurumId)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </span>
+        }
+      </div>
+    }
   </div>
 
   @if (error()) {
@@ -266,6 +284,26 @@
           </button>
         </div>
         <app-source-schema-list (schemaCreated)="onSchemaCreated($event)" (schemaDeleted)="onSchemaDeleted($event)" />
+      </div>
+    </div>
+  }
+
+  @if (showRejectPopup()) {
+    <div class="modal-backdrop" (click)="closeRejectPopup()">
+      <div class="modal-box reject-modal-box" (click)="$event.stopPropagation()">
+        <h3>'{{ mappingName }}' mapping'ini reddet</h3>
+        <label for="rejectReasonEditor">Red gerekçesi</label>
+        <textarea
+          id="rejectReasonEditor"
+          class="reject-reason-input"
+          rows="3"
+          [(ngModel)]="rejectReason"
+          placeholder="Örn. Alan eşleştirmesi eksik/hatalı"
+        ></textarea>
+        <div class="reject-actions">
+          <button type="button" mat-stroked-button (click)="closeRejectPopup()">İptal</button>
+          <button type="button" mat-flat-button [disabled]="!rejectReason.trim()" (click)="confirmRejectFromEditor()">Reddet</button>
+        </div>
       </div>
     </div>
   }

@@ -9,6 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Mapping, MappingStatus } from '../../../core/models/mapping.model';
+import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
   selector: 'app-approval-queue',
@@ -37,6 +38,20 @@ export class ApprovalQueue implements OnInit, OnDestroy {
   readonly pageSize = signal(10);
   readonly totalCount = signal(0);
   readonly pageSizeOptions = [5, 10, 25, 50];
+
+  // mapping-list.ts'teki ayni arama/debounce deseni.
+  readonly search = signal('');
+  private searchDebounceHandle?: ReturnType<typeof setTimeout>;
+
+  // Ece'nin istegi: uc sekmenin (Bekleyenler/Onaylanan/Reddedilen) her biri
+  // kendi gosterdigi tarih sutununa (Olusturulma/Onay Tarihi/Red Tarihi) gore
+  // siralanabilsin. mapping-list.ts'teki RecentFirst/OldestFirst hep
+  // UpdatedAt'e bakiyor (o ekranda dogru - "Son Guncellenen" o), ama burada
+  // onaylama/reddetme UpdatedAt'i degistirmiyor - bu yuzden backend'de ayri
+  // StatusDateRecentFirst/StatusDateOldestFirst eklendi (bkz.
+  // MappingRepository.SortByStatusDate), aktif sekmenin status filtresine
+  // gore doğru alani (CreatedAt/ApprovedAt/RejectedAt) otomatik seciyor.
+  readonly sort = signal<SortOption>('StatusDateRecentFirst');
 
   // Reddetme burada da mapping-list.ts ile ayni sekilde bir gerekce metni
   // gerektiriyor, ayni kucuk modal deseni tekrar kullanildi.
@@ -69,9 +84,15 @@ export class ApprovalQueue implements OnInit, OnDestroy {
     this.loadMappings();
   }
 
+  onSortChange(value: SortOption): void {
+    this.sort.set(value);
+    this.pageIndex.set(0);
+    this.loadMappings();
+  }
+
   loadMappings(): void {
     this.error.set(null);
-    this.mappingService.getPage(this.pageIndex(), this.pageSize(), 'RecentFirst', '', this.activeTab()).subscribe({
+    this.mappingService.getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search(), this.activeTab()).subscribe({
       next: (result) => {
         this.mappings.set(result.items);
         this.totalCount.set(result.totalCount);
@@ -88,6 +109,15 @@ export class ApprovalQueue implements OnInit, OnDestroy {
     this.pageIndex.set(event.pageIndex);
     this.pageSize.set(event.pageSize);
     this.loadMappings();
+  }
+
+  onSearchChange(value: string): void {
+    this.search.set(value);
+    clearTimeout(this.searchDebounceHandle);
+    this.searchDebounceHandle = setTimeout(() => {
+      this.pageIndex.set(0);
+      this.loadMappings();
+    }, 300);
   }
 
   approveMapping(mapping: Mapping): void {

@@ -31,6 +31,9 @@
     margin-bottom: 1.25rem;
 
     button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
       padding: 7px 16px;
       border: 1px solid #e5e5e5;
       border-radius: 999px;
@@ -49,12 +52,80 @@
         border-color: #c4c4c4;
       }
 
+      // Onceki halinde dolu siyah zemin + beyaz metin (koyu/agir durdugu icin
+      // Ece'nin geri bildirimiyle degisti) - ust navigasyondaki aktif sekme
+      // deseniyle (altin vurgu, dolu blok degil) tutarli, daha hafif bir
+      // vurgu: acik altin zemin + altin kenarlik + koyu metin.
       &.active {
-        background: #1a1a1a;
-        border-color: #1a1a1a;
-        color: #fff;
+        background: rgba(255, 199, 44, 0.14);
+        border-color: var(--mat-sys-tertiary);
+        color: #1a1a1a;
       }
     }
+
+    // mapping-list.scss'teki .status-badge renk paletiyle ayni (acik zemin +
+    // koyu ikon tonu, amber/yesil/kirmizi) - Ece'nin getirdigi Figma Make
+    // ornegindeki "tonlu daire icinde ikon" deseni. Sekme aktif olsun olmasin
+    // rozet kendi anlam rengini koruyor.
+    .tab-icon-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.pending {
+        background: #fff8e1;
+        color: #a86500;
+      }
+
+      &.approved {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      &.rejected {
+        background: #fdecea;
+        color: #b3261e;
+      }
+    }
+  }
+
+  // mapping-list.scss'teki .search-input ile ayni desen - bekleyen sayisi
+  // (17) buyudukce belirli bir mapping'i bulmak icin.
+  .filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .search-input,
+  .sort-select {
+    padding: 6px 8px;
+    border: 1px solid var(--mat-sys-outline, #c4c4c4);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    color: #1a1a1a;
+    background: #fff;
+  }
+
+  .search-input {
+    width: 220px;
+  }
+
+  // Ece'nin istegi: uc sekmenin (Bekleyenler/Onaylanan/Reddedilen) her biri
+  // kendi tarih sutununa gore siralanabilsin (bkz. approval-queue.ts'teki
+  // sort signal'inin yorumu).
+  .sort-select {
+    width: 190px;
   }
 
   // run-history-list.scss'teki .runs-table-card/.runs-table ile ayni kart

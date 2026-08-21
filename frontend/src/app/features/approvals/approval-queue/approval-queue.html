@@ -20,14 +20,38 @@
 
   <div class="tab-bar" role="tablist">
     <button type="button" role="tab" [class.active]="activeTab() === 'PendingApproval'" (click)="setTab('PendingApproval')">
+      <span class="tab-icon-badge pending">
+        <mat-icon>schedule</mat-icon>
+      </span>
       Bekleyenler
     </button>
     <button type="button" role="tab" [class.active]="activeTab() === 'Approved'" (click)="setTab('Approved')">
+      <span class="tab-icon-badge approved">
+        <mat-icon>check</mat-icon>
+      </span>
       Onaylanan
     </button>
     <button type="button" role="tab" [class.active]="activeTab() === 'Rejected'" (click)="setTab('Rejected')">
+      <span class="tab-icon-badge rejected">
+        <mat-icon>close</mat-icon>
+      </span>
       Reddedilen
     </button>
+  </div>
+
+  <div class="filters">
+    <input
+      type="text"
+      class="search-input"
+      placeholder="Ada göre ara..."
+      aria-label="Mapping ara"
+      [value]="search()"
+      (input)="onSearchChange($any($event.target).value)"
+    />
+    <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
+      <option value="StatusDateRecentFirst" [selected]="sort() === 'StatusDateRecentFirst'">Tarih (Yeni→Eski)</option>
+      <option value="StatusDateOldestFirst" [selected]="sort() === 'StatusDateOldestFirst'">Tarih (Eski→Yeni)</option>
+    </select>
   </div>
 
   @if (error()) {
@@ -87,7 +111,7 @@
           @for (mapping of mappings(); track mapping.id) {
             <tr>
               <td class="name-cell">
-                <a [routerLink]="['/mapping/edit', mapping.id]">
+                <a [routerLink]="['/mapping/edit', mapping.id]" [queryParams]="{ fromApproval: 1 }">
                   <span class="mapping-icon">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
                       <rect x="2" y="1" width="9" height="12" rx="1" fill="none" />

@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -33,6 +34,7 @@ export class App {
   private readonly authService = inject(AuthService);
   private readonly mappingService = inject(MappingService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly currentUrl = signal(this.router.url);
 
@@ -56,6 +58,13 @@ export class App {
   constructor() {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.currentUrl.set(this.router.url);
+      this.refreshPendingApprovalCount();
+    });
+    // Onaylar ekraninin kendisinden (approval-queue.ts / mapping-editor.ts)
+    // sayfadan hic ayrilmadan onayla/reddet yapinca da rozet hemen guncellensin
+    // diye - eskiden sadece yukaridaki NavigationEnd tetikliyordu, bu yuzden
+    // rozet ancak baska bir route'a gecilince duzeliyordu (Ece'nin bulgusu).
+    this.mappingService.approvalChanged$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.refreshPendingApprovalCount();
     });
     this.refreshPendingApprovalCount();

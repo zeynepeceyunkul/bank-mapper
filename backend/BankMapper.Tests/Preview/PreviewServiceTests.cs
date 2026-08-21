@@ -53,6 +53,7 @@ public class PreviewServiceTests
         var mapping = new Mapping
         {
             Id = "m1",
+            Status = MappingStatus.Approved,
             SourceSchemas = [new MappingSourceSchema { SourceSchemaId = SchemaA, Alias = "A" }],
             Edges =
             [
@@ -81,11 +82,35 @@ public class PreviewServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_rejects_a_mapping_that_is_not_approved()
+    {
+        var mapping = new Mapping
+        {
+            Id = "m1",
+            Status = MappingStatus.PendingApproval,
+            SourceSchemas = [new MappingSourceSchema { SourceSchemaId = SchemaA, Alias = "A" }],
+            Edges =
+            [
+                new GraphEdge { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaA, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "AdOut" },
+            ],
+        };
+
+        var (service, _) = CreateService(
+            mapping,
+            new Dictionary<string, SourceSchema> { [SchemaA] = Schema(SchemaA) },
+            new Dictionary<string, List<Dictionary<string, string?>>> { [SchemaA] = [Row(("Ad", "Ahmet"))] });
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ExecuteAsync("m1", FilesFor(SchemaA)));
+        Assert.Contains("henuz onaylanmadi", ex.Message);
+    }
+
+    [Fact]
     public async Task Parser_exception_from_an_invalid_file_is_converted_to_a_clear_argument_exception()
     {
         var mapping = new Mapping
         {
             Id = "m1",
+            Status = MappingStatus.Approved,
             SourceSchemas = [new MappingSourceSchema { SourceSchemaId = SchemaA, Alias = "A" }],
             Edges =
             [
@@ -118,9 +143,10 @@ public class PreviewServiceTests
 
     private class FakeMappingRepository(Mapping mapping) : IMappingRepository
     {
-        public Task<List<Mapping>> GetAllAsync() => Task.FromResult(new List<Mapping> { mapping });
+        public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null) => Task.FromResult(new List<Mapping> { mapping });
 
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null) =>
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
+            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null) =>
             Task.FromResult((new List<Mapping> { mapping }, 1L));
 
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(id == mapping.Id ? mapping : null);

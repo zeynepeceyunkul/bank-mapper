@@ -4,5 +4,5 @@ public class SuggestFieldMatchesRequest
 {
     public List<string> SourceFieldNames { get; set; } = [];
 
-    public List<string> TargetFieldNames { get; set; } = [];
+    public List<TargetFieldInfo> TargetFields { get; set; } = [];
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BankMapper.Application.Common;
 using BankMapper.Application.SourceSchemas;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BankMapper.Api.Controllers;
@@ -28,6 +29,7 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
     }
 
     [HttpPost]
+    [Authorize(Policy = "MappingManage")]
     public async Task<ActionResult<SourceSchemaDto>> Create([FromForm] CreateSourceSchemaFormRequest form)
     {
         var request = new CreateSourceSchemaRequest
@@ -47,6 +49,7 @@ public class SourceSchemasController(ISourceSchemaService sourceSchemaService) :
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "MappingManage")]
     public async Task<IActionResult> Delete(string id)
     {
         var deleted = await sourceSchemaService.DeleteAsync(id);

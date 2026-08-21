@@ -13,4 +13,6 @@ public class CreateMappingRequest
     public List<ConstantNodeDto> ConstantNodes { get; set; } = [];
 
     public List<GraphEdgeDto> Edges { get; set; } = [];
+
+    public List<string> KurumIds { get; set; } = [];
 }

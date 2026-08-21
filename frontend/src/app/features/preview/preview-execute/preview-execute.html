@@ -6,6 +6,18 @@
   <div class="setup-card">
     <div class="setup-row run-row">
       <div class="field-group">
+        <label for="kurumFilter">Kurum</label>
+        <mat-form-field appearance="outline" class="field">
+          <select matNativeControl id="kurumFilter" [(ngModel)]="selectedKurumId" (ngModelChange)="onKurumFilterChange()">
+            <option value="" selected>Kurum seçin</option>
+            @for (kurum of institutions(); track kurum.id) {
+              <option [value]="kurum.id">{{ kurum.name }}</option>
+            }
+          </select>
+        </mat-form-field>
+      </div>
+
+      <div class="field-group">
         <label for="mapping">Mapping</label>
         <mat-form-field appearance="outline" class="field">
           <select matNativeControl id="mapping" [(ngModel)]="selectedMappingId" (ngModelChange)="onMappingChange()">
@@ -153,7 +165,12 @@
                       </svg>
                       Başarısız
                     </span>
-                    <span class="status-error-detail" [title]="run.errorMessage">{{ run.errorMessage }}</span>
+                    <span
+                      class="status-error-detail"
+                      (mouseenter)="showErrorTooltip($event, run.errorMessage ?? '')"
+                      (mouseleave)="hideErrorTooltip()"
+                      >{{ run.errorMessage }}</span
+                    >
                   }
                 </div>
               </td>
@@ -164,4 +181,15 @@
       </table>
     }
   </div>
+
+  @if (errorTooltip(); as tooltip) {
+    <div
+      class="error-tooltip"
+      [style.left.px]="tooltip.left"
+      [style.top.px]="tooltip.top"
+      [style.bottom.px]="tooltip.bottom"
+    >
+      {{ tooltip.text }}
+    </div>
+  }
 </section>

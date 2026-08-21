@@ -3,4 +3,10 @@ export interface PagedResult<T> {
   totalCount: number;
 }
 
-export type SortOption = 'NameAscending' | 'NameDescending' | 'RecentFirst' | 'OldestFirst';
+export type SortOption =
+  | 'NameAscending'
+  | 'NameDescending'
+  | 'RecentFirst'
+  | 'OldestFirst'
+  | 'StatusDateRecentFirst'
+  | 'StatusDateOldestFirst';

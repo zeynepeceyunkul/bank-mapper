@@ -42,6 +42,7 @@ class FakeMappingCanvas {
   @Input() targetFileType: FileType | null = null;
   @Input() allSourceSchemas: SourceSchema[] = [];
   @Input() initialSnapshot: MappingCanvasSnapshot | null = null;
+  @Input() viewOnly = false;
   @Output() readonly graphChanged = new EventEmitter<void>();
 
   snapshot: MappingCanvasSnapshot = emptySnapshot();
@@ -102,6 +103,15 @@ describe('MappingEditor', () => {
   }
 
   beforeEach(async () => {
+    // Bu suite'teki testler Kaydet/Onayla/AI oner/Sil gibi duzenleme
+    // aksiyonlarini dogrudan cagiriyor - bu aksiyonlar artik
+    // requireEditPermission() ile yetki kontrolu yapiyor (bkz.
+    // mapping-editor.ts), o yuzden AuthService'in okudugu localStorage'a
+    // duzenleme yapabilen bir rol yaziyoruz. Rol/yetki testleri role.guard
+    // ve auth.service seviyesinde ayrica var, burasi sadece bu suite'in
+    // zaten varsaydigi "duzenleyebilen kullanici" durumunu kuruyor.
+    localStorage.setItem('bankmapper_role', 'Admin');
+
     await TestBed.configureTestingModule({
       imports: [MappingEditor],
       providers: [
@@ -129,10 +139,12 @@ describe('MappingEditor', () => {
     httpMock.expectOne((req) => req.url.endsWith('/products')).flush([]);
     httpMock.expectOne((req) => req.url.endsWith('/source-schemas')).flush([sampleSourceSchema]);
     httpMock.expectOne((req) => req.url.endsWith('/functoids')).flush([]);
+    httpMock.expectOne((req) => req.url.endsWith('/institutions')).flush([]);
   });
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.removeItem('bankmapper_role');
   });
 
   function selectTarget(): void {
@@ -329,7 +341,7 @@ describe('MappingEditor', () => {
     const request = httpMock.expectOne((req) => req.url.endsWith('/field-match-suggestions'));
     expect(request.request.body).toEqual({
       sourceFieldNames: ['Ad', 'Soyad'],
-      targetFieldNames: ['AdSoyad'],
+      targetFields: [{ name: 'AdSoyad', length: 50 }],
     });
     expect(component.suggestingMatches()).toBe(true);
 

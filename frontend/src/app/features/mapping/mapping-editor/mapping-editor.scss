@@ -6,6 +6,7 @@
   // style="max-width:1400px") okunan degere sabitleniyor.
   > .page-header,
   > .wizard-accordion,
+  > .kurum-section,
   > .hint,
   > .error,
   > .canvas-placeholder,
@@ -112,6 +113,131 @@
     --mat-fab-small-foreground-color: var(--mat-sys-on-primary);
   }
 
+  // Onay Bekleyenler'den gelindiginde gorunen Onayla/Reddet bolumu -
+  // approval-queue.scss'teki .approve-btn/.reject-btn renk paleti/boyutuyla
+  // birebir ayni (kasitli tekrar, ayni gerekce: iki ayri feature dosyasi
+  // icin ortak bilesene cikarmak bu kadar kucuk bir parca icin gereksiz).
+  .approval-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    box-sizing: border-box;
+    max-width: 1400px;
+    margin: 0 auto 1.5rem;
+    padding: 0.875rem 1.25rem;
+    border-radius: 12px;
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+  }
+
+  .approval-section-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #a86500;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .approval-section-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .approve-btn,
+  .reject-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px 6px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+      background-color 150ms,
+      border-color 150ms;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  .approve-btn {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+    color: #2e7d32;
+
+    &:hover:not(:disabled) {
+      background: #d5ecd7;
+    }
+  }
+
+  .reject-btn {
+    background: #fdecea;
+    border-color: #ffcdd2;
+    color: #b3261e;
+
+    &:hover:not(:disabled) {
+      background: #fbdcda;
+    }
+  }
+
+  // Reddet modali icindeki alanlar - approval-queue.scss'teki ayni deseni
+  // (kasitli tekrar).
+  .reject-modal-box {
+    max-width: 420px;
+
+    h3 {
+      margin: 0 0 1rem;
+      font-size: 1.0625rem;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.375rem;
+      font-size: 0.8125rem;
+      color: var(--app-muted);
+    }
+  }
+
+  .reject-reason-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--mat-sys-outline, #c4c4c4);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+
+  .reject-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -121,6 +247,7 @@
     justify-content: center;
     padding: 4rem 1rem;
     z-index: 30;
+    animation: modal-backdrop-fade-in 150ms ease;
   }
 
   .modal-box {
@@ -134,6 +261,27 @@
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.2),
       0 2px 8px rgba(0, 0, 0, 0.12);
+    animation: modal-box-scale-in 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  @keyframes modal-backdrop-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modal-box-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   .save-modal-box {
@@ -191,13 +339,29 @@
   }
 
   .wizard-accordion {
-    margin-bottom: 0.75rem;
+    // Ece'nin "kirmizi genislik dogru, mavi dar" geri bildirimiyle olculen
+    // gercek deger: acik panelin altina Angular Material kendiliginden
+    // "mat-expansion-panel-spacing" class'i uzerinden 16px margin ekliyor
+    // (DevTools'ta dogrulandi) - bizim 0.5rem (8px) gap'imizle toplaminca
+    // Hedef-Kaynaklar arasi 24px oluyordu, ama bu SADECE panel acikken
+    // devreye giriyordu, kapaliyken (Kaynaklar, Kurumlar-oncesi) sadece
+    // 8px kaliyordu - hangi panelin acik oldugu degisince genislik de
+    // degisen tutarsiz bir davranisti. Asagida bu otomatik margin'i
+    // sifirlayip 24px'i sabit/her zaman ayni hale getiriyoruz.
+    margin-bottom: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1.5rem;
 
     mat-expansion-panel {
       border-radius: 12px !important;
+    }
+
+    // Material'in "acik panelin altina otomatik 16px ekle" davranisini
+    // iptal ediyoruz - bosluk artik sadece yukaridaki sabit 'gap' ile
+    // kontrol ediliyor, panel acik/kapali fark etmiyor.
+    .mat-expansion-panel-spacing {
+      margin: 0 !important;
     }
 
     mat-expansion-panel-header {
@@ -293,6 +457,134 @@
   .muted-text-btn {
     color: var(--app-muted) !important;
     font-size: 0.8125rem;
+  }
+
+  // Kurum etiketleme - Hedef/Kaynaklar gibi yapisal/sirali bir wizard adimi
+  // DEGIL (canvas'in aksine Hedef'e bagimli degil, istenilen an
+  // doldurulabilir - bkz. proje karari), bu yuzden rozet/kilit yok. Ece'nin
+  // Figma Make'ten getirdigi tasarima gore duz/tek parca bir kart - onceki
+  // halinde (mat-expansion-panel gibi ayri 64px baslik seridi + ayirac)
+  // Hedef/Kaynaklar'i BIREBIR taklit etmeye calisiyordu, bu round daha
+  // sade: institution-list.scss'teki .add-card/.list-card ile ayni kart
+  // deseni (16px radius + level1 golge).
+  .kurum-section {
+    // box-sizing: border-box SART - tarayicinin varsayilani (content-box)
+    // ile max-width:1400px sadece ICERIGE uygulaniyordu, kendi padding'i
+    // (1.25rem 1.5rem) bunun UZERINE ekleniyordu - boyanan kutu 1400+48=1448px
+    // oluyordu, Hedef/Kaynaklar'in (kendi ust-seviye kabinde hic padding'i
+    // olmayan, padding'i header/body alt elemanlarinda tasiyan) 1400px'lik
+    // kenariyla her iki yanda 24px kayiyordu. border-box ile padding artik
+    // 1400px'in İCİNDEN sayiliyor, kenarlar birebir hizalaniyor.
+    box-sizing: border-box;
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    background: var(--mat-sys-surface);
+    box-shadow: var(--mat-sys-level1);
+  }
+
+  .kurum-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  // institution-list.scss'teki .row-icon ile ayni fikir (Kurum = bina ikonu)
+  // ama burada arka planli bir kutu degil, dogrudan baslik satirinda duz ikon.
+  .kurum-section-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--app-muted);
+  }
+
+  .kurum-section-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #1a1a1a;
+  }
+
+  // .locked-text ile ayni notr dil - "opsiyonel" bir kisitlama degil ama
+  // benzer sekilde ikincil bir aciklama metni.
+  .optional-tag {
+    font-size: 0.8125rem;
+    color: #9e9e9e;
+  }
+
+  .kurum-picker {
+    display: flex;
+    align-items: center;
+    // wizard-panel-body ile ayni gap (1rem) - Ece'nin istegi: Kurum dropdown'i
+    // Urun'un basladigi yerden Dosya Tipi'nin bittigi yere kadar (iki alanin
+    // TOPLAM kapladigi alan) uzansin. Bu sadece "max-width yok" ile degil,
+    // gap'in de Hedef satiriyla AYNI olmasiyla mumkun - farkli gap kullanmak
+    // hizayi kaydirirdi.
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    // Onceki halinde max-width:50% vardi (Urun'un TEK BASINA bittigi yer -
+    // yanlis referans noktasiydi, geri alindi). Simdi flex:1 1 0 ile satirin
+    // tamamini (Ekle butonu haric) kaplıyor - bu da tam olarak Urun+Dosya
+    // Tipi'nin TOPLAM genisligine denk geliyor, cunku ikisi de ayni kart
+    // genisliginden TEK bir buton (Onayla/Ekle) cikarilmis alani kullaniyor.
+    .field {
+      flex: 1 1 0;
+      min-width: 160px;
+    }
+
+    // Onayla butonunun DevTools'tan olculen GERCEK genisligi (91.44px) -
+    // tahmini bir deger degil. Kurum alaninin (flex:1 1 0) satirdan
+    // cikardigi pay Onayla'nin Hedef satirindan cikardigi payla BIREBIR
+    // ayni olmali ki Kurum dropdown'u tam Dosya Tipi'nin bittigi yerde
+    // bitsin - iki buton genisligi arasindaki herhangi bir fark hizayi
+    // kaydiriyor.
+    button {
+      flex: 0 0 auto;
+      min-width: 91.44px;
+    }
+  }
+
+  .kurum-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .kurum-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 20px;
+    background: #f0f0f0;
+    color: #1a1a1a;
+    font-size: 0.8125rem;
+    font-weight: 500;
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: var(--app-muted);
+      cursor: pointer;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+    }
   }
 
   .canvas-placeholder {

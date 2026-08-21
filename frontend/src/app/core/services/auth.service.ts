@@ -12,6 +12,7 @@ import {
 
 const TOKEN_KEY = 'bankmapper_token';
 const EMAIL_KEY = 'bankmapper_email';
+const ROLE_KEY = 'bankmapper_role';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
   // zaten sonlandiracak (bkz. auth.interceptor.ts).
   readonly token = signal<string | null>(localStorage.getItem(TOKEN_KEY));
   readonly email = signal<string | null>(localStorage.getItem(EMAIL_KEY));
+  readonly role = signal<string | null>(localStorage.getItem(ROLE_KEY));
 
   register(request: RegisterRequest): Observable<void> {
     return this.http.post<void>(`${environment.apiUrl}/auth/register`, request);
@@ -33,8 +35,10 @@ export class AuthService {
       tap((result) => {
         localStorage.setItem(TOKEN_KEY, result.token);
         localStorage.setItem(EMAIL_KEY, result.email);
+        localStorage.setItem(ROLE_KEY, result.role);
         this.token.set(result.token);
         this.email.set(result.email);
+        this.role.set(result.role);
       }),
     );
   }
@@ -50,11 +54,18 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EMAIL_KEY);
+    localStorage.removeItem(ROLE_KEY);
     this.token.set(null);
     this.email.set(null);
+    this.role.set(null);
   }
 
   isAuthenticated(): boolean {
     return this.token() !== null;
+  }
+
+  hasRole(...roles: string[]): boolean {
+    const currentRole = this.role();
+    return currentRole !== null && roles.includes(currentRole);
   }
 }

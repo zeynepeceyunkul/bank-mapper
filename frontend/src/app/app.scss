@@ -85,6 +85,25 @@
         }
       }
     }
+
+    .approvals-link {
+      gap: 6px;
+    }
+
+    .nav-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--mat-sys-tertiary);
+      color: #1a1a1a;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      line-height: 1;
+    }
   }
 }
 

@@ -240,6 +240,85 @@ public class MappingServiceTests
     }
 
     [Fact]
+    public async Task New_mapping_defaults_to_pending_approval()
+    {
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+
+        var result = await CreateService().CreateAsync(request);
+
+        Assert.Equal(MappingStatus.PendingApproval, result.Status);
+        Assert.Null(result.ApprovedBy);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_sets_status_approver_and_timestamp()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+
+        var approved = await service.ApproveAsync(created.Id, "approver-1");
+
+        Assert.NotNull(approved);
+        Assert.Equal(MappingStatus.Approved, approved!.Status);
+        Assert.Equal("approver-1", approved.ApprovedBy);
+        Assert.NotNull(approved.ApprovedAt);
+        Assert.Null(approved.RejectionReason);
+        Assert.Null(approved.RejectedBy);
+        Assert.Null(approved.RejectedAt);
+    }
+
+    [Fact]
+    public async Task RejectAsync_sets_status_and_reason()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+
+        var rejected = await service.RejectAsync(created.Id, "Alan eşleştirmesi eksik", "approver-1");
+
+        Assert.NotNull(rejected);
+        Assert.Equal(MappingStatus.Rejected, rejected!.Status);
+        Assert.Equal("Alan eşleştirmesi eksik", rejected.RejectionReason);
+        Assert.Equal("approver-1", rejected.RejectedBy);
+        Assert.NotNull(rejected.RejectedAt);
+        Assert.Null(rejected.ApprovedBy);
+        Assert.Null(rejected.ApprovedAt);
+    }
+
+    [Fact]
+    public async Task RejectAsync_with_empty_reason_is_rejected()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.RejectAsync(created.Id, "  ", "approver-1"));
+        Assert.Contains("Red gerekçesi zorunludur", ex.Message);
+    }
+
+    [Fact]
+    public async Task Editing_an_approved_mapping_resets_it_to_pending_approval()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+        await service.ApproveAsync(created.Id, "approver-1");
+
+        var updated = await service.UpdateAsync(created.Id, request);
+
+        Assert.NotNull(updated);
+        Assert.Equal(MappingStatus.PendingApproval, updated!.Status);
+        Assert.Null(updated.ApprovedBy);
+        Assert.Null(updated.ApprovedAt);
+    }
+
+    [Fact]
     public async Task Creating_a_mapping_with_an_already_used_name_is_rejected()
     {
         var service = CreateService();
@@ -384,13 +463,20 @@ public class MappingServiceTests
     {
         private readonly Dictionary<string, Mapping> _store = [];
 
-        public Task<List<Mapping>> GetAllAsync() => Task.FromResult(_store.Values.ToList());
+        public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null) =>
+            Task.FromResult((status is null ? _store.Values : _store.Values.Where(m => m.Status == status)).ToList());
 
-        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
+        public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
+            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
         {
             IEnumerable<Mapping> filtered = string.IsNullOrWhiteSpace(search)
                 ? _store.Values
                 : _store.Values.Where(m => m.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+            if (status is not null)
+            {
+                filtered = filtered.Where(m => m.Status == status);
+            }
 
             IEnumerable<Mapping> ordered = sort switch
             {

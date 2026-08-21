@@ -10,6 +10,14 @@
         <a routerLink="/mapping" routerLinkActive="active">Mapping</a>
         <a routerLink="/preview" routerLinkActive="active">Önizleme</a>
         <a routerLink="/run-history" routerLinkActive="active">Geçmiş</a>
+        <a routerLink="/institutions" routerLinkActive="active">Kurumlar</a>
+        <a routerLink="/approvals" routerLinkActive="active" class="approvals-link">
+          Onaylar
+          @if (pendingApprovalCount(); as count) {
+            <span class="nav-badge">{{ count }}</span>
+          }
+        </a>
+        <a routerLink="/users" routerLinkActive="active">Kullanıcılar</a>
       </nav>
       <span class="app-spacer"></span>
       <span class="app-username">{{ email() }}</span>

@@ -11,18 +11,22 @@ import { MatInputModule } from '@angular/material/input';
 import { ProductService } from '../../../core/services/product.service';
 import { SourceSchemaService } from '../../../core/services/source-schema.service';
 import { MappingService } from '../../../core/services/mapping.service';
+import { InstitutionService } from '../../../core/services/institution.service';
 import { FunctoidService } from '../../../core/services/functoid.service';
 import { FieldMatchSuggestionService } from '../../../core/services/field-match-suggestion.service';
 import { FileType } from '../../../core/models/file-type.model';
 import { FunctoidDefinition } from '../../../core/models/functoid.model';
 import { Product } from '../../../core/models/product.model';
 import { SourceSchema } from '../../../core/models/source-schema.model';
+import { Institution } from '../../../core/models/institution.model';
+import { MappingStatus } from '../../../core/models/mapping.model';
 import { MappingCanvas, MappingCanvasSnapshot } from '../mapping-canvas/mapping-canvas';
 import { MappingList } from '../mapping-list/mapping-list';
 import { SourceSchemaList } from '../../source-schemas/source-schema-list/source-schema-list';
 import { HasUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-mapping-editor',
@@ -45,6 +49,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly productService = inject(ProductService);
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly mappingService = inject(MappingService);
+  private readonly institutionService = inject(InstitutionService);
   private readonly functoidService = inject(FunctoidService);
   private readonly fieldMatchSuggestionService = inject(FieldMatchSuggestionService);
   private readonly route = inject(ActivatedRoute);
@@ -52,9 +57,50 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly destroyRef = inject(DestroyRef);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly authService = inject(AuthService);
+
+  // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti -
+  // Viewer bu ekrana gelip goruntuleyebilsin ama Kaydet/Yeni Sema gibi
+  // degistirici aksiyonlari yapamasin (backend zaten 403 donuyor, burasi
+  // sadece kullanici deneyimini duzeltiyor). Butonlar artik (Ece'nin karari,
+  // 2026-08-19) gizlenmiyor, gorunur kalip tiklaninca requireEditPermission
+  // ile uyariyor.
+  canEditMapping(): boolean {
+    return this.authService.hasRole('Admin', 'MappingDefiner');
+  }
+
+  private requireEditPermission(): boolean {
+    if (this.canEditMapping()) {
+      return true;
+    }
+    this.toastService.error('Bu işlem için yetkiniz yok.');
+    return false;
+  }
+
+  // dashboard.ts/mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.
+  canApprove(): boolean {
+    return this.authService.hasRole('Admin', 'Approver');
+  }
 
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);
+
+  // Onay Bekleyenler tablosundan gelindiginde (bkz. approval-queue.html'deki
+  // routerLink [queryParams]="{fromApproval:1}") mapping'in kendi ekraninda
+  // da Onayla/Reddet gorunsun diye - Ece'nin acik karari: bu SADECE bu
+  // senaryo icin, mapping-editor'e genel bir onay bolumu eklenmiyor. Route
+  // paramMap'teki mappingId gibi bu da paramMap subscription'i icinde
+  // okunuyor (ngOnInit, asagida) - snapshot degil, cunku /mapping/edit/:id
+  // -> /mapping/edit/:baska-id gecisinde Angular ayni component instance'ini
+  // yeniden kullaniyor.
+  readonly fromApproval = signal(false);
+  readonly mappingStatus = signal<MappingStatus | null>(null);
+  readonly showApprovalSection = computed(
+    () => this.fromApproval() && this.mappingStatus() === 'PendingApproval' && this.canApprove()
+  );
+  readonly approving = signal(false);
+  readonly showRejectPopup = signal(false);
+  rejectReason = '';
 
   readonly showMappingsPanel = signal(false);
   readonly showSourceSchemaModal = signal(false);
@@ -86,6 +132,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // hemen silip yeniden kurar, tek bir onay sorusu yerine her secimde sorardik.
   readonly activeFileType = signal<FileType | null>(null);
   readonly sourceSchemas = signal<SourceSchema[]>([]);
+  readonly institutions = signal<Institution[]>([]);
   readonly functoidDefinitions = signal<FunctoidDefinition[]>([]);
   readonly error = signal<string | null>(null);
 
@@ -97,6 +144,10 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   );
 
   readonly usedSourceSchemaIds = signal<string[]>([]);
+  // Ece'nin karari (2026-08-19, Faz 3 Asama B): bir mapping'e birden fazla
+  // Kurum etiketlenebilir - usedSourceSchemaIds ile ayni "secilenler listesi"
+  // deseni, ama 1 ile sinirlanmiyor.
+  readonly usedKurumIds = signal<string[]>([]);
   readonly connections = signal<{ id: string; from: string; to: string }[]>([]);
   readonly suggestingMatches = signal(false);
   readonly suggestError = signal<string | null>(null);
@@ -120,6 +171,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   selectedProductId = '';
   selectedFileTypeId = '';
   newSourceSchemaId = '';
+  newKurumId = '';
 
   mappingName = '';
   readonly saving = signal(false);
@@ -136,6 +188,11 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
         this.sourceSchemasLoaded.set(true);
       },
       error: () => this.error.set('Source şemalar yüklenemedi. API çalışıyor mu?'),
+    });
+
+    this.institutionService.getAll().subscribe({
+      next: (institutions) => this.institutions.set(institutions),
+      error: () => {}, // sessiz gec - Kurum etiketleme ikincil bir bilgi, ana akisi engellememeli
     });
 
     this.functoidService.getAll().subscribe({
@@ -165,6 +222,14 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       } else {
         this.resetForNewMapping();
       }
+    });
+
+    // route.paramMap ile ayni gerekce: snapshot degil subscribe, çünkü Onay
+    // Bekleyenler'den bir mapping'e, oradan "Kayıtlı Mapping'ler" panelinden
+    // baska (query param'siz) bir mapping'e gecilirse fromApproval eski
+    // deger uzerinde takili kalmamali.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.fromApproval.set(params.get('fromApproval') === '1');
     });
 
     // Panel'deki "Tumunu gor" linki buraya ?list=1 ile geliyor - kullanici
@@ -213,6 +278,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.canvasRevealed.set(false);
     this.activeFileType.set(null);
     this.resetGraphState();
+    this.usedKurumIds.set([]);
+    this.mappingStatus.set(null);
     this.awaitingInitialGraphReady = false;
     this.isDirty.set(false);
   }
@@ -223,6 +290,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.mappingService.getById(id).subscribe({
       next: (mapping) => {
         this.mappingName = mapping.name;
+        this.usedKurumIds.set(mapping.kurumIds);
+        this.mappingStatus.set(mapping.status);
 
         // hedefConfirmedOnce'i sifirlamak, template'teki
         // `@if (hedefConfirmedOnce())` bloğunu anlik olarak kapatip
@@ -363,6 +432,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // (onProductChange/[(ngModel)]) hicbir sey silmiyor, sadece burada "Onayla"
   // ile commit ediliyor.
   async confirmHedef(): Promise<void> {
+    if (!this.requireEditPermission()) return;
+
     const newFileType = this.selectedFileType;
     if (!newFileType) return;
 
@@ -423,6 +494,31 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     return this.sourceSchemas().filter((s) => !used.has(s.id));
   }
 
+  get availableKurumsToAdd(): Institution[] {
+    const used = new Set(this.usedKurumIds());
+    return this.institutions().filter((k) => !used.has(k.id));
+  }
+
+  kurumName(id: string): string {
+    return this.institutions().find((k) => k.id === id)?.name ?? '—';
+  }
+
+  addKurum(): void {
+    if (!this.requireEditPermission()) return;
+    if (!this.newKurumId) return;
+
+    this.usedKurumIds.update((ids) => [...ids, this.newKurumId]);
+    this.newKurumId = '';
+    this.isDirty.set(true);
+  }
+
+  removeKurum(id: string): void {
+    if (!this.requireEditPermission()) return;
+
+    this.usedKurumIds.update((ids) => ids.filter((k) => k !== id));
+    this.isDirty.set(true);
+  }
+
   private defaultSchemaX(index: number): number {
     return 20 + index * 30;
   }
@@ -478,8 +574,23 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.showSourceSchemaModal.update((v) => !v);
   }
 
+  // "+ Yeni Şema" butonunun kendi tetikleyicisi - toggleSourceSchemaModal()
+  // modali kapatmak icin de kullanildigi icin (bkz. modal-backdrop/X butonu)
+  // yetki kontrolunu direkt oraya koymak kapatmayi da engellerdi.
+  onNewSchemaClick(): void {
+    if (!this.requireEditPermission()) return;
+    this.toggleSourceSchemaModal();
+  }
+
   toggleSavePopup(): void {
     this.showSavePopup.update((v) => !v);
+  }
+
+  // Kaydet butonunun kendi tetikleyicisi - toggleSavePopup() ile ayni
+  // gerekce (bkz. onNewSchemaClick).
+  onSaveClick(): void {
+    if (!this.requireEditPermission()) return;
+    this.toggleSavePopup();
   }
 
   onMappingNameChanged(value: string): void {
@@ -507,6 +618,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   addSourceSchema(): void {
+    if (!this.requireEditPermission()) return;
     if (!this.newSourceSchemaId || this.usedSourceSchemaIds().length > 0) {
       return;
     }
@@ -527,6 +639,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   removeEdge(id: string): void {
+    if (!this.requireEditPermission()) return;
     this.canvas.removeEdge(id);
   }
 
@@ -535,6 +648,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // gosteriyor, kullanicinin her birini tek tek onaylamasi/reddetmesi gerekiyor
   // (bkz. proje karari: otomatik/sessiz baglanti kurulmuyor).
   suggestMatches(): void {
+    if (!this.requireEditPermission()) return;
+
     const schemaId = this.usedSourceSchemaIds()[0];
     const schema = this.sourceSchemas().find((s) => s.id === schemaId);
     const targetFileType = this.activeFileType();
@@ -547,9 +662,9 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.suggestError.set(null);
 
     const sourceFieldNames = schema.fields.map((f) => f.name);
-    const targetFieldNames = targetFileType.targetFields.map((f) => f.name);
+    const targetFields = targetFileType.targetFields.map((f) => ({ name: f.name, length: f.length }));
 
-    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFieldNames).subscribe({
+    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFields).subscribe({
       next: (suggestions) => {
         this.suggestingMatches.set(false);
         this.canvas.showSuggestions(suggestions);
@@ -565,6 +680,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   }
 
   saveMapping(): void {
+    if (!this.requireEditPermission()) return;
     if (!this.mappingName.trim()) {
       this.toastService.error('Mapping adı zorunlu.');
       return;
@@ -600,6 +716,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       functoidNodes: snapshot.functoidNodes,
       constantNodes: snapshot.constantNodes,
       edges: snapshot.edges,
+      kurumIds: this.usedKurumIds(),
     };
 
     const wasNew = !this.mappingId;
@@ -634,6 +751,52 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
           return;
         }
         this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping kaydedilemedi. API çalışıyor mu?');
+      },
+    });
+  }
+
+  // approval-queue.ts'teki approveMapping/openRejectPopup/confirmReject ile
+  // ayni backend cagrilari (MappingService.approve/reject) - buradaki tek
+  // fark, karardan sonra kullaniciyi Onay Bekleyenler listesine geri
+  // yonlendirmemiz: bu ekrana zaten o listeden gelindi, karar verildikten
+  // sonra mapping burada goruntulenmeye devam etmeyecek (showApprovalSection
+  // zaten mappingStatus PendingApproval degilse kapanir).
+  approveMappingFromEditor(): void {
+    if (!this.mappingId) return;
+    this.approving.set(true);
+    this.mappingService.approve(this.mappingId).subscribe({
+      next: (mapping) => {
+        this.approving.set(false);
+        this.toastService.success(`Onaylandı: ${mapping.name}`);
+        this.router.navigate(['/approvals']);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.approving.set(false);
+        this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping onaylanamadı. API çalışıyor mu?');
+      },
+    });
+  }
+
+  openRejectPopup(): void {
+    this.rejectReason = '';
+    this.showRejectPopup.set(true);
+  }
+
+  closeRejectPopup(): void {
+    this.showRejectPopup.set(false);
+  }
+
+  confirmRejectFromEditor(): void {
+    if (!this.mappingId || !this.rejectReason.trim()) return;
+
+    this.mappingService.reject(this.mappingId, this.rejectReason.trim()).subscribe({
+      next: (mapping) => {
+        this.showRejectPopup.set(false);
+        this.toastService.success(`Reddedildi: ${mapping.name}`);
+        this.router.navigate(['/approvals']);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.toastService.error(typeof err.error === 'string' ? err.error : 'Mapping reddedilemedi. API çalışıyor mu?');
       },
     });
   }

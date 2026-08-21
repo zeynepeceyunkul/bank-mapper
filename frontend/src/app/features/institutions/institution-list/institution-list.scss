@@ -1,0 +1,239 @@
+.institution-list {
+  // run-history-list.scss/approval-queue.scss ile ayni desen: bagimsiz bir
+  // ust-seviye sayfa.
+  max-width: 1400px;
+  margin: 2.5rem auto 0;
+
+  .page-header {
+    margin-bottom: 1.25rem;
+
+    h2 {
+      margin: 0;
+      font-size: 1.375rem;
+      font-weight: 500;
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  // .hint ile ayni notr renk (var(--app-muted)) - "ikincil aciklama metni"
+  // dili, sadece burada sayfa basligina bagli sabit bir alt satir.
+  .page-subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--app-muted);
+  }
+
+  // preview-execute.scss'teki .setup-card ile ayni kart deseni (border-radius/
+  // padding/surface/level1 golge) - Ece'nin getirdigi Figma Make mockup'inin
+  // "rounded-2xl + shadow-sm" kart gorunumune denk.
+  .add-card,
+  .list-card {
+    background: var(--mat-sys-surface);
+    border-radius: 16px;
+    box-shadow: var(--mat-sys-level1);
+  }
+
+  .add-card {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .add-card-label {
+    margin: 0 0 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--app-muted);
+  }
+
+  .add-card-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .new-institution-input {
+      flex: 1 1 auto;
+    }
+  }
+
+  .new-institution-input,
+  .search-input,
+  .sort-select {
+    padding: 10px 14px;
+    border: 1px solid var(--mat-sys-outline, #c4c4c4);
+    border-radius: 12px;
+    font-size: 0.8125rem;
+    color: #1a1a1a;
+    background: #fff;
+
+    &::placeholder {
+      color: #b0b0b0;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mat-sys-tertiary);
+      box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.3);
+    }
+  }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .search-field {
+    position: relative;
+    flex: 1 1 260px;
+    max-width: 320px;
+    display: flex;
+    align-items: center;
+
+    mat-icon {
+      position: absolute;
+      left: 10px;
+      color: #9e9e9e;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding-left: 34px;
+    }
+  }
+
+  .sort-select {
+    flex: 0 0 auto;
+    cursor: pointer;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  // mapping-list.scss/source-schema-list.scss'teki th deseniyle birebir ayni
+  // (uppercase/tracked/notr gri) - Ece'nin istegi: baslik dili mockup'a degil
+  // uygulamanin kendi kurulu deseninе uysun.
+  th {
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--app-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 10px 24px;
+    white-space: nowrap;
+
+    &:first-child {
+      padding-left: 24px;
+    }
+  }
+
+  td {
+    padding: 14px 24px;
+    border-top: 1px solid #f5f5f5;
+    box-sizing: border-box;
+
+    &:first-child {
+      padding-left: 24px;
+    }
+  }
+
+  tr[mat-row] {
+    transition: background-color 150ms;
+
+    &:hover {
+      background: var(--mat-sys-surface-container);
+    }
+  }
+
+  .name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    background: #f0f0f0;
+    color: var(--app-muted);
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .institution-name {
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  .date-cell {
+    color: #9e9e9e;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  // Sil butonu varsayilanda notr, hover'da kirmiziya donuyor (mockup'taki
+  // "hover:bg-red-50 hover:text-red-500" davranisi).
+  .delete-btn {
+    color: #9e9e9e;
+
+    &:hover {
+      background: #fdecea;
+      color: #e53935;
+    }
+  }
+
+  .loading-state {
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2rem 1.5rem 2.25rem;
+    text-align: center;
+    background: var(--mat-sys-surface);
+    border-radius: 16px;
+    box-shadow: var(--mat-sys-level1);
+  }
+
+  .empty-state-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #9e9e9e;
+  }
+
+  .empty-state .hint {
+    margin: 0;
+  }
+
+  .error {
+    padding: 1rem 1.5rem;
+  }
+}

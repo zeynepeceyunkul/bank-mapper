@@ -1,17 +1,19 @@
 <div class="mapping-canvas">
-  <div class="functoid-palette">
-    <h3>Functoid'ler</h3>
-    <p class="hint">Canvas'a sürükleyip bırak.</p>
-    @for (def of functoidDefinitions; track def.code) {
-      <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
-        {{ def.name }}
-      </div>
-    }
+  @if (!viewOnly) {
+    <div class="functoid-palette">
+      <h3>Functoid'ler</h3>
+      <p class="hint">Canvas'a sürükleyip bırak.</p>
+      @for (def of functoidDefinitions; track def.code) {
+        <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
+          {{ def.name }}
+        </div>
+      }
 
-    <div class="palette-divider"></div>
+      <div class="palette-divider"></div>
 
-    <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
-  </div>
+      <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
+    </div>
+  }
 
   <div class="canvas-host-wrapper">
     <div class="canvas-host" #canvasHost></div>
@@ -33,6 +35,21 @@
             }
           }
           @for (s of suggestions(); track s.key) {
+            @if (s.chainBox; as chainBox) {
+              <rect
+                [attr.x]="chainBox.x"
+                [attr.y]="chainBox.y"
+                [attr.width]="chainBox.width"
+                [attr.height]="chainBox.height"
+                rx="4"
+                ry="4"
+                class="suggestion-functoid-box"
+                (pointerdown)="startDraggingSuggestion(s, $event)"
+              />
+              <text [attr.x]="chainBox.x + chainBox.width / 2" [attr.y]="chainBox.y + chainBox.height / 2 + 4" class="suggestion-functoid-label">
+                {{ chainBox.label }}
+              </text>
+            }
             @if (s.box; as box) {
               <rect
                 [attr.x]="box.x"

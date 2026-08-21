@@ -5,15 +5,27 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
-import { Mapping } from '../../../core/models/mapping.model';
+import { AuthService } from '../../../core/services/auth.service';
+import { InstitutionService } from '../../../core/services/institution.service';
+import { Mapping, MappingStatus } from '../../../core/models/mapping.model';
+import { Institution } from '../../../core/models/institution.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
   selector: 'app-mapping-list',
-  imports: [RouterLink, DatePipe, MatButtonModule, MatIconModule, MatTableModule, MatPaginatorModule],
+  imports: [
+    RouterLink,
+    DatePipe,
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatPaginatorModule,
+    MatProgressSpinnerModule,
+  ],
   templateUrl: './mapping-list.html',
   styleUrl: './mapping-list.scss',
 })
@@ -21,10 +33,18 @@ export class MappingList implements OnInit {
   private readonly mappingService = inject(MappingService);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly authService = inject(AuthService);
+  private readonly institutionService = inject(InstitutionService);
 
   readonly mappings = signal<Mapping[]>([]);
+  readonly institutions = signal<Institution[]>([]);
   readonly error = signal<string | null>(null);
-  readonly columns = ['name', 'fieldCount', 'updatedAt', 'actions'];
+  readonly columns = ['name', 'kurum', 'fieldCount', 'status', 'updatedAt', 'actions'];
+
+  // Sadece ilk yukleme icin - sayfalama/arama/silme sonrasi yeniden
+  // yuklemede tekrar true'ya donmuyor (bkz. loadMappings), tablo her
+  // seferinde spinner'a gecip gorunumu bozmasin.
+  readonly loading = signal(true);
 
   readonly pageIndex = signal(0);
   readonly pageSize = signal(10);
@@ -34,22 +54,36 @@ export class MappingList implements OnInit {
   readonly search = signal('');
   private searchDebounceHandle?: ReturnType<typeof setTimeout>;
 
+  // "Onayımı Bekleyenler" filtresi - bos ise tum durumlar listelenir.
+  readonly statusFilter = signal<MappingStatus | ''>('');
+
   @Output() readonly newMapping = new EventEmitter<void>();
   @Output() readonly mappingDeleted = new EventEmitter<string>();
 
   ngOnInit(): void {
     this.loadMappings();
+
+    this.institutionService.getAll().subscribe({
+      next: (institutions) => this.institutions.set(institutions),
+      error: () => {}, // sessiz gec - preview-execute.ts'teki ayni desen, Kurum sutunu ikincil bir bilgi
+    });
   }
 
   loadMappings(): void {
     this.error.set(null);
-    this.mappingService.getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search()).subscribe({
-      next: (result) => {
-        this.mappings.set(result.items);
-        this.totalCount.set(result.totalCount);
-      },
-      error: () => this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?'),
-    });
+    this.mappingService
+      .getPage(this.pageIndex(), this.pageSize(), this.sort(), this.search(), this.statusFilter() || undefined)
+      .subscribe({
+        next: (result) => {
+          this.mappings.set(result.items);
+          this.totalCount.set(result.totalCount);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set('Mapping listesi yüklenemedi. API çalışıyor mu?');
+          this.loading.set(false);
+        },
+      });
   }
 
   onPageChange(event: PageEvent): void {
@@ -75,11 +109,47 @@ export class MappingList implements OnInit {
     }, 300);
   }
 
+  onStatusFilterChange(value: string): void {
+    this.statusFilter.set(value as MappingStatus | '');
+    this.pageIndex.set(0);
+    this.loadMappings();
+  }
+
   targetFieldEdgeCount(mapping: Mapping): number {
     return mapping.edges.filter((e) => e.toKind === 'TargetField').length;
   }
 
+  kurumNames(mapping: Mapping): string {
+    if (mapping.kurumIds.length === 0) return '—';
+    const names = this.institutions();
+    return mapping.kurumIds.map((id) => names.find((k) => k.id === id)?.name ?? '—').join(', ');
+  }
+
+  // "Sil" butonu artik herkese gorunur (Ece'nin karari, 2026-08-19: yetkisi
+  // olmayana gizlemek yerine tiklayinca uyarmak) - gercek kisitlama burada,
+  // deleteMapping()'in basinda yapiliyor. Backend'de de ayni kisitlama var
+  // (MappingsController).
+  canManageMappings(): boolean {
+    return this.authService.hasRole('Admin', 'MappingDefiner');
+  }
+
+  statusLabel(status: MappingStatus): string {
+    switch (status) {
+      case 'Approved':
+        return 'Onaylandı';
+      case 'Rejected':
+        return 'Reddedildi';
+      default:
+        return 'Onay Bekliyor';
+    }
+  }
+
   async deleteMapping(mapping: Mapping): Promise<void> {
+    if (!this.canManageMappings()) {
+      this.toastService.error('Bu işlem için yetkiniz yok.');
+      return;
+    }
+
     const confirmed = await this.confirmService.confirm(`'${mapping.name}' mapping'ini silmek istediğinize emin misiniz?`);
     if (!confirmed) return;
 

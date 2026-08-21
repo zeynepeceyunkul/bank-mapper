@@ -1,4 +1,5 @@
 <section class="source-schemas">
+  @if (canManageSchemas()) {
   <div class="field-group">
     <label for="name">Şema Adı</label>
     <mat-form-field appearance="outline" class="field">
@@ -131,6 +132,7 @@
       </table>
     </div>
   }
+  }
 
   <hr />
 
@@ -164,8 +166,19 @@
       <p class="error">{{ listError() }}</p>
     }
 
-    @if (totalCount() === 0 && !listError()) {
-      <p>{{ search() ? 'Aramanla eşleşen bir şema bulunamadı.' : 'Henüz kayıtlı source şema yok.' }}</p>
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="28" />
+      </div>
+    } @else if (totalCount() === 0 && !listError()) {
+      <div class="empty-state">
+        <span class="empty-state-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H4.99c-1.11 0-1.98.9-1.98 2L3 19c0 1.1.89 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 12h-4c0 1.66-1.35 3-3 3s-3-1.34-3-3H4.99V5H19v10z" />
+          </svg>
+        </span>
+        <p class="hint">{{ search() ? 'Aramanla eşleşen bir şema bulunamadı.' : 'Henüz kayıtlı source şema yok.' }}</p>
+      </div>
     } @else {
       <table mat-table [dataSource]="schemas()" class="schema-list">
         <ng-container matColumnDef="name">
@@ -191,9 +204,11 @@
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let schema">
-            <button type="button" mat-icon-button aria-label="Sil" (click)="deleteSchema(schema)">
-              <mat-icon>delete</mat-icon>
-            </button>
+            @if (canManageSchemas()) {
+              <button type="button" mat-icon-button aria-label="Sil" (click)="deleteSchema(schema)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
           </td>
         </ng-container>
 

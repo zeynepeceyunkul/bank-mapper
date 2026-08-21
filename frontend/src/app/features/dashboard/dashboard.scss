@@ -1,5 +1,5 @@
 .dashboard {
-  max-width: 860px;
+  max-width: 1400px;
   margin: 2.5rem auto 0;
   display: flex;
   flex-direction: column;
@@ -13,6 +13,10 @@
   // birebir aktarilan hero karti - sadece saga eklenmis sari ikon kutusunu
   // Ece'nin acik istegiyle atladik.
   .hero-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
     position: relative;
     overflow: hidden;
     border-radius: 1.25rem;
@@ -37,7 +41,6 @@
     font-size: 0.875rem;
     font-weight: 500;
     letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: #ffc72c;
   }
 
@@ -57,6 +60,90 @@
     color: rgba(255, 255, 255, 0.65);
   }
 
+  // Hero kartinin sag tarafindaki bosluk (B secenegi) - dikey bir ayrac
+  // cizgisiyle metinden ayrilan, elde olan veriden (en son guncellenen
+  // mapping) turetilen kucuk bir bilgi karti.
+  .hero-last-activity {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-left: 2rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .hero-last-activity-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .hero-last-activity-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .approval-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #fff8e1;
+    border: 1px solid #ffe0a3;
+    border-radius: 1rem;
+    text-decoration: none;
+    transition: background-color 150ms;
+
+    &:hover {
+      background: #ffefc2;
+    }
+  }
+
+  .approval-banner-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: #ffc72c;
+    color: #fff;
+  }
+
+  .approval-banner-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .approval-banner-title {
+    font-size: 0.875rem;
+    color: #a86500;
+
+    strong {
+      color: #8a5600;
+    }
+  }
+
+  .approval-banner-subtitle {
+    font-size: 0.75rem;
+    color: rgba(168, 101, 0, 0.7);
+  }
+
+  .approval-banner-chevron {
+    flex-shrink: 0;
+    color: #ffc72c;
+  }
+
   .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -71,6 +158,14 @@
     background: #fff;
     border: 1px solid #e5e5e5;
     border-radius: 1rem;
+    transition:
+      border-color 150ms,
+      box-shadow 150ms;
+
+    &:hover {
+      border-color: #c4c4c4;
+      box-shadow: var(--mat-sys-level1);
+    }
   }
 
   .stat-label {
@@ -87,6 +182,12 @@
     font-weight: 700;
     line-height: 1;
     color: #1a1a1a;
+  }
+
+  // stat-value ile ayni satir yuksekligini (line-height:1, 2.5rem font)
+  // korumak icin - degerin yerine gecerken tile'in boyu zipla­masin.
+  .stat-spinner {
+    margin: 6px 0;
   }
 
   .stat-caption {
@@ -199,6 +300,33 @@
 
   .recent-card .hint {
     padding: 1rem 1.5rem 1.25rem;
+    margin: 0;
+  }
+
+  .loading-state {
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 2rem 1.5rem 2.25rem;
+    text-align: center;
+  }
+
+  .empty-state-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #9e9e9e;
   }
 
   .recent-table {
@@ -227,6 +355,7 @@
 
     tbody tr {
       cursor: pointer;
+      transition: background-color 150ms;
 
       &:hover {
         background: var(--mat-sys-surface-container);
@@ -278,6 +407,44 @@
     font-size: 0.75rem;
     font-weight: 500;
     white-space: nowrap;
+  }
+
+  // mapping-list.scss'teki ayni desen - birden fazla Kurum ismi virgulle
+  // birlestirilince satiri bozmasin diye kesip "..." gosteriyor.
+  .kurum-cell {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // mapping-list.scss'teki .status-badge ile birebir ayni renk/desen.
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .status-pendingapproval {
+    background: #fff8e1;
+    color: #a86500;
+    border: 1px solid #ffe0a3;
+  }
+
+  .status-approved {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+  }
+
+  .status-rejected {
+    background: #fdecea;
+    color: #b3261e;
+    border: 1px solid #ffcdd2;
   }
 
   .recent-date {

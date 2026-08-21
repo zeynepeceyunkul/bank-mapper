@@ -16,18 +16,19 @@ public class MappingService(
     FunctoidRegistry functoidRegistry,
     ILogger<MappingService> logger) : IMappingService
 {
-    public async Task<List<MappingDto>> GetAllAsync()
+    public async Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null, string? kurumId = null)
     {
-        var mappings = await mappingRepository.GetAllAsync();
+        var mappings = await mappingRepository.GetAllAsync(status, kurumId);
         return mappings.Select(ToDto).ToList();
     }
 
-    public async Task<PagedResult<MappingDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
+    public async Task<PagedResult<MappingDto>> GetPagedAsync(
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
     {
         var clampedPageIndex = Math.Max(pageIndex, 0);
         var clampedPageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search);
+        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, status, kurumId);
         return new PagedResult<MappingDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
@@ -37,11 +38,12 @@ public class MappingService(
         return mapping is null ? null : ToDto(mapping);
     }
 
-    public async Task<MappingDto> CreateAsync(CreateMappingRequest request)
+    public async Task<MappingDto> CreateAsync(CreateMappingRequest request, string? createdBy = null)
     {
         var mapping = BuildEntity(request);
         mapping.CreatedAt = DateTime.UtcNow;
         mapping.UpdatedAt = DateTime.UtcNow;
+        mapping.CreatedBy = createdBy;
 
         await ValidateAsync(mapping);
 
@@ -65,6 +67,16 @@ public class MappingService(
         updatedMapping.CreatedAt = existing.CreatedAt;
         updatedMapping.CreatedBy = existing.CreatedBy;
         updatedMapping.UpdatedAt = DateTime.UtcNow;
+
+        // Onaylanmis bir mapping duzenlenirse tekrar onaya dusuyor (bkz.
+        // Mapping.Status uzerindeki yorum) - onceki onay bilgisi artik
+        // gecersiz oldugu icin temizleniyor.
+        updatedMapping.Status = MappingStatus.PendingApproval;
+        updatedMapping.ApprovedBy = null;
+        updatedMapping.ApprovedAt = null;
+        updatedMapping.RejectionReason = null;
+        updatedMapping.RejectedBy = null;
+        updatedMapping.RejectedAt = null;
 
         await ValidateAsync(updatedMapping);
 
@@ -91,6 +103,57 @@ public class MappingService(
         return deleted;
     }
 
+    public async Task<MappingDto?> ApproveAsync(string id, string? approvedBy)
+    {
+        var existing = await mappingRepository.GetByIdAsync(id);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        existing.Status = MappingStatus.Approved;
+        existing.ApprovedBy = approvedBy;
+        existing.ApprovedAt = DateTime.UtcNow;
+        existing.RejectionReason = null;
+        existing.RejectedBy = null;
+        existing.RejectedAt = null;
+
+        var updated = await mappingRepository.UpdateAsync(existing);
+        if (updated is not null)
+        {
+            logger.LogInformation("Mapping {MappingId} onaylandi", id);
+        }
+        return updated is null ? null : ToDto(updated);
+    }
+
+    public async Task<MappingDto?> RejectAsync(string id, string reason, string? rejectedBy)
+    {
+        var existing = await mappingRepository.GetByIdAsync(id);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("Red gerekçesi zorunludur.");
+        }
+
+        existing.Status = MappingStatus.Rejected;
+        existing.RejectionReason = reason;
+        existing.RejectedBy = rejectedBy;
+        existing.RejectedAt = DateTime.UtcNow;
+        existing.ApprovedBy = null;
+        existing.ApprovedAt = null;
+
+        var updated = await mappingRepository.UpdateAsync(existing);
+        if (updated is not null)
+        {
+            logger.LogInformation("Mapping {MappingId} reddedildi", id);
+        }
+        return updated is null ? null : ToDto(updated);
+    }
+
     private static Mapping BuildEntity(CreateMappingRequest request) => new()
     {
         Name = request.Name,
@@ -98,7 +161,8 @@ public class MappingService(
         FileTypeId = request.FileTypeId,
         FunctoidNodes = request.FunctoidNodes.Select(ToEntity).ToList(),
         ConstantNodes = request.ConstantNodes.Select(ToEntity).ToList(),
-        Edges = request.Edges.Select(ToEntity).ToList()
+        Edges = request.Edges.Select(ToEntity).ToList(),
+        KurumIds = request.KurumIds
     };
 
     private async Task ValidateAsync(Mapping mapping)
@@ -390,6 +454,13 @@ public class MappingService(
             .ToList(),
         CreatedAt = mapping.CreatedAt,
         UpdatedAt = mapping.UpdatedAt,
-        CreatedBy = mapping.CreatedBy
+        CreatedBy = mapping.CreatedBy,
+        Status = mapping.Status,
+        ApprovedBy = mapping.ApprovedBy,
+        ApprovedAt = mapping.ApprovedAt,
+        RejectionReason = mapping.RejectionReason,
+        RejectedBy = mapping.RejectedBy,
+        RejectedAt = mapping.RejectedAt,
+        KurumIds = mapping.KurumIds
     };
 }

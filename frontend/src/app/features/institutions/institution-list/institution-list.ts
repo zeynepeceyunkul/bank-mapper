@@ -1,9 +1,11 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTableModule } from '@angular/material/table';
 import { InstitutionService } from '../../../core/services/institution.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
@@ -13,7 +15,7 @@ import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
   selector: 'app-institution-list',
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatPaginatorModule, MatProgressSpinnerModule],
+  imports: [FormsModule, DatePipe, MatButtonModule, MatIconModule, MatPaginatorModule, MatProgressSpinnerModule, MatTableModule],
   templateUrl: './institution-list.html',
   styleUrl: './institution-list.scss',
 })
@@ -25,6 +27,7 @@ export class InstitutionList implements OnInit {
 
   readonly institutions = signal<Institution[]>([]);
   readonly error = signal<string | null>(null);
+  readonly columns = ['name', 'createdAt', 'actions'];
 
   // mapping-list.ts'teki ayni desen - sadece ilk yukleme icin.
   readonly loading = signal(true);

@@ -22,7 +22,16 @@
         <option value="Approved" [selected]="statusFilter() === 'Approved'">Onaylandı</option>
         <option value="Rejected" [selected]="statusFilter() === 'Rejected'">Reddedildi</option>
       </select>
-      <a mat-flat-button routerLink="/mapping" (click)="newMapping.emit()">+ Yeni Mapping</a>
+      <a
+        mat-icon-button
+        class="outlined-icon-btn"
+        routerLink="/mapping"
+        title="Yeni Mapping"
+        aria-label="Yeni Mapping"
+        (click)="newMapping.emit()"
+      >
+        <mat-icon>add</mat-icon>
+      </a>
     </div>
   </div>
 

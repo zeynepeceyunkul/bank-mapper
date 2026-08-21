@@ -3,8 +3,15 @@
 
   .header {
     display: flex;
+    // Modal sadece 640px genisliginde - baslik + 3 kontrol + buton tek
+    // satira sigmaya calisinca kontroller asiri daralıyordu (84-118px,
+    // metinleri ellipsis'e dusuyordu). Sigmayinca ikinci satira kaysin diye
+    // wrap acildi - boylece baslik HICBIR ZAMAN sikismiyor/bozulmuyor,
+    // kontroller kendi satirinda rahat genislik alabiliyor.
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 0.5rem;
     padding-bottom: 16px;
     margin-bottom: 16px;
     border-bottom: 1px solid #f0f0f0;
@@ -21,13 +28,20 @@
     .header-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 0.375rem;
+      // Ikinci satira dusunce tum genisligi kaplasin - kontroller icin
+      // maksimum yer, tek satirdaki gibi baslikla yer paylasmiyor.
+      flex-basis: 100%;
+    }
 
-      a[mat-flat-button] {
-        flex-shrink: 0;
-        white-space: nowrap;
-        padding: 0 14px;
-      }
+    // mapping-editor.scss'teki ayni sinifla birebir ayni (dar modal genisligine
+    // sigmasi icin "+ Yeni Mapping" yerine sadece ikon, title/aria-label ile
+    // aciklaniyor - Ece'nin karari: mapping editordeki "+" ile TAMAMEN ayni olsun).
+    .outlined-icon-btn {
+      border: 1.5px solid #c4c4c4;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
   }
 
@@ -42,23 +56,24 @@
     background: #fff;
   }
 
+  // Kontroller artik kendi satirinda (bkz. .header flex-wrap), baslikla yer
+  // paylasmiyor - onceki dar genislikler (84/118/92px, ellipsis'e dusen
+  // metinlerle) modal tek satira sigdirmaya calisirken gerekliydi, artik
+  // gerek yok.
   .search-input {
-    width: 84px;
+    width: 160px;
   }
 
   .sort-select {
-    width: 118px;
-    text-overflow: ellipsis;
+    width: 190px;
+    // Arama ("serbest yaz") solda tek basina, siralama+durum filtresi
+    // ("kategorik daraltma") + Yeni Mapping butonu sagda grup halinde -
+    // Ece'nin karari.
+    margin-left: auto;
   }
 
-  // Sort-select'ten ayri, daha dar bir sinif - secenekleri ("Onay Bekliyor"
-  // gibi) sort-select'inkinden ("Son Guncelleme (Yeni->Eski)" gibi) kisa,
-  // ayni genislige ihtiyaci yok. Bu ayrim olmadan (ikisi de .sort-select
-  // olsaydi) Admin/Approver icin dorduncu bir kontrol eklenince satir
-  // modal disina tasiyordu.
   .status-filter-select {
-    width: 92px;
-    text-overflow: ellipsis;
+    width: 130px;
   }
 
   table {

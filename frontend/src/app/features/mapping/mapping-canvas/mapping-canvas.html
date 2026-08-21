@@ -35,6 +35,21 @@
             }
           }
           @for (s of suggestions(); track s.key) {
+            @if (s.chainBox; as chainBox) {
+              <rect
+                [attr.x]="chainBox.x"
+                [attr.y]="chainBox.y"
+                [attr.width]="chainBox.width"
+                [attr.height]="chainBox.height"
+                rx="4"
+                ry="4"
+                class="suggestion-functoid-box"
+                (pointerdown)="startDraggingSuggestion(s, $event)"
+              />
+              <text [attr.x]="chainBox.x + chainBox.width / 2" [attr.y]="chainBox.y + chainBox.height / 2 + 4" class="suggestion-functoid-label">
+                {{ chainBox.label }}
+              </text>
+            }
             @if (s.box; as box) {
               <rect
                 [attr.x]="box.x"

@@ -13,6 +13,7 @@ const targetFileType: FileType = {
   targetFields: [
     { name: 'AdSoyad', type: 'string', order: 1, length: 50, isRequired: false },
     { name: 'NetTutar', type: 'string', order: 2, length: 10, isRequired: false },
+    { name: 'TCKimlikNo', type: 'string', order: 3, length: 11, isRequired: false },
   ],
 };
 
@@ -44,6 +45,16 @@ const concatDefinition: FunctoidDefinition = {
   ],
 };
 
+const lpadDefinition: FunctoidDefinition = {
+  code: 'LPad',
+  name: 'LPad (Sola Dolgu)',
+  parameters: [
+    { key: 'length', label: 'Uzunluk', type: 'number' },
+    { key: 'padChar', label: 'Dolgu Karakteri', type: 'string' },
+  ],
+  inputPorts: [{ name: 'value', label: 'Değer' }],
+};
+
 describe('MappingCanvas', () => {
   let component: MappingCanvas;
   let fixture: ComponentFixture<MappingCanvas>;
@@ -52,7 +63,7 @@ describe('MappingCanvas', () => {
     await TestBed.configureTestingModule({ imports: [MappingCanvas] }).compileComponents();
     fixture = TestBed.createComponent(MappingCanvas);
     component = fixture.componentInstance;
-    component.functoidDefinitions = [trimDefinition, concatDefinition];
+    component.functoidDefinitions = [trimDefinition, concatDefinition, lpadDefinition];
     component.allSourceSchemas = [sourceSchema];
     component.targetFileType = targetFileType;
     fixture.detectChanges();
@@ -213,6 +224,56 @@ describe('MappingCanvas', () => {
   it('rejecting a concat suggestion creates no node or edge', () => {
     component.addSourceSchema(sourceSchema, 20, 20);
     component.showSuggestions([{ sourceFields: ['Ad', 'Soyad'], targetField: 'AdSoyad', functoidCode: 'Concat' }]);
+
+    component.rejectSuggestion(component.suggestions()[0]);
+
+    expect(component.suggestions().length).toBe(0);
+    const snapshot = component.getSnapshot();
+    expect(snapshot.functoidNodes.length).toBe(0);
+    expect(snapshot.edges.length).toBe(0);
+  });
+
+  it('shows an lpad suggestion as a Trim-then-LPad chain with two boxes and three lines', () => {
+    component.addSourceSchema(sourceSchema, 20, 20);
+
+    component.showSuggestions([{ sourceFields: ['Ad'], targetField: 'TCKimlikNo', functoidCode: 'LPad', length: 11, padChar: '0' }]);
+
+    expect(component.suggestions().length).toBe(1);
+    const overlay = component.suggestions()[0];
+    expect(overlay.functoidCode).toBe('LPad');
+    expect(overlay.chainFunctoidCode).toBe('Trim');
+    expect(overlay.box).not.toBeNull();
+    expect(overlay.chainBox).not.toBeNull();
+    expect(overlay.lines.length).toBe(3);
+  });
+
+  it('accepting an lpad suggestion creates two chained functoid nodes with real params and four edges', () => {
+    component.addSourceSchema(sourceSchema, 20, 20);
+    component.showSuggestions([{ sourceFields: ['Ad'], targetField: 'TCKimlikNo', functoidCode: 'LPad', length: 11, padChar: '0' }]);
+
+    const graphChangedSpy = vi.spyOn(component.graphChanged, 'emit');
+    component.acceptSuggestion(component.suggestions()[0]);
+
+    expect(component.suggestions().length).toBe(0);
+    const snapshot = component.getSnapshot();
+    expect(snapshot.functoidNodes.map((n) => n.functoidCode).sort()).toEqual(['LPad', 'Trim']);
+    expect(snapshot.edges.length).toBe(3);
+    expect(graphChangedSpy).toHaveBeenCalled();
+
+    const lpadNode = snapshot.functoidNodes.find((n) => n.functoidCode === 'LPad');
+    expect(lpadNode?.params).toEqual({ length: 11, padChar: '0' });
+    const trimNode = snapshot.functoidNodes.find((n) => n.functoidCode === 'Trim');
+    expect(trimNode?.params ?? null).toBeNull();
+
+    const described = component.describeEdges();
+    expect(described).toContainEqual({ id: expect.any(String), from: 'Ad', to: 'Trim.value' });
+    expect(described).toContainEqual({ id: expect.any(String), from: 'Trim', to: 'LPad.value' });
+    expect(described).toContainEqual({ id: expect.any(String), from: 'LPad', to: 'TCKimlikNo' });
+  });
+
+  it('rejecting an lpad suggestion creates no node or edge', () => {
+    component.addSourceSchema(sourceSchema, 20, 20);
+    component.showSuggestions([{ sourceFields: ['Ad'], targetField: 'TCKimlikNo', functoidCode: 'LPad', length: 11, padChar: '0' }]);
 
     component.rejectSuggestion(component.suggestions()[0]);
 

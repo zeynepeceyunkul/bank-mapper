@@ -341,7 +341,7 @@ describe('MappingEditor', () => {
     const request = httpMock.expectOne((req) => req.url.endsWith('/field-match-suggestions'));
     expect(request.request.body).toEqual({
       sourceFieldNames: ['Ad', 'Soyad'],
-      targetFieldNames: ['AdSoyad'],
+      targetFields: [{ name: 'AdSoyad', length: 50 }],
     });
     expect(component.suggestingMatches()).toBe(true);
 

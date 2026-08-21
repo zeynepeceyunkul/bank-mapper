@@ -51,6 +51,8 @@ export interface SuggestedFieldMatch {
   sourceFields: string[];
   targetField: string;
   functoidCode: string | null;
+  padChar?: string | null;
+  length?: number | null;
 }
 
 interface SuggestionBox {
@@ -66,6 +68,14 @@ interface SuggestionOverlay {
   sourceFields: string[];
   targetField: string;
   functoidCode: string | null;
+  // Sadece "kutu" (box) node'unun parametreleri - Concat vb. icin hep null
+  // (bkz. acceptSuggestion), LPad/RPad icin backend'den gelen {length, padChar}.
+  params: Record<string, unknown> | null;
+  // Terminal (box/functoidCode) node'undan ONCE zincirlenen ikinci bir functoid
+  // (su an icin sadece 'Trim', LPad/RPad onerileriyle birlikte geliyor) - Trim'in
+  // parametresi olmadigi icin ayri bir params alanina gerek yok.
+  chainFunctoidCode: 'Trim' | null;
+  chainBox: SuggestionBox | null;
   lines: { x1: number; y1: number; x2: number; y2: number }[];
   box: SuggestionBox | null;
   controlsX: number;
@@ -73,7 +83,8 @@ interface SuggestionOverlay {
   // Kullanici bir functoid-onerisinin (Concat vb.) ghost kutusunu elle
   // surukleyince buraya yazilan goreceli kaydirma - otomatik konum hesabi
   // (node hareketiyle tetiklenen recompute dahil) her zaman bunun USTUNE
-  // uygulaniyor, boylece elle tasima kalici kaliyor.
+  // uygulaniyor, boylece elle tasima kalici kaliyor. Bir zincirdeki iki kutu
+  // da AYNI offset'i paylasiyor (birlikte tasiniyor, bagimsiz surukleme yok).
   manualOffset: { dx: number; dy: number } | null;
 }
 
@@ -752,9 +763,14 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       if (sourceIndices.some((i) => i < 0) || targetIndex < 0) continue;
 
       overlays.push(
-        m.functoidCode
-          ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, m.sourceFields, m.targetField, m.functoidCode, null)
-          : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, m.sourceFields[0], m.targetField)
+        m.functoidCode === 'LPad' || m.functoidCode === 'RPad'
+          ? this.buildChainedSuggestionOverlay(
+              schemaNode, targetNode, sourceIndices[0], targetIndex, m.sourceFields[0], m.targetField,
+              m.functoidCode, { length: m.length, padChar: m.padChar }, null
+            )
+          : m.functoidCode
+            ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, m.sourceFields, m.targetField, m.functoidCode, null)
+            : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, m.sourceFields[0], m.targetField)
       );
     }
 
@@ -765,7 +781,45 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     const schemaNode = this.graph.getNodes().find((n) => n.getData<Record<string, unknown>>()?.['kind'] === 'sourceSchema');
     if (!schemaNode) return;
 
-    if (s.functoidCode && s.box) {
+    // Onceden (node eklemeden ONCE) listeden cikariyoruz - 'node:added' olayi
+    // her addNode'da tryAttachToNearbyConnection'i tetikliyor, ve tek girdili
+    // (arity 1) bir functoid (Trim/LPad/RPad - Concat arity 2 oldugu icin bu
+    // sorunu hic yasamiyordu) tam bu onerinin kendi cizgisinin uzerine
+    // yerlestirilince, s hala listedeyse kendi onerisini "yakin" bulup
+    // attachFunctoidToSuggestion'i tekrar tetikliyor - sonsuz ozyineleme.
+    this.suggestions.update((list) => list.filter((x) => x.key !== s.key));
+
+    if (s.chainFunctoidCode && s.chainBox && s.functoidCode && s.box) {
+      // Trim -> Pad zinciri: kaynak alan -> Trim -> Pad -> hedef, iki ayri
+      // functoid node'u ve aralarindaki tek girdi portlarina gore kurulmus
+      // uc edge (bkz. proje karari - LPad/RPad'in onune her zaman Trim gelir).
+      const trimPorts = this.functoidDefinitions.find((d) => d.code === s.chainFunctoidCode)?.inputPorts ?? [];
+      const padPorts = this.functoidDefinitions.find((d) => d.code === s.functoidCode)?.inputPorts ?? [];
+
+      const trimNodeId = randomId();
+      this.graph.addNode(this.functoidNodeConfig(trimNodeId, s.chainFunctoidCode, s.chainBox.x, s.chainBox.y, null));
+      this.graph.addEdge({
+        source: { cell: schemaNode.id, port: s.sourceFields[0] },
+        target: { cell: fnId(trimNodeId), port: `in:${trimPorts[0]?.name ?? 'value'}` },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+        zIndex: 0,
+      });
+
+      const padNodeId = randomId();
+      this.graph.addNode(this.functoidNodeConfig(padNodeId, s.functoidCode, s.box.x, s.box.y, s.params));
+      this.graph.addEdge({
+        source: { cell: fnId(trimNodeId), port: 'out' },
+        target: { cell: fnId(padNodeId), port: `in:${padPorts[0]?.name ?? 'value'}` },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+        zIndex: 0,
+      });
+      this.graph.addEdge({
+        source: { cell: fnId(padNodeId), port: 'out' },
+        target: { cell: TARGET_NODE_ID, port: s.targetField },
+        attrs: { line: { stroke: '#56708a', strokeWidth: 2, targetMarker: null } },
+        zIndex: 0,
+      });
+    } else if (s.functoidCode && s.box) {
       const functoidNodeId = randomId();
       this.graph.addNode(this.functoidNodeConfig(functoidNodeId, s.functoidCode, s.box.x, s.box.y, null));
       const ports = this.functoidDefinitions.find((d) => d.code === s.functoidCode)?.inputPorts ?? [];
@@ -792,7 +846,6 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       });
     }
 
-    this.suggestions.update((list) => list.filter((x) => x.key !== s.key));
     this.emitGraphChanged();
   }
 
@@ -858,7 +911,11 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         const sourceIndices = s.sourceFields.map((f) => srcFields.findIndex((sf) => sf.name === f));
         const targetIndex = tgtFields.findIndex((f) => f.name === s.targetField);
         if (sourceIndices.some((i) => i < 0) || targetIndex < 0) return s;
-        return this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, s.sourceFields, s.targetField, s.functoidCode, offset);
+        // Bir zincirdeki iki kutu (Trim+Pad) AYNI offset'i paylasip birlikte
+        // tasiniyor - bagimsiz surukleme yok.
+        return s.chainFunctoidCode
+          ? this.buildChainedSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, s.sourceFields[0], s.targetField, s.functoidCode, s.params, offset)
+          : this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, s.sourceFields, s.targetField, s.functoidCode, offset);
       })
     );
   }
@@ -950,8 +1007,15 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
 
     if (match.functoidCode && match.box) {
       const suggestedDef = this.functoidDefinitions.find((d) => d.code === match.functoidCode);
+      // match.params kullaniliyor (null degil) - LPad/RPad onerisi icin bu
+      // backend'in hesapladigi gercek {length, padChar}, null birakilirsa
+      // functoid hicbir sey yapmayan bir no-op'a doner. Not: bu yol (bekleyen
+      // bir oneriye baska bir functoid surukleyip eklemek) chainFunctoidCode'u
+      // (Trim) henuz ayrica kurmuyor - LPad/RPad onerisi uzerine boyle bir
+      // eklem yapilirsa Trim adimi atlanmis olur; kapsam disi birakildi, kabul
+      // dugmesi (acceptSuggestion) uzerinden gecen normal akis her zaman dogru.
       const suggestedFunctoidId = randomId();
-      this.graph.addNode(this.functoidNodeConfig(suggestedFunctoidId, match.functoidCode, match.box.x, match.box.y, null));
+      this.graph.addNode(this.functoidNodeConfig(suggestedFunctoidId, match.functoidCode, match.box.x, match.box.y, match.params));
       const suggestedPorts = suggestedDef?.inputPorts ?? [];
       match.sourceFields.forEach((field, i) => {
         this.graph.addEdge({
@@ -1009,6 +1073,9 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       sourceFields: [sourceField],
       targetField,
       functoidCode: null,
+      params: null,
+      chainFunctoidCode: null,
+      chainBox: null,
       lines: [{ x1, y1, x2, y2 }],
       box: null,
       controlsX: (x1 + x2) / 2,
@@ -1060,10 +1127,80 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       sourceFields,
       targetField,
       functoidCode,
+      params: null,
+      chainFunctoidCode: null,
+      chainBox: null,
       lines,
       box: { x: boxX, y: boxY, width, height, label },
       controlsX: boxX + width,
       controlsY: boxY + height / 2,
+      manualOffset,
+    };
+  }
+
+  // LPad/RPad onerisi - tek kaynak alani, onune otomatik zincirlenen bir Trim
+  // uzerinden hedefe baglar (bkz. proje karari - MappingExecutor Length asimini
+  // gercek bir hata olarak firlatiyor, trimlenmemis bosluk pad'i bozabilir).
+  // buildFunctoidSuggestionOverlay ile ayni kutu-boyutu mantigini (functoidBoxSize)
+  // iki kutu icin ayri ayri kullanir; kaynak-Trim-Pad-hedef araligini esit
+  // ucte bir'lere bolerek yerlestirir.
+  private buildChainedSuggestionOverlay(
+    schemaNode: Node,
+    targetNode: Node,
+    sourceFieldIndex: number,
+    targetFieldIndex: number,
+    sourceField: string,
+    targetField: string,
+    functoidCode: string,
+    params: Record<string, unknown> | null,
+    manualOffset: { dx: number; dy: number } | null
+  ): SuggestionOverlay {
+    const srcPos = schemaNode.getPosition();
+    const tgtPos = targetNode.getPosition();
+    const srcX = srcPos.x + SCHEMA_BOX_WIDTH;
+    const tgtX = tgtPos.x;
+    const tgtY = tgtPos.y + TITLE_HEIGHT + targetFieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const srcY = srcPos.y + TITLE_HEIGHT + sourceFieldIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+    const trim = this.functoidBoxSize('Trim', 1);
+    const pad = this.functoidBoxSize(functoidCode, 1);
+    const dx = manualOffset?.dx ?? 0;
+    const dy = manualOffset?.dy ?? 0;
+
+    const span = tgtX - srcX;
+    const trimBox: SuggestionBox = {
+      x: srcX + span / 3 - trim.width / 2 + dx,
+      y: srcY - trim.height / 2 + dy,
+      width: trim.width,
+      height: trim.height,
+      label: trim.label,
+    };
+    const padBox: SuggestionBox = {
+      x: srcX + (2 * span) / 3 - pad.width / 2 + dx,
+      y: srcY - pad.height / 2 + dy,
+      width: pad.width,
+      height: pad.height,
+      label: pad.label,
+    };
+
+    const lines = [
+      { x1: srcX, y1: srcY, x2: trimBox.x, y2: trimBox.y + trimBox.height / 2 },
+      { x1: trimBox.x + trimBox.width, y1: trimBox.y + trimBox.height / 2, x2: padBox.x, y2: padBox.y + padBox.height / 2 },
+      { x1: padBox.x + padBox.width, y1: padBox.y + padBox.height / 2, x2: tgtX, y2: tgtY },
+    ];
+
+    return {
+      key: `${sourceField}->${targetField}`,
+      sourceFields: [sourceField],
+      targetField,
+      functoidCode,
+      params,
+      chainFunctoidCode: 'Trim',
+      chainBox: trimBox,
+      lines,
+      box: padBox,
+      controlsX: padBox.x + padBox.width,
+      controlsY: padBox.y + padBox.height / 2,
       manualOffset,
     };
   }
@@ -1096,9 +1233,11 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         const sourceIndices = s.sourceFields.map((f) => srcFields.findIndex((sf) => sf.name === f));
         const targetIndex = tgtFields.findIndex((f) => f.name === s.targetField);
         if (sourceIndices.some((i) => i < 0) || targetIndex < 0) return s;
-        return s.functoidCode
-          ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, s.sourceFields, s.targetField, s.functoidCode, s.manualOffset)
-          : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, s.sourceFields[0], s.targetField);
+        return s.chainFunctoidCode && s.functoidCode
+          ? this.buildChainedSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, s.sourceFields[0], s.targetField, s.functoidCode, s.params, s.manualOffset)
+          : s.functoidCode
+            ? this.buildFunctoidSuggestionOverlay(schemaNode, targetNode, sourceIndices, targetIndex, s.sourceFields, s.targetField, s.functoidCode, s.manualOffset)
+            : this.buildDirectSuggestionOverlay(schemaNode, targetNode, sourceIndices[0], targetIndex, s.sourceFields[0], s.targetField);
       })
     );
   }

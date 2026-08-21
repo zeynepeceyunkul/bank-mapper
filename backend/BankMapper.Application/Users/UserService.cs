@@ -1,4 +1,5 @@
 using BankMapper.Application.Abstractions;
+using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
 using BankMapper.Domain.Enums;
 
@@ -14,6 +15,15 @@ public class UserService(IUserRepository repository) : IUserService
         // satir olarak listede gorunmesin diye eleniyor - gercek bir kullanici
         // degiller, silinmemis eski veri.
         return users.Where(u => !string.IsNullOrEmpty(u.Email)).Select(ToDto).ToList();
+    }
+
+    public async Task<PagedResult<UserDto>> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null, UserRole? role = null)
+    {
+        var clampedPageIndex = Math.Max(pageIndex, 0);
+        var clampedPageSize = Math.Clamp(pageSize, 1, 100);
+
+        var (items, totalCount) = await repository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, role);
+        return new PagedResult<UserDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
     public async Task<UserDto?> UpdateRoleAsync(string id, UserRole role, string currentUserId)

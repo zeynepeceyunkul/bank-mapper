@@ -1,5 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
+using BankMapper.Application.Common;
 using BankMapper.Application.Users;
+using BankMapper.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +21,15 @@ public class UsersController(IUserService userService) : ControllerBase
     {
         var users = await userService.GetAllAsync();
         return Ok(users);
+    }
+
+    [HttpGet("page")]
+    public async Task<ActionResult<PagedResult<UserDto>>> GetPage(
+        [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.NameAscending,
+        [FromQuery] string? search = null, [FromQuery] UserRole? role = null)
+    {
+        var result = await userService.GetPagedAsync(pageIndex, pageSize, sort, search, role);
+        return Ok(result);
     }
 
     [HttpPut("{id}/role")]

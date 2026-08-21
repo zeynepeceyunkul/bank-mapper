@@ -44,7 +44,7 @@ public class InstitutionService(IInstitutionRepository repository) : IInstitutio
             throw new ArgumentException($"Bu isimde bir kurum zaten var: {name}");
         }
 
-        var institution = new Institution { Name = name };
+        var institution = new Institution { Name = name, CreatedAt = DateTime.UtcNow };
         var created = await repository.CreateAsync(institution);
         return ToDto(created);
     }
@@ -67,6 +67,7 @@ public class InstitutionService(IInstitutionRepository repository) : IInstitutio
     private static InstitutionDto ToDto(Institution institution) => new()
     {
         Id = institution.Id,
-        Name = institution.Name
+        Name = institution.Name,
+        CreatedAt = institution.CreatedAt
     };
 }

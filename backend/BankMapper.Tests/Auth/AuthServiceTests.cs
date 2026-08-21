@@ -1,6 +1,8 @@
 using BankMapper.Application.Abstractions;
 using BankMapper.Application.Auth;
+using BankMapper.Application.Common;
 using BankMapper.Domain.Entities;
+using BankMapper.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Xunit;
 
@@ -215,6 +217,12 @@ public class AuthServiceTests
         private readonly Dictionary<string, User> _store = [];
 
         public Task<List<User>> GetAllAsync() => Task.FromResult(_store.Values.ToList());
+
+        // AuthService bu metodu hic cagirmiyor - arayuzu tamamlamak icin var,
+        // gercek bir davranisa ihtiyaci yok.
+        public Task<(List<User> Items, long TotalCount)> GetPagedAsync(
+            int pageIndex, int pageSize, SortOption sort, string? search = null, UserRole? role = null) =>
+            throw new NotSupportedException("AuthServiceTests'te kullanilmiyor.");
 
         public Task<User?> GetByEmailAsync(string email) => Task.FromResult(_store.GetValueOrDefault(email));
 

@@ -16,9 +16,10 @@ public class InstitutionRepository(IMongoDbContext context) : IInstitutionReposi
     public async Task<List<Institution>> GetAllAsync() =>
         await _collection.Find(FilterDefinition<Institution>.Empty).ToListAsync();
 
-    // SourceSchemaRepository.GetPagedAsync ile ayni gerekce: ayri bir
-    // CreatedAt alani tutmuyoruz, Mongo'nun ObjectId'si zaten kronolojik
-    // sirali oldugu icin RecentFirst/OldestFirst dogrudan Id'ye gore siralar.
+    // Id'ye gore siraliyoruz (CreatedAt'e degil) - Mongo'nun ObjectId'si zaten
+    // kronolojik sirali, ayni sonucu veriyor, ve CreatedAt sadece goruntuleme
+    // icin eklendi (bkz. Institution.cs) - iki alanla ayni sonucu iki farkli
+    // yoldan hesaplamaktansa tek bir kaynaga (Id) sadik kaliyoruz.
     public async Task<(List<Institution> Items, long TotalCount)> GetPagedAsync(int pageIndex, int pageSize, SortOption sort, string? search = null)
     {
         var filter = string.IsNullOrWhiteSpace(search)

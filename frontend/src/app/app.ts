@@ -7,8 +7,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { ToastContainer } from './shared/toast/toast-container';
 import { ConfirmDialog } from './shared/confirm/confirm-dialog';
+import { UnauthorizedModal } from './shared/unauthorized-modal/unauthorized-modal';
 import { AuthService } from './core/services/auth.service';
 import { MappingService } from './core/services/mapping.service';
+import { PageAccessService } from './core/services/page-access.service';
 
 // Giris/kayit/e-posta akisi sayfalari kendi tam-ekran duzenine sahip (bkz.
 // features/auth/auth-layout) - uygulamanin normal toolbar+icerik cercevesini
@@ -26,6 +28,7 @@ const STANDALONE_AUTH_PATHS = ['/login', '/register', '/check-email', '/verify-e
     MatButtonModule,
     ToastContainer,
     ConfirmDialog,
+    UnauthorizedModal,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -35,6 +38,7 @@ export class App {
   private readonly mappingService = inject(MappingService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly pageAccessService = inject(PageAccessService);
 
   private readonly currentUrl = signal(this.router.url);
 
@@ -75,6 +79,16 @@ export class App {
   readonly pendingApprovalCount = signal<number | null>(null);
 
   constructor() {
+    // Ece'nin karari (2026-08-24): "Yetkin Yok" modal'ini kapatmadan (Tamam'a
+    // basmadan) baska bir nav sekmesine tiklayinca modal asili kalip arka
+    // planda sayfa degisebiliyordu - eskiden burada HER navigasyon basinda
+    // bayragi onceden temizliyorduk (roleGuard'siz rotalara gecisi kolaylastirmak
+    // icin), ama bu tam olarak modal acikken serbestce gezinmeye izin veren
+    // sey oldugu ortaya cikti. Artik bayragi burada ONCEDEN TEMIZLEMIYORUZ -
+    // bunun yerine block-nav-while-unauthorized-modal.guard.ts (root rotaya
+    // canActivateChild olarak baglanan, bkz. app.routes.ts) modal acikken
+    // (denied() true) TUM navigasyonlari iptal ediyor. Bayragi artik SADECE
+    // roleGuard (yetkiliyse) veya modal'in kendi dismiss()'i temizliyor.
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.currentUrl.set(this.router.url);
       this.refreshPendingApprovalCount();

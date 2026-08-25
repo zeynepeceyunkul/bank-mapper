@@ -6,6 +6,7 @@ import { UserService } from '../../../core/services/user.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { PageAccessService } from '../../../core/services/page-access.service';
 import { User, UserRole } from '../../../core/models/user.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
@@ -20,6 +21,7 @@ export class UserList implements OnInit {
   private readonly toastService = inject(ToastService);
   private readonly authService = inject(AuthService);
   private readonly confirmService = inject(ConfirmService);
+  private readonly pageAccessService = inject(PageAccessService);
 
   readonly users = signal<User[]>([]);
   readonly error = signal<string | null>(null);
@@ -40,7 +42,15 @@ export class UserList implements OnInit {
 
   readonly roles: UserRole[] = ['Viewer', 'MappingDefiner', 'Approver', 'Admin'];
 
+  // roleGuard sayfayi hep aciyor artik (bkz. role.guard.ts, PageAccessService) -
+  // yetkisiz erisimde veri cekmeyi hic denemiyoruz, yoksa backend'in 403'u
+  // kendi genel "API calisiyor mu?" hata mesajimizi tetikleyip app-unauthorized-modal
+  // ile ayni anda gorunup kafa karistiriyordu (Ece'nin canli yakaladigi bug).
   ngOnInit(): void {
+    if (this.pageAccessService.denied()) {
+      this.loading.set(false);
+      return;
+    }
     this.loadUsers();
   }
 

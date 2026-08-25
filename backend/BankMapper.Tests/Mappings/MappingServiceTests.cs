@@ -330,6 +330,65 @@ public class MappingServiceTests
         Assert.Contains("Kendi oluşturduğunuz mapping'i reddedemezsiniz", ex.Message);
     }
 
+    // Onceden burada bir durum kontrolu yoktu - zaten karara baglanmis bir
+    // mapping tekrar tekrar onaylanip/reddedilebiliyordu, her cagrida
+    // sessizce uzerine yazip son giren kazaniyordu (Ece'nin sunumda canli
+    // yasadigi bug, 2026-08-24 - bkz. MappingService.cs'teki ayni yorum).
+    [Fact]
+    public async Task ApproveAsync_rejects_when_already_approved()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+        await service.ApproveAsync(created.Id, "approver-1");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ApproveAsync(created.Id, "approver-2"));
+        Assert.Contains("zaten karara bağlanmış", ex.Message);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_rejects_when_already_rejected()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+        await service.RejectAsync(created.Id, "Eksik", "approver-1");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ApproveAsync(created.Id, "approver-2"));
+        Assert.Contains("zaten karara bağlanmış", ex.Message);
+    }
+
+    [Fact]
+    public async Task RejectAsync_rejects_when_already_rejected()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+        await service.RejectAsync(created.Id, "İlk gerekçe", "approver-1");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.RejectAsync(created.Id, "İkinci gerekçe", "approver-2"));
+        Assert.Contains("zaten karara bağlanmış", ex.Message);
+
+        var unchanged = await service.GetByIdAsync(created.Id);
+        Assert.Equal("İlk gerekçe", unchanged!.RejectionReason);
+    }
+
+    [Fact]
+    public async Task RejectAsync_rejects_when_already_approved()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request);
+        await service.ApproveAsync(created.Id, "approver-1");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.RejectAsync(created.Id, "Eksik", "approver-2"));
+        Assert.Contains("zaten karara bağlanmış", ex.Message);
+    }
+
     [Fact]
     public async Task RejectAsync_with_empty_reason_is_rejected()
     {
@@ -527,6 +586,14 @@ public class MappingServiceTests
     {
         private readonly Dictionary<string, Mapping> _store = [];
 
+        // _store'daki Mapping ile ApproveAsync/RejectAsync'in "existing" olarak
+        // tuttugu referans AYNI nesne - existing.Status mutasyona ugradiginda
+        // _store'daki kayit da aninda degisiyor (gercek Mongo'da boyle degil,
+        // orada her okuma ayri bir dokuman materyalize eder). UpdateIfStatusAsync
+        // bu yuzden "beklenen eski durum"u _store'un kendisinden degil, en son
+        // yazma anindaki bu golge sozlukten okuyor.
+        private readonly Dictionary<string, MappingStatus> _statusAtLastWrite = [];
+
         public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null) =>
             Task.FromResult((status is null ? _store.Values : _store.Values.Where(m => m.Status == status)).ToList());
 
@@ -566,6 +633,7 @@ public class MappingServiceTests
         {
             mapping.Id = Guid.NewGuid().ToString();
             _store[mapping.Id] = mapping;
+            _statusAtLastWrite[mapping.Id] = mapping.Status;
             return Task.FromResult(mapping);
         }
 
@@ -577,6 +645,19 @@ public class MappingServiceTests
             }
 
             _store[mapping.Id] = mapping;
+            _statusAtLastWrite[mapping.Id] = mapping.Status;
+            return Task.FromResult<Mapping?>(mapping);
+        }
+
+        public Task<Mapping?> UpdateIfStatusAsync(Mapping mapping, MappingStatus expectedCurrentStatus)
+        {
+            if (!_statusAtLastWrite.TryGetValue(mapping.Id, out var lastWrittenStatus) || lastWrittenStatus != expectedCurrentStatus)
+            {
+                return Task.FromResult<Mapping?>(null);
+            }
+
+            _store[mapping.Id] = mapping;
+            _statusAtLastWrite[mapping.Id] = mapping.Status;
             return Task.FromResult<Mapping?>(mapping);
         }
 

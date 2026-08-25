@@ -123,6 +123,18 @@ public class MappingService(
             throw new ArgumentException("Kendi oluşturduğunuz mapping'i onaylayamazsınız.");
         }
 
+        // Onceden burada bir durum kontrolu YOKTU - zaten Onaylanmis ya da
+        // Reddedilmis bir mapping tekrar tekrar onaylanabiliyordu, her
+        // cagrida sessizce uzerine yaziyordu (Ece'nin sunumda canli yasadigi
+        // bug, 2026-08-24: frontend'deki ayri bir hata yuzunden aynı reddetme
+        // birden fazla kez tetiklenmisti, backend de bunu engellemedigi icin
+        // her seferinde son giris kazaniyordu). Sadece Onay Bekleyenler'den
+        // gercekten karar bekleyen bir mapping karara baglanabilir.
+        if (existing.Status != MappingStatus.PendingApproval)
+        {
+            throw new ArgumentException("Bu mapping zaten karara bağlanmış, tekrar onaylanamaz.");
+        }
+
         existing.Status = MappingStatus.Approved;
         existing.ApprovedBy = approvedBy;
         existing.ApprovedAt = DateTime.UtcNow;
@@ -130,12 +142,19 @@ public class MappingService(
         existing.RejectedBy = null;
         existing.RejectedAt = null;
 
-        var updated = await mappingRepository.UpdateAsync(existing);
-        if (updated is not null)
+        // UpdateAsync DEGIL: filtreye Status=PendingApproval de eklenmis
+        // UpdateIfStatusAsync kullanılıyor - iki kisi neredeyse ayni anda
+        // onaylayip/reddederse (ikisi de yukarideki kontrolu ayni eski
+        // okumayla gecmis olabilir), Mongo'nun kendisi sadece hala
+        // PendingApproval olan kaydi yazar; digeri null doner (bkz.
+        // IMappingRepository.cs'teki yorum).
+        var updated = await mappingRepository.UpdateIfStatusAsync(existing, MappingStatus.PendingApproval);
+        if (updated is null)
         {
-            logger.LogInformation("Mapping {MappingId} onaylandi", id);
+            throw new ArgumentException("Bu mapping zaten karara bağlanmış, tekrar onaylanamaz.");
         }
-        return updated is null ? null : ToDto(updated);
+        logger.LogInformation("Mapping {MappingId} onaylandi", id);
+        return ToDto(updated);
     }
 
     public async Task<MappingDto?> RejectAsync(string id, string reason, string? rejectedBy)
@@ -157,6 +176,12 @@ public class MappingService(
             throw new ArgumentException("Kendi oluşturduğunuz mapping'i reddedemezsiniz.");
         }
 
+        // ApproveAsync'teki ayni durum kontrolu (bkz. orada ki yorum).
+        if (existing.Status != MappingStatus.PendingApproval)
+        {
+            throw new ArgumentException("Bu mapping zaten karara bağlanmış, tekrar reddedilemez.");
+        }
+
         existing.Status = MappingStatus.Rejected;
         existing.RejectionReason = reason;
         existing.RejectedBy = rejectedBy;
@@ -164,12 +189,14 @@ public class MappingService(
         existing.ApprovedBy = null;
         existing.ApprovedAt = null;
 
-        var updated = await mappingRepository.UpdateAsync(existing);
-        if (updated is not null)
+        // ApproveAsync'teki ayni gerekce (bkz. orada ki yorum).
+        var updated = await mappingRepository.UpdateIfStatusAsync(existing, MappingStatus.PendingApproval);
+        if (updated is null)
         {
-            logger.LogInformation("Mapping {MappingId} reddedildi", id);
+            throw new ArgumentException("Bu mapping zaten karara bağlanmış, tekrar reddedilemez.");
         }
-        return updated is null ? null : ToDto(updated);
+        logger.LogInformation("Mapping {MappingId} reddedildi", id);
+        return ToDto(updated);
     }
 
     private static Mapping BuildEntity(CreateMappingRequest request) => new()

@@ -69,7 +69,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // 2026-08-19) gizlenmiyor, gorunur kalip tiklaninca requireEditPermission
   // ile uyariyor.
   canEditMapping(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner');
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner');
   }
 
   private requireEditPermission(): boolean {
@@ -82,7 +82,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   // dashboard.ts/mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.
   canApprove(): boolean {
-    return this.authService.hasRole('Admin', 'Approver');
+    return this.authService.hasRole('SuperAdmin', 'Approver');
   }
 
   mappingId: string | null = null;
@@ -894,6 +894,15 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.mappingService.approve(this.mappingId).subscribe({
       next: (mapping) => {
         this.approving.set(false);
+        // isDirty/mappingStatus'u navigasyondan ONCE, hemen guncelliyoruz -
+        // eskiden sadece router.navigate'e guveniliyordu, ama isDirty (hatali
+        // sekilde) true kalmissa unsavedChangesGuard navigasyonu iptal
+        // edebiliyor ve ekran hala eski (PendingApproval) durumu gosterip
+        // Onayla/Reddet butonlarini gostermeye devam ediyordu - kullanici
+        // "calismadi" sanip tekrar deniyordu (Ece'nin sunumda canli yasadigi
+        // bug, 2026-08-24).
+        this.mappingStatus.set(mapping.status);
+        this.isDirty.set(false);
         this.toastService.success(`Onaylandı: ${mapping.name}`);
         this.router.navigate(['/approvals']);
       },
@@ -919,6 +928,10 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.mappingService.reject(this.mappingId, this.rejectReason.trim()).subscribe({
       next: (mapping) => {
         this.showRejectPopup.set(false);
+        // approveMappingFromEditor()'daki ayni gerekce.
+        this.mappingStatus.set(mapping.status);
+        this.rejectionReason.set(mapping.rejectionReason);
+        this.isDirty.set(false);
         this.toastService.success(`Reddedildi: ${mapping.name}`);
         this.router.navigate(['/approvals']);
       },

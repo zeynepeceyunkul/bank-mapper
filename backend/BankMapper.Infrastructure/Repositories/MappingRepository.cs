@@ -110,6 +110,15 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
         return result.MatchedCount > 0 ? mapping : null;
     }
 
+    public async Task<Mapping?> UpdateIfStatusAsync(Mapping mapping, MappingStatus expectedCurrentStatus)
+    {
+        var filter = Builders<Mapping>.Filter.And(
+            Builders<Mapping>.Filter.Eq(m => m.Id, mapping.Id),
+            Builders<Mapping>.Filter.Eq(m => m.Status, expectedCurrentStatus));
+        var result = await _collection.ReplaceOneAsync(filter, mapping);
+        return result.MatchedCount > 0 ? mapping : null;
+    }
+
     public async Task<bool> DeleteAsync(string id)
     {
         var result = await _collection.DeleteOneAsync(m => m.Id == id);

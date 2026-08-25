@@ -856,6 +856,16 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
         this.saving.set(false);
         this.showSavePopup.set(false);
         this.isDirty.set(false);
+        // approveMappingFromEditor()/confirmRejectFromEditor()'daki ayni
+        // gerekce: backend Reddedilmis/Onaylanmis bir mapping kaydedilince
+        // durumu PendingApproval'a dusurup red/onay bilgisini temizliyor
+        // (bkz. MappingService.UpdateAsync), ama bu ekran o degisikligi
+        // sunucudan yeniden yuklemeden ogrenemiyordu - kaydedince "Bu
+        // mapping reddedildi" banner'i (Ece'nin canli yakaladigi bug,
+        // 2026-08-25) ekranda takili kaliyordu, oysa gercekte mapping
+        // tekrar onay bekliyordu.
+        this.mappingStatus.set(mapping.status);
+        this.rejectionReason.set(mapping.rejectionReason);
         const edgeCount = mapping.edges.filter((e) => e.toKind === 'TargetField').length;
         this.toastService.success(`${wasNew ? 'Kaydedildi' : 'Güncellendi'}: ${mapping.name} (${edgeCount} hedef alan bağlantısı)`);
         // İlk kayıtta URL hâlâ /mapping'de kalıyordu (yeni mapping rotası) —

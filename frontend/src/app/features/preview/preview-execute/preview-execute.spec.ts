@@ -58,18 +58,6 @@ describe('PreviewExecute', () => {
     expect(el.querySelector('.status-badge.success')?.textContent).toContain('Başarılı');
   });
 
-  it('formats relative time in Turkish, from seconds up to days', () => {
-    fixture.detectChanges();
-    httpMock.expectOne((req) => req.url.endsWith('/mappings')).flush([]);
-    httpMock.expectOne((req) => req.url.endsWith('/run-history/page')).flush({ items: [], totalCount: 0 });
-
-    const now = Date.now();
-    expect(component.relativeTime(new Date(now - 10_000).toISOString())).toBe('Az önce');
-    expect(component.relativeTime(new Date(now - 12 * 60_000).toISOString())).toBe('12 dk önce');
-    expect(component.relativeTime(new Date(now - 3 * 60 * 60_000).toISOString())).toBe('3 sa önce');
-    expect(component.relativeTime(new Date(now - 2 * 24 * 60 * 60_000).toISOString())).toBe('2 gün önce');
-  });
-
   it('renders a failed run with the failure badge and error detail', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.endsWith('/mappings')).flush([]);

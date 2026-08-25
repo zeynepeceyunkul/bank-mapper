@@ -2,14 +2,17 @@
   <div class="header">
     <h2>Kayıtlı Mapping'ler</h2>
     <div class="header-actions">
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Ada göre ara..."
-        aria-label="Mapping ara"
-        [value]="search()"
-        (input)="onSearchChange($any($event.target).value)"
-      />
+      <div class="search-field">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Ada göre ara..."
+          aria-label="Mapping ara"
+          [value]="search()"
+          (input)="onSearchChange($any($event.target).value)"
+        />
+      </div>
       <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
         <option value="RecentFirst" [selected]="sort() === 'RecentFirst'">Son Güncelleme (Yeni→Eski)</option>
         <option value="OldestFirst" [selected]="sort() === 'OldestFirst'">Son Güncelleme (Eski→Yeni)</option>
@@ -22,6 +25,18 @@
         <option value="Approved" [selected]="statusFilter() === 'Approved'">Onaylandı</option>
         <option value="Rejected" [selected]="statusFilter() === 'Rejected'">Reddedildi</option>
       </select>
+      <button
+        type="button"
+        mat-icon-button
+        class="outlined-icon-btn"
+        [class.active]="onlyMine()"
+        title="Sadece Benim"
+        aria-label="Sadece benim mapping'lerim"
+        [attr.aria-pressed]="onlyMine()"
+        (click)="onOnlyMineChange(!onlyMine())"
+      >
+        <mat-icon>person</mat-icon>
+      </button>
       <a
         mat-icon-button
         class="outlined-icon-btn"
@@ -75,6 +90,9 @@
           <span class="status-badge" [class]="'status-' + mapping.status.toLowerCase()">
             {{ statusLabel(mapping.status) }}
           </span>
+          @if (mapping.status === 'Rejected' && mapping.rejectionReason) {
+            <p class="rejection-reason">{{ mapping.rejectionReason }}</p>
+          }
         </td>
       </ng-container>
 
@@ -86,7 +104,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let mapping">
-          <a mat-button [routerLink]="['/mapping/edit', mapping.id]">Düzenle</a>
+          <button type="button" mat-button (click)="openMapping(mapping)">Düzenle</button>
           <button type="button" mat-icon-button aria-label="Sil" (click)="deleteMapping(mapping)">
             <mat-icon>delete</mat-icon>
           </button>

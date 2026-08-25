@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -8,18 +9,18 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { MappingService } from '../../../core/services/mapping.service';
 import { InstitutionService } from '../../../core/services/institution.service';
+import { PageAccessService } from '../../../core/services/page-access.service';
 import { ConvertFileFormat, PreviewService, PreviewSourceFileUpload } from '../../../core/services/preview.service';
 import { RunHistoryService } from '../../../core/services/run-history.service';
 import { Mapping } from '../../../core/models/mapping.model';
 import { Institution } from '../../../core/models/institution.model';
 import { MappingRun } from '../../../core/models/run-history.model';
-import { relativeTime as formatRelativeTime } from '../../../core/utils/relative-time';
 
 const RECENT_RUNS_PAGE_SIZE = 5;
 
 @Component({
   selector: 'app-preview-execute',
-  imports: [FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, MatTableModule],
+  imports: [FormsModule, RouterLink, DatePipe, MatButtonModule, MatFormFieldModule, MatInputModule, MatTableModule],
   templateUrl: './preview-execute.html',
   styleUrl: './preview-execute.scss',
 })
@@ -28,6 +29,7 @@ export class PreviewExecute implements OnInit, OnDestroy {
   private readonly institutionService = inject(InstitutionService);
   private readonly previewService = inject(PreviewService);
   private readonly runHistoryService = inject(RunHistoryService);
+  private readonly pageAccessService = inject(PageAccessService);
 
   readonly mappings = signal<Mapping[]>([]);
   readonly institutions = signal<Institution[]>([]);
@@ -51,7 +53,11 @@ export class PreviewExecute implements OnInit, OnDestroy {
   // capture:true nested scroll container'lari da yakalasin diye.
   private readonly onScroll = () => this.hideErrorTooltip();
 
+  // role.guard.ts/PageAccessService ile ayni gerekce (bkz. user-list.ts'teki
+  // ayni yorum) - yetkisiz erisimde veri cekmeyi hic denemiyoruz.
   ngOnInit(): void {
+    if (this.pageAccessService.denied()) return;
+
     this.loadMappings();
 
     this.institutionService.getAll().subscribe({
@@ -90,15 +96,6 @@ export class PreviewExecute implements OnInit, OnDestroy {
       next: (result) => this.recentRuns.set(result.items),
       error: () => {}, // sessiz gec - bu ana islevi (onizleme/donusturme) engellememeli
     });
-  }
-
-  // "Son Çalıştırmalar" burada goreli zaman kullanıyor (az önce/N dk önce) -
-  // tam gecmis (/run-history) sayfası bunun aksine mutlak tarih gösteriyor,
-  // orası bir denetim kaydı, burası anlık bir ozet. Ortak bicimleme mantigi
-  // core/utils/relative-time.ts'te (Panel'deki hero karti da ayni fonksiyonu
-  // kullaniyor).
-  relativeTime(dateIso: string): string {
-    return formatRelativeTime(dateIso);
   }
 
   // Native title tooltip'i yerine kendi baloncugumuz - uzun hata mesajlari

@@ -40,14 +40,17 @@
   </div>
 
   <div class="filters">
-    <input
-      type="text"
-      class="search-input"
-      placeholder="Ada göre ara..."
-      aria-label="Mapping ara"
-      [value]="search()"
-      (input)="onSearchChange($any($event.target).value)"
-    />
+    <div class="search-field">
+      <mat-icon>search</mat-icon>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Ada göre ara..."
+        aria-label="Mapping ara"
+        [value]="search()"
+        (input)="onSearchChange($any($event.target).value)"
+      />
+    </div>
     <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
       <option value="StatusDateRecentFirst" [selected]="sort() === 'StatusDateRecentFirst'">Tarih (Yeni→Eski)</option>
       <option value="StatusDateOldestFirst" [selected]="sort() === 'StatusDateOldestFirst'">Tarih (Eski→Yeni)</option>
@@ -125,7 +128,7 @@
               @switch (activeTab()) {
                 @case ('PendingApproval') {
                   <td class="creator-cell">{{ mapping.createdBy ?? '—' }}</td>
-                  <td class="date-cell">{{ mapping.createdAt | date: 'dd.MM.yyyy, HH:mm' }}</td>
+                  <td class="date-cell">{{ mapping.createdAt | date: 'dd.MM.yyyy HH:mm' }}</td>
                   <td class="actions-cell">
                     <button type="button" class="approve-btn" (click)="approveMapping(mapping)">
                       <mat-icon>check</mat-icon>
@@ -139,11 +142,11 @@
                 }
                 @case ('Approved') {
                   <td class="creator-cell">{{ mapping.approvedBy ?? '—' }}</td>
-                  <td class="date-cell">{{ mapping.approvedAt ? (mapping.approvedAt | date: 'dd.MM.yyyy, HH:mm') : '—' }}</td>
+                  <td class="date-cell">{{ mapping.approvedAt ? (mapping.approvedAt | date: 'dd.MM.yyyy HH:mm') : '—' }}</td>
                 }
                 @default {
                   <td class="creator-cell">{{ mapping.rejectedBy ?? '—' }}</td>
-                  <td class="date-cell">{{ mapping.rejectedAt ? (mapping.rejectedAt | date: 'dd.MM.yyyy, HH:mm') : '—' }}</td>
+                  <td class="date-cell">{{ mapping.rejectedAt ? (mapping.rejectedAt | date: 'dd.MM.yyyy HH:mm') : '—' }}</td>
                   <td
                     class="reason-cell"
                     (mouseenter)="showReasonTooltip($event, mapping.rejectionReason ?? '—')"

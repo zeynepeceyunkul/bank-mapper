@@ -41,6 +41,7 @@ export class MappingService {
     sort: SortOption = 'RecentFirst',
     search = '',
     status?: MappingStatus,
+    createdBy?: string,
   ): Observable<PagedResult<Mapping>> {
     const params: Record<string, string | number> = { pageIndex, pageSize, sort };
     if (search.trim()) {
@@ -48,6 +49,9 @@ export class MappingService {
     }
     if (status) {
       params['status'] = status;
+    }
+    if (createdBy) {
+      params['createdBy'] = createdBy;
     }
     return this.http.get<PagedResult<Mapping>>(`${environment.apiUrl}/mappings/page`, { params });
   }

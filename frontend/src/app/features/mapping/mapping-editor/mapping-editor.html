@@ -39,6 +39,15 @@
     <p class="hint">Mapping yükleniyor...</p>
   }
 
+  @if (showRejectionSection()) {
+    <div class="rejection-section">
+      <mat-icon>close</mat-icon>
+      <span class="rejection-section-text">
+        Bu mapping reddedildi{{ rejectionReason() ? ': ' + rejectionReason() : '.' }}
+      </span>
+    </div>
+  }
+
   @if (showApprovalSection()) {
     <div class="approval-section">
       <span class="approval-section-text">
@@ -245,6 +254,7 @@
         [initialSnapshot]="effectiveSnapshot()"
         [viewOnly]="!canEditMapping()"
         (graphChanged)="onGraphChanged()"
+        (edgeSelected)="onEdgeSelected($event)"
       />
 
       <div class="connection-list">
@@ -257,11 +267,13 @@
         } @else {
           <ul>
             @for (edge of connections(); track edge.id) {
-              <li>
+              <li [class.selected]="edge.id === selectedConnectionId()">
                 <span class="connection-label">{{ edge.from }} → {{ edge.to }}</span>
-                <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
-                  <mat-icon>delete</mat-icon>
-                </button>
+                @if (canEditMapping()) {
+                  <button type="button" mat-icon-button aria-label="Sil" (click)="removeEdge(edge.id)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
               </li>
             }
           </ul>
@@ -271,6 +283,20 @@
   } @else {
     <div class="canvas-placeholder">
       <p class="hint">Devam etmek için önce Hedef panelini tamamlayıp Onayla'ya basmalısın.</p>
+    </div>
+  }
+
+  @if (showCreatePermissionNotice()) {
+    <div class="modal-backdrop" (click)="dismissCreatePermissionNotice()">
+      <div class="modal-box notice-modal-box" (click)="$event.stopPropagation()">
+        <p class="unauthorized-message">
+          Yeni mapping oluşturma yetkiniz yok. Bu sayfayı sadece kayıtlı mapping'leri görüntülemek için
+          kullanabilirsiniz — sağ üstteki "Kayıtlı Mapping'ler" ile listeye ulaşabilirsiniz.
+        </p>
+        <div class="unauthorized-actions">
+          <button type="button" mat-flat-button (click)="dismissCreatePermissionNotice()">Tamam</button>
+        </div>
+      </div>
     </div>
   }
 
@@ -311,7 +337,11 @@
   @if (showMappingsPanel()) {
     <div class="modal-backdrop" (click)="toggleMappingsPanel()">
       <div class="modal-box" (click)="$event.stopPropagation()">
-        <app-mapping-list (newMapping)="startNewMapping()" (mappingDeleted)="onMappingDeleted($event)" />
+        <app-mapping-list
+          (newMapping)="startNewMapping()"
+          (mappingDeleted)="onMappingDeleted($event)"
+          (mappingOpened)="onMappingOpened()"
+        />
       </div>
     </div>
   }

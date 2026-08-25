@@ -1,6 +1,7 @@
 import { Component, DestroyRef, ElementRef, HostListener, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,6 +28,7 @@ import { HasUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PageAccessService } from '../../../core/services/page-access.service';
 
 @Component({
   selector: 'app-mapping-editor',
@@ -58,6 +60,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
   private readonly authService = inject(AuthService);
+  private readonly pageAccessService = inject(PageAccessService);
 
   // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti -
   // Viewer bu ekrana gelip goruntuleyebilsin ama Kaydet/Yeni Sema gibi
@@ -101,6 +104,26 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   readonly approving = signal(false);
   readonly showRejectPopup = signal(false);
   rejectReason = '';
+
+  // Ece'nin karari (2026-08-22): reddedilme gerekcesi eskiden sadece Onaylar
+  // ekraninda gorunuyordu, ama mapping'i tanimlayan (MappingDefiner) rolu o
+  // ekrana erisemiyor. Bu banner - fromApproval'dan farkli olarak - HANGI
+  // yoldan gelinirse gelinsin (dogrudan link, Kayitli Mapping'ler, arama)
+  // her zaman gosteriliyor, cunku amac tanimlayanin BULMASI, ozel bir rota
+  // degil.
+  readonly rejectionReason = signal<string | null>(null);
+  readonly showRejectionSection = computed(() => this.mappingStatus() === 'Rejected');
+
+  // "/mapping" (bos canvas + Kayitli Mapping'ler paneli) Viewer/Approver'a da
+  // acik - kayitli mapping listesine ulasabilmeleri gerekiyor, o yuzden bu
+  // rota roleGuard tasimiyor (bkz. app.routes.ts). Ama bu ikisi yeni mapping
+  // TANIMLAYAMIYOR (canEditMapping() sadece Admin/MappingDefiner), ve
+  // eskiden buraya gelince formun neden hep devre disi oldugunu aciklayan
+  // hicbir sey yoktu. Ece'nin istegi (2026-08-24): sayfaya her yeni-mapping
+  // olarak (yani id'siz) girislerinde, yetkileri yoksa bunu aciklayan bir
+  // uyari popup'i gostersin - bkz. paramMap subscription'i (asagida) ve
+  // mapping-editor.html'deki create-permission-notice modali.
+  readonly showCreatePermissionNotice = signal(false);
 
   readonly showMappingsPanel = signal(false);
   readonly showSourceSchemaModal = signal(false);
@@ -149,16 +172,40 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // deseni, ama 1 ile sinirlanmiyor.
   readonly usedKurumIds = signal<string[]>([]);
   readonly connections = signal<{ id: string; from: string; to: string }[]>([]);
+  // Canvas'ta bir baglanti cizgisine tiklaninca hangisi oldugunu Baglantilar
+  // listesinde bulmak zordu (Ece'nin istegi, 2026-08-24) - mapping-canvas'in
+  // yaydigi edgeSelected buraya baglaniyor, liste tarafinda ayni id'ye sahip
+  // satir vurgulaniyor (bkz. mapping-editor.html .connection-list).
+  readonly selectedConnectionId = signal<string | null>(null);
   readonly suggestingMatches = signal(false);
   readonly suggestError = signal<string | null>(null);
+  // /mapping ve /mapping/edit/:id ayni component instance'ini paylastigi icin
+  // (bkz. yukaridaki route.paramMap yorumu), bir mapping'de AI onerisi
+  // istenirken (suggestMatches) baska bir mapping'e gecilirse eski cevap
+  // gecikmeli gelip YENI mapping'in canvas'ina yanlis onerileri
+  // ciziyordu - Ece'nin istegiyle yapilan kapsamli tarama sirasinda bulundu
+  // (2026-08-24). Yeni bir mapping yuklenmeye baslarken bu abonelik iptal
+  // ediliyor (bkz. loadExistingMapping/resetForNewMapping).
+  private pendingSuggestionSub: Subscription | null = null;
 
   // Kaydet butonu, saveMapping()'in zaten reddedecegi bir durumu (hedef
   // yok/kaynak yok/hic baglanti yok) kullaniciya oncesinde gostermeden
   // acmasin diye - eskiden buton her zaman tiklanabiliyordu, hicbir sey
   // secilmemisken bile "Mapping Adi" popup'ini acip sonra "zorunlu" hatasi
   // veriyordu.
+  // canEditMapping() de disabled kosuluna dahil (Ece'nin karari, 2026-08-22) -
+  // eskiden bu buton, var olan bir mapping'de (hedef/kaynak/baglanti zaten
+  // dolu oldugu icin) Viewer/Approver'a da tamamen tiklanabilir gorunuyordu,
+  // ustteki Urun/Dosya Tipi dropdown'lari griyken - ayni panelde iki farkli
+  // gorsel sinyal veriyordu. Davranis degismiyor (zaten tiklaninca
+  // requireEditPermission() toast veriyordu), sadece erken/tutarli uyariyor.
   readonly canSave = computed(
-    () => this.hedefConfirmedOnce() && this.usedSourceSchemaIds().length > 0 && this.connections().length > 0 && !this.saving()
+    () =>
+      this.hedefConfirmedOnce() &&
+      this.usedSourceSchemaIds().length > 0 &&
+      this.connections().length > 0 &&
+      !this.saving() &&
+      this.canEditMapping()
   );
 
   // Canvas hydrate/olusturma sonrasi (bkz. mapping-canvas.ts ngAfterViewInit)
@@ -176,7 +223,17 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   mappingName = '';
   readonly saving = signal(false);
 
+  // institution-list.ts/approval-queue.ts'teki ayni desen - /mapping/edit/:id
+  // artik roleGuard tasiyor (bkz. app.routes.ts, Viewer haric), yetkisiz
+  // erisimde veri cekmeyi hic denemiyoruz - yoksa yetkisiz modaliyla birlikte
+  // yaniltici bir "API calisiyor mu?" hatasi da ustune biner. "/mapping" (bos
+  // canvas) kisitlanmadi, bu yuzden oraya giren herkes icin bu erken-donus
+  // hicbir zaman tetiklenmiyor.
   ngOnInit(): void {
+    if (this.pageAccessService.denied()) {
+      return;
+    }
+
     this.productService.getProducts().subscribe({
       next: (products) => this.products.set(products),
       error: () => this.error.set('Ürünler yüklenemedi. API çalışıyor mu?'),
@@ -221,6 +278,15 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
         this.loadExistingMapping(id);
       } else {
         this.resetForNewMapping();
+        // Panel'deki "Tumunu gor" linki (?list=1) hem bu bildirimi hem de
+        // asagidaki showMappingsPanel'i tetikleyebiliyordu - ikisi de ayni
+        // "listeye eris" ihtiyacini karsiladigi icin ust uste iki modal
+        // gostermek yerine, liste zaten acilacaksa bildirimi atliyoruz
+        // (Ece'nin canli yakaladigi bug, 2026-08-24).
+        const openingViaList = this.route.snapshot.queryParamMap.get('list') === '1';
+        if (!this.canEditMapping() && !openingViaList) {
+          this.showCreatePermissionNotice.set(true);
+        }
       }
     });
 
@@ -267,6 +333,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private resetForNewMapping(): void {
     this.mappingId = null;
     this.mappingName = '';
+    this.showCreatePermissionNotice.set(false);
+    this.cancelPendingSuggestion();
     this.selectedProductId = '';
     this.selectedFileTypeId = '';
     this.fileTypes.set([]);
@@ -280,6 +348,7 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.resetGraphState();
     this.usedKurumIds.set([]);
     this.mappingStatus.set(null);
+    this.rejectionReason.set(null);
     this.awaitingInitialGraphReady = false;
     this.isDirty.set(false);
   }
@@ -287,11 +356,31 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private loadExistingMapping(id: string): void {
     this.loadingExisting.set(true);
 
+    // resetForNewMapping()'in id-yok durumu icin yaptigi temizligin bir
+    // benzeri burada da gerekli - /mapping ve /mapping/edit/:id ayni
+    // component instance'ini paylastigi icin (bkz. yukaridaki paramMap
+    // yorumu), onceki mapping'den kalma bir popup/hata/AI-oneri istegi
+    // yeni yuklenen mapping'in UZERINDE acik/gecerli kalabiliyordu. En ciddisi:
+    // showRejectPopup+rejectReason temizlenmezse, biri bir mapping'i reddetmek
+    // icin popup'i acik birakip "Kayitli Mapping'ler"den BASKA bir mapping'e
+    // gecerse, confirmRejectFromEditor() artik guncellenmis this.mappingId ile
+    // YANLIS mapping'i (eski reddetme metniyle) reddedebiliyordu - Ece'nin
+    // istegiyle yapilan kapsamli taramada bulundu (2026-08-24).
+    this.showCreatePermissionNotice.set(false);
+    this.showRejectPopup.set(false);
+    this.rejectReason = '';
+    this.showSourceSchemaModal.set(false);
+    this.showSavePopup.set(false);
+    this.approving.set(false);
+    this.error.set(null);
+    this.cancelPendingSuggestion();
+
     this.mappingService.getById(id).subscribe({
       next: (mapping) => {
         this.mappingName = mapping.name;
         this.usedKurumIds.set(mapping.kurumIds);
         this.mappingStatus.set(mapping.status);
+        this.rejectionReason.set(mapping.rejectionReason);
 
         // hedefConfirmedOnce'i sifirlamak, template'teki
         // `@if (hedefConfirmedOnce())` bloğunu anlik olarak kapatip
@@ -456,6 +545,18 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
     if (targetChanging) {
       this.resetGraphState();
+      // isFirstConfirm'de canvas henuz DOM'da yok (hedefConfirmedOnce bu
+      // cagrinin sonunda ilk kez true oluyor) - o yuzden sadece canvas'in
+      // ONCEDEN VAR oldugu (ikinci ve sonraki hedef degisiklikleri) durumda
+      // gercek X6 node'larini da temizliyoruz. Eskiden sadece yukaridaki
+      // resetGraphState() (MappingEditor'un KENDI usedSourceSchemaIds/
+      // connections sinyalleri) calisiyordu, canvas'taki gercek kaynak sema/
+      // functoid node'lari yerinde kalip yeni hedefe "yetim" asili
+      // kaliyordu - Ece'nin istegiyle yapilan kapsamli taramada bulundu
+      // (2026-08-24, bkz. [[project_known_minor_issues]] madde 5).
+      if (!isFirstConfirm) {
+        this.canvas.clearSourceContent();
+      }
       this.activeFileType.set(newFileType);
     }
 
@@ -475,6 +576,14 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   private resetGraphState(): void {
     this.usedSourceSchemaIds.set([]);
     this.connections.set([]);
+    this.selectedConnectionId.set(null);
+  }
+
+  private cancelPendingSuggestion(): void {
+    this.pendingSuggestionSub?.unsubscribe();
+    this.pendingSuggestionSub = null;
+    this.suggestingMatches.set(false);
+    this.suggestError.set(null);
   }
 
   get selectedFileType(): FileType | undefined {
@@ -543,6 +652,15 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
 
   toggleMappingsPanel(): void {
     this.showMappingsPanel.update((v) => !v);
+  }
+
+  // mapping-list.ts'teki mappingOpened output'unun karsiligi - Approver/Admin
+  // "Kayıtlı Mapping'ler" panelinden Düzenle'ye basinca oraya gecerken panel
+  // acik kalip yeni mapping'in arkasinda goruniyordu (Ece'nin canli
+  // yakaladigi bug, 2026-08-24) - startNewMapping()'teki ayni ilk-satir
+  // deseniyle tutarli.
+  onMappingOpened(): void {
+    this.showMappingsPanel.set(false);
   }
 
   // "Kayıtlı Mapping'ler" panelinden, o an bu ekranda acik olan mapping
@@ -643,6 +761,14 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
     this.canvas.removeEdge(id);
   }
 
+  onEdgeSelected(id: string | null): void {
+    this.selectedConnectionId.set(id);
+  }
+
+  dismissCreatePermissionNotice(): void {
+    this.showCreatePermissionNotice.set(false);
+  }
+
   // Kaynak semadaki ve hedef dosya tipindeki alan adlarini AI'ya gonderip
   // eslestirme onerisi istiyor - canvas'ta onerileri kesikli cizgi olarak
   // gosteriyor, kullanicinin her birini tek tek onaylamasi/reddetmesi gerekiyor
@@ -658,13 +784,14 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
       return;
     }
 
+    this.pendingSuggestionSub?.unsubscribe();
     this.suggestingMatches.set(true);
     this.suggestError.set(null);
 
     const sourceFieldNames = schema.fields.map((f) => f.name);
     const targetFields = targetFileType.targetFields.map((f) => ({ name: f.name, length: f.length }));
 
-    this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFields).subscribe({
+    this.pendingSuggestionSub = this.fieldMatchSuggestionService.suggest(sourceFieldNames, targetFields).subscribe({
       next: (suggestions) => {
         this.suggestingMatches.set(false);
         this.canvas.showSuggestions(suggestions);

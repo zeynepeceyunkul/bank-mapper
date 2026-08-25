@@ -133,6 +133,11 @@ public class GeminiFieldMatchSuggestionService(HttpClient httpClient, IOptions<G
             generationConfig = new
             {
                 responseMimeType = "application/json",
+                // Guvenlik sikilastirma listesinden (2026-08-22, Ece onayladi):
+                // gercekci bir eslesme onerisi listesi bunun cok altinda kalir,
+                // bu sadece anormal/kotu niyetli buyuk bir yanit uretimini
+                // (ve dolayisiyla maliyeti) sinirliyor - gercek onerileri etkilemez.
+                maxOutputTokens = 2048,
                 responseSchema = new
                 {
                     type = "ARRAY",

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using BankMapper.Api;
 using BankMapper.Application;
 using BankMapper.Infrastructure;
@@ -9,11 +10,12 @@ using BankMapper.Infrastructure.Persistence.Seed;
 using BankMapper.Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Serilog.Formatting.Compact;
 
-const string AngularDevClient = "AngularDevClient";
+const string FrontendClient = "FrontendClient";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,11 +81,47 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("MappingApprove", policy =>
         policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.Approver)));
 
+    // Eskiden sadece Admin - Ece'nin karari (2026-08-22): bir mapping'i
+    // tanimlayan/onaylayan kisinin de gonderim/onay oncesi kendi cikisini
+    // gorebilmesi/test edebilmesi mantikli, bu yuzden MappingManage/
+    // MappingApprove'daki ayni rol seti (Admin+MappingDefiner+Approver)
+    // buraya da acildi - Viewer haric (zaten canvas'i da goremiyor).
     options.AddPolicy("Convert", policy =>
-        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.MappingDefiner, UserRole.Approver)));
 
     options.AddPolicy("UserManage", policy =>
         policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
+});
+
+// Guvenlik sikilastirma listesinden (2026-08-18 denetimi, Ece 2026-08-22'de
+// onayladi) - IP basina sabit pencereli sinir. Once auth (login/register/
+// e-posta islemleri - brute-force/spam-hesap riski) ve AI oneri (Gemini
+// cagrisi - hem maliyetli hem de ucretsiz katmanin kendi kotasini paylasiyor)
+// uclarina oncelik verildi, digerlerine simdilik dokunulmadi. QueueLimit: 0 -
+// sinir asilinca istek kuyruga alinip bekletilmiyor, dogrudan 429 donuyor.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    options.AddPolicy("ai-suggestion", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -91,10 +129,17 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
 
+// İzinli origin'ler Cors:AllowedOrigins config değeriyle (env var:
+// Cors__AllowedOrigins, virgülle ayrılmış) verilebilir - prod'da Firebase
+// Hosting URL'i gibi. Verilmezse sadece dev sunucusuna (localhost:4200)
+// izin verilir.
+var corsAllowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:4200")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(AngularDevClient, policy =>
-        policy.WithOrigins("http://localhost:4200").AllowAnyHeader().AllowAnyMethod());
+    options.AddPolicy(FrontendClient, policy =>
+        policy.WithOrigins(corsAllowedOrigins).AllowAnyHeader().AllowAnyMethod());
 });
 
 var app = builder.Build();
@@ -117,7 +162,23 @@ app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 
-app.UseCors(AngularDevClient);
+// Guvenlik sikilastirma listesinden (Ece 2026-08-22'de onayladi) - uygulama
+// baska bir sisteme gomulu OLMAYACAK (Ece'nin kendi tespiti, 2026-08-21:
+// kendi self-servis login/rol sistemi kurulmus olmasi bunun standalone
+// calisacagini zaten gosteriyor), bu yuzden guvenle "asla bir iframe icinde
+// gosterilme" denebiliyor - clickjacking'e karsi. Iki header birden: eski
+// tarayicilar icin X-Frame-Options, modern tarayicilar icin CSP
+// frame-ancestors (ikisi de ayni seyi soyluyor, biri digerinin yedegi).
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Content-Security-Policy", "frame-ancestors 'none'");
+    await next();
+});
+
+app.UseCors(FrontendClient);
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

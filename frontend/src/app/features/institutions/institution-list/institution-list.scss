@@ -4,6 +4,62 @@
   max-width: 1400px;
   margin: 2.5rem auto 0;
 
+  // mapping-editor.scss'teki notice-modal-box ile ayni ufak-uyari deseni
+  // (kasitli tekrar, ayni gerekce: her bolum-ici modal kendi kopyasini
+  // tasiyor).
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4rem 1rem;
+    z-index: 30;
+    animation: modal-backdrop-fade-in 150ms ease;
+  }
+
+  .modal-box {
+    background: var(--mat-sys-surface);
+    border-radius: 16px;
+    padding: 1.25rem;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: var(--mat-sys-level3);
+    animation: modal-box-scale-in 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  @keyframes modal-backdrop-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modal-box-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .unauthorized-message {
+    margin: 0 0 1rem;
+    color: var(--mat-sys-on-surface);
+    line-height: 1.4;
+  }
+
+  .unauthorized-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
   .page-header {
     margin-bottom: 1.25rem;
 
@@ -36,15 +92,32 @@
   .add-card {
     padding: 1.25rem 1.5rem;
     margin-bottom: 1rem;
+
+    // Ekleme yetkisi olmayan (Viewer/Approver) rollere kart tamamen kilitli
+    // gorunuyor - mapping-editor.ts'teki Hedef/Kurum bolumlerindeki ayni
+    // "kilitli" gorsel dili (Ece'nin karari, 2026-08-25).
+    &.locked {
+      opacity: 0.6;
+    }
   }
 
   .add-card-label {
     margin: 0 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--app-muted);
+  }
+
+  .add-card-lock-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    text-transform: none;
   }
 
   .add-card-row {

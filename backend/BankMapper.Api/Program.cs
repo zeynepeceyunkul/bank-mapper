@@ -76,10 +76,10 @@ builder.Services.AddAuthorization(options =>
         .Build();
 
     options.AddPolicy("MappingManage", policy =>
-        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.MappingDefiner)));
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.SuperAdmin, UserRole.MappingDefiner)));
 
     options.AddPolicy("MappingApprove", policy =>
-        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.Approver)));
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.SuperAdmin, UserRole.Approver)));
 
     // Eskiden sadece Admin - Ece'nin karari (2026-08-22): bir mapping'i
     // tanimlayan/onaylayan kisinin de gonderim/onay oncesi kendi cikisini
@@ -87,10 +87,10 @@ builder.Services.AddAuthorization(options =>
     // MappingApprove'daki ayni rol seti (Admin+MappingDefiner+Approver)
     // buraya da acildi - Viewer haric (zaten canvas'i da goremiyor).
     options.AddPolicy("Convert", policy =>
-        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin, UserRole.MappingDefiner, UserRole.Approver)));
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.SuperAdmin, UserRole.MappingDefiner, UserRole.Approver)));
 
     options.AddPolicy("UserManage", policy =>
-        policy.Requirements.Add(new FreshRoleRequirement(UserRole.Admin)));
+        policy.Requirements.Add(new FreshRoleRequirement(UserRole.SuperAdmin)));
 });
 
 // Guvenlik sikilastirma listesinden (2026-08-18 denetimi, Ece 2026-08-22'de

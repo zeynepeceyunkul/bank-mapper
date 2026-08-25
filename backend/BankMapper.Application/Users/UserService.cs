@@ -44,6 +44,16 @@ public class UserService(IUserRepository repository) : IUserService
             throw new ArgumentException("Kendi rolünüzü değiştiremezsiniz.");
         }
 
+        // Ece'nin karari (2026-08-25): tek bir SuperAdmin olacak, bu rol
+        // uygulama uzerinden kimseye atanamaz - yukaridaki "kendi rolunu
+        // degistiremezsin" kontroluyle birlesince (SuperAdmin'in TEK erisimi
+        // olan UserManage policy'sini kendi hesabina uygulayamamasi), bu satir
+        // rolun sonsuza kadar tek ve degismez kalmasini garanti ediyor.
+        if (role == UserRole.SuperAdmin)
+        {
+            throw new ArgumentException("Süper Admin rolü uygulama üzerinden atanamaz.");
+        }
+
         existing.Role = role;
         await repository.UpdateAsync(existing);
         return ToDto(existing);

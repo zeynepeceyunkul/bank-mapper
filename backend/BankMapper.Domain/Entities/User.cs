@@ -26,7 +26,7 @@ public class User
 
     // Yeni kayit olanlar en dusuk yetkiyle basliyor. BsonRepresentation(String)
     // - FileFormat vb. diger enum'larla ayni desen, Mongo'da 0/1/2/3 yerine
-    // okunabilir "Viewer"/"Admin" vs. yazsin.
+    // okunabilir "Viewer"/"SuperAdmin" vs. yazsin.
     [BsonRepresentation(BsonType.String)]
     public UserRole Role { get; set; } = UserRole.Viewer;
 

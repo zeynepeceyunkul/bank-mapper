@@ -65,12 +65,18 @@ export class App {
     return (this.role() ?? '').toLowerCase();
   }
 
-  // Ece'nin karari (2026-08-19): Onizleme/Onaylar nav linkleri artik
-  // yetkisi olmayana da gorunur - tiklayinca role.guard.ts onları Panel'e
-  // geri gonderip bir uyari gosteriyor, once burada sessizce gizlemek
-  // yerine. canApprove burada sadece rozet sayisini kimin gorecegini
-  // belirlemek icin hala lazim (bkz. asagisi).
-  readonly canApprove = computed(() => this.authService.hasRole('Admin', 'Approver'));
+  // Ece'nin karari (2026-08-19), Ece'nin 2026-08-24'teki takip karariyla
+  // KISMEN GERI ALINDI: Mapping/Kurumlar gibi "herkes goruntuleyebilir, bazi
+  // aksiyonlar kisitli" sayfalarda link her zaman gorunup tiklayinca uyariyor
+  // (dogru desen, degismedi). Ama Onizleme/Onaylar/Kullanicilar'a HICBIR
+  // yetkisi olmayan bir rolun (orn. Viewer'in Onizleme'yi, MappingDefiner'in
+  // Onaylar'i) o sayfayi goruntulemesinin hicbir mesru sebebi yok - bu ucu
+  // artik toolbar'da hic gorunmuyor, tiklanip uyarilmiyor. canApprove hem
+  // Onaylar linkinin gorunurlugunu hem rozet sayisini kimin gorecegini
+  // belirliyor (bkz. asagisi).
+  readonly canApprove = computed(() => this.authService.hasRole('SuperAdmin', 'Approver'));
+  readonly canSeePreview = computed(() => this.authService.hasRole('SuperAdmin', 'MappingDefiner', 'Approver'));
+  readonly canSeeUsers = computed(() => this.authService.hasRole('SuperAdmin'));
 
   // Sekmenin yanindaki sayi rozeti - dashboard.ts'teki pendingApprovalCount
   // ile ayni gerekce, burada her navigasyonda yenileniyor ki Onay

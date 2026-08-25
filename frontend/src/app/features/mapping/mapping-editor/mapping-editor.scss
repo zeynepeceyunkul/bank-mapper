@@ -549,6 +549,17 @@
     color: #1a1a1a;
   }
 
+  // .kurum-section-icon ile ayni boyut - Hedef panelindeki step-badge kilit
+  // ikonuyla ayni gerekce (Ece'nin karari, 2026-08-25): duzenleme yetkisi
+  // olmayan rollere Kurum bolumunun de kilitli oldugu gorsel olarak
+  // gosteriliyor.
+  .kurum-lock-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #9e9e9e;
+  }
+
   // .locked-text ile ayni notr dil - "opsiyonel" bir kisitlama degil ama
   // benzer sekilde ikincil bir aciklama metni.
   .optional-tag {

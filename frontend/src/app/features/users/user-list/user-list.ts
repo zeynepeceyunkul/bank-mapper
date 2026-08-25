@@ -1,5 +1,4 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { UserService } from '../../../core/services/user.service';
@@ -12,7 +11,7 @@ import { SortOption } from '../../../core/models/paged-result.model';
 
 @Component({
   selector: 'app-user-list',
-  imports: [FormsModule, MatPaginatorModule, MatProgressSpinnerModule],
+  imports: [MatPaginatorModule, MatProgressSpinnerModule],
   templateUrl: './user-list.html',
   styleUrl: './user-list.scss',
 })
@@ -40,7 +39,7 @@ export class UserList implements OnInit {
   // '' = tum roller.
   readonly roleFilter = signal<UserRole | ''>('');
 
-  readonly roles: UserRole[] = ['Viewer', 'MappingDefiner', 'Approver', 'Admin'];
+  readonly roles: UserRole[] = ['Viewer', 'MappingDefiner', 'Approver', 'SuperAdmin'];
 
   // roleGuard sayfayi hep aciyor artik (bkz. role.guard.ts, PageAccessService) -
   // yetkisiz erisimde veri cekmeyi hic denemiyoruz, yoksa backend'in 403'u
@@ -98,18 +97,32 @@ export class UserList implements OnInit {
     return user.email === this.authService.email();
   }
 
-  // [ngModel] tek-yonlu bagli (user.role'den okuyor, ondan yazmiyor) - onay
-  // reddedilirse hicbir seyi guncellemeden donuyoruz, bir sonraki change
-  // detection turunda select DOM'u zaten user.role'e (degismedi) geri
-  // senkronlaniyor, hata-durumundaki rollback ile ayni mekanizma.
-  async onRoleChange(user: User, value: string): Promise<void> {
-    const newRole = value as UserRole;
+  // Onceden [ngModel] / [selected] binding'ine guveniyordu - onay penceresi
+  // "Iptal" ile kapatilinca ALTTAKI veri hic degismiyordu (bu metod erken
+  // donuyordu) ama tarayicinin NATIF <select>'i kullanicinin tikladigi
+  // degeri zaten gostermis oluyordu. Angular'in bunu kendiliginden geri
+  // duzeltmesini beklemek (ister ngModel, ister [selected] binding'i ile
+  // olsun) GUVENILMEZ cikti - canli test edip DevTools'tan dogruladim:
+  // sinyale "dokunma" (bkz. eski deneme) DAHI select'in gercek DOM degerini
+  // (option.selected) geri yazmiyordu, muhtemelen bu projenin zoneless
+  // olmasi + native <select>'in kendi ic durumunun Angular'in bakis acisindan
+  // "hicbir sey degismedi" sayilmasi birlesimi (Ece'nin canli yakaladigi bug,
+  // 2026-08-25 - veri hic bozulmuyordu, sadece dropdown yanlis gorunuyordu).
+  // Kesin cozum: mapping-editor.ts'teki "select'i tamamen elle yonet"
+  // deseniyle ayni - native elementin kendisini alip iptal/hata durumunda
+  // .value'sunu DOGRUDAN elle geri yaziyoruz, Angular'in binding'ine
+  // guvenmiyoruz.
+  async onRoleChange(user: User, selectEl: HTMLSelectElement): Promise<void> {
+    const newRole = selectEl.value as UserRole;
     if (newRole === user.role) return;
 
     const confirmed = await this.confirmService.confirm(
       `${user.email} kullanıcısının rolünü '${user.role}' → '${newRole}' olarak değiştirmek istediğinize emin misiniz?`,
     );
-    if (!confirmed) return;
+    if (!confirmed) {
+      selectEl.value = user.role;
+      return;
+    }
 
     const previousRole = user.role;
     this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)));
@@ -117,6 +130,7 @@ export class UserList implements OnInit {
     this.userService.updateRole(user.id, newRole).subscribe({
       next: () => this.toastService.success(`${user.email} artık ${newRole}`),
       error: (err) => {
+        selectEl.value = previousRole;
         // Basarisiz olursa gorsel olarak eski role geri don - kullanici
         // dropdown'da yanlis bir degeri gorup dogruymus gibi guvenmesin.
         this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, role: previousRole } : u)));

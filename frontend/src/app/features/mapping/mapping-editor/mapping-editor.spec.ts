@@ -110,7 +110,7 @@ describe('MappingEditor', () => {
     // duzenleme yapabilen bir rol yaziyoruz. Rol/yetki testleri role.guard
     // ve auth.service seviyesinde ayrica var, burasi sadece bu suite'in
     // zaten varsaydigi "duzenleyebilen kullanici" durumunu kuruyor.
-    localStorage.setItem('bankmapper_role', 'Admin');
+    localStorage.setItem('bankmapper_role', 'SuperAdmin');
 
     await TestBed.configureTestingModule({
       imports: [MappingEditor],

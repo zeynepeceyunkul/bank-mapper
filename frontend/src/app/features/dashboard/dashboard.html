@@ -146,7 +146,7 @@
         <span class="action-subtitle">Oluştur ve yapılandır</span>
       </span>
     </a>
-    <a class="action-tile action-tile-primary" routerLink="/preview">
+    <button type="button" class="action-tile action-tile-primary" (click)="onPreviewTileClick()">
       <span class="action-icon action-icon-primary">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="#1a1a1a">
           <path
@@ -158,7 +158,7 @@
         <span class="action-title">Önizlemeye Git</span>
         <span class="action-subtitle">Dosya dönüştür ve indir</span>
       </span>
-    </a>
+    </button>
   </div>
 
   <div class="recent-card">

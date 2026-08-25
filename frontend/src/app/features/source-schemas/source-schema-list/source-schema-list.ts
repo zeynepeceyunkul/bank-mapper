@@ -81,7 +81,7 @@ export class SourceSchemaList implements OnInit {
 
   // mapping-list.ts'teki canManageMappings ile ayni gerekce/rol seti.
   canManageSchemas(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner');
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner');
   }
 
   ngOnInit(): void {

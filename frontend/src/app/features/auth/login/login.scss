@@ -1,1 +1,22 @@
 @use '../auth-shared';
+
+// Sadece bu sayfaya ozgu (register/verify-email'de yok) - _auth-shared.scss'e
+// eklemek yerine burada tutuluyor, cunku baska hicbir auth ekraninda
+// tekrarlanmiyor.
+.auth-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-forgot-link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #56708a;
+  text-decoration: none;
+
+  &:hover {
+    color: #1a1a1a;
+    text-decoration: underline;
+  }
+}

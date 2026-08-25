@@ -23,12 +23,13 @@ public class MappingService(
     }
 
     public async Task<PagedResult<MappingDto>> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null,
+        string? kurumId = null, string? createdBy = null)
     {
         var clampedPageIndex = Math.Max(pageIndex, 0);
         var clampedPageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, status, kurumId);
+        var (items, totalCount) = await mappingRepository.GetPagedAsync(clampedPageIndex, clampedPageSize, sort, search, status, kurumId, createdBy);
         return new PagedResult<MappingDto> { Items = items.Select(ToDto).ToList(), TotalCount = totalCount };
     }
 
@@ -111,6 +112,17 @@ public class MappingService(
             return null;
         }
 
+        // Dort goz ilkesi (segregation of duties) - bir mapping'i tanimlayan
+        // kisi kendi isini kendi onaylayamaz. Admin rolu hem MappingManage hem
+        // MappingApprove policy'sine sahip oldugu icin bu kontrol olmadan bir
+        // Admin kendi olusturdugu mapping'i sorunsuzca onaylayabiliyordu
+        // (canli tespit, 2026-08-22) - UserService.UpdateRoleAsync'teki "kendi
+        // rolunu degistiremezsin" ile ayni mantik/desen.
+        if (existing.CreatedBy is not null && string.Equals(existing.CreatedBy, approvedBy, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Kendi oluşturduğunuz mapping'i onaylayamazsınız.");
+        }
+
         existing.Status = MappingStatus.Approved;
         existing.ApprovedBy = approvedBy;
         existing.ApprovedAt = DateTime.UtcNow;
@@ -137,6 +149,12 @@ public class MappingService(
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException("Red gerekçesi zorunludur.");
+        }
+
+        // ApproveAsync'teki ayni dort goz ilkesi kontrolu.
+        if (existing.CreatedBy is not null && string.Equals(existing.CreatedBy, rejectedBy, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Kendi oluşturduğunuz mapping'i reddedemezsiniz.");
         }
 
         existing.Status = MappingStatus.Rejected;

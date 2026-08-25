@@ -290,6 +290,47 @@ public class MappingServiceTests
     }
 
     [Fact]
+    public async Task ApproveAsync_rejects_self_approval()
+    {
+        // Dort goz ilkesi: mapping'i olusturan kisi kendi isini onaylayamaz.
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request, createdBy: "ece@example.com");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.ApproveAsync(created.Id, "ece@example.com"));
+        Assert.Contains("Kendi oluşturduğunuz mapping'i onaylayamazsınız", ex.Message);
+
+        var unchanged = await service.GetByIdAsync(created.Id);
+        Assert.Equal(MappingStatus.PendingApproval, unchanged!.Status);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_allows_a_different_user_to_approve()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request, createdBy: "ece@example.com");
+
+        var approved = await service.ApproveAsync(created.Id, "baskasi@example.com");
+
+        Assert.Equal(MappingStatus.Approved, approved!.Status);
+    }
+
+    [Fact]
+    public async Task RejectAsync_rejects_self_rejection()
+    {
+        var service = CreateService();
+        var request = ValidRequestBase();
+        request.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "IBAN", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "IBAN" }];
+        var created = await service.CreateAsync(request, createdBy: "ece@example.com");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => service.RejectAsync(created.Id, "Eksik", "ece@example.com"));
+        Assert.Contains("Kendi oluşturduğunuz mapping'i reddedemezsiniz", ex.Message);
+    }
+
+    [Fact]
     public async Task RejectAsync_with_empty_reason_is_rejected()
     {
         var service = CreateService();
@@ -459,6 +500,29 @@ public class MappingServiceTests
         Assert.Equal(["Maas Odeme Mapping", "Vergi Odeme Mapping"], page.Items.Select(m => m.Name));
     }
 
+    // "Sadece benim mapping'lerim" filtresi (mapping-list.ts) - reddedilen bir
+    // mapping'i tanimlayan kisinin, Onaylar ekranina erisimi olmadan kendi
+    // reddedilenlerini bulabilmesi icin eklendi (Ece'nin karari, 2026-08-22).
+    [Fact]
+    public async Task GetPagedAsync_filters_by_createdBy_when_provided()
+    {
+        var service = CreateService();
+        var request1 = ValidRequestBase();
+        request1.Name = "Ece'nin mapping'i";
+        request1.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+        await service.CreateAsync(request1, createdBy: "ece@example.com");
+
+        var request2 = ValidRequestBase();
+        request2.Name = "Baskasinin mapping'i";
+        request2.Edges = [new GraphEdgeDto { FromKind = EdgeEndpointKind.SourceField, FromSourceSchemaId = SchemaId, FromFieldName = "Ad", ToKind = EdgeEndpointKind.TargetField, ToFieldName = "Ad" }];
+        await service.CreateAsync(request2, createdBy: "baskasi@example.com");
+
+        var page = await service.GetPagedAsync(pageIndex: 0, pageSize: 10, SortOption.NameAscending, createdBy: "ece@example.com");
+
+        Assert.Equal(1, page.TotalCount);
+        Assert.Equal("Ece'nin mapping'i", page.Items.Single().Name);
+    }
+
     private class FakeMappingRepository : IMappingRepository
     {
         private readonly Dictionary<string, Mapping> _store = [];
@@ -467,7 +531,8 @@ public class MappingServiceTests
             Task.FromResult((status is null ? _store.Values : _store.Values.Where(m => m.Status == status)).ToList());
 
         public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
-            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
+            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null,
+            string? kurumId = null, string? createdBy = null)
         {
             IEnumerable<Mapping> filtered = string.IsNullOrWhiteSpace(search)
                 ? _store.Values
@@ -476,6 +541,11 @@ public class MappingServiceTests
             if (status is not null)
             {
                 filtered = filtered.Where(m => m.Status == status);
+            }
+
+            if (!string.IsNullOrWhiteSpace(createdBy))
+            {
+                filtered = filtered.Where(m => m.CreatedBy == createdBy);
             }
 
             IEnumerable<Mapping> ordered = sort switch

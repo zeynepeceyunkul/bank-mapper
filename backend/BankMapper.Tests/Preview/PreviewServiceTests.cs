@@ -146,7 +146,8 @@ public class PreviewServiceTests
         public Task<List<Mapping>> GetAllAsync(MappingStatus? status = null, string? kurumId = null) => Task.FromResult(new List<Mapping> { mapping });
 
         public Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
-            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null) =>
+            int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null,
+            string? kurumId = null, string? createdBy = null) =>
             Task.FromResult((new List<Mapping> { mapping }, 1L));
 
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(id == mapping.Id ? mapping : null);

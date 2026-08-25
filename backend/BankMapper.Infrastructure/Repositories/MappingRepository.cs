@@ -33,7 +33,8 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
     // calistiriliyor. Varsayilan (RecentFirst) UpdatedAt'e gore azalan sirali
     // (bankada "en cok ugrasilan/guncel" kayitlar en ustte gorunsun diye).
     public async Task<(List<Mapping> Items, long TotalCount)> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null)
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null,
+        string? kurumId = null, string? createdBy = null)
     {
         // Regex.Escape ile kullanicinin girdigi metin regex ozel karakteri
         // olarak degil duz metin olarak eslesiyor (orn. "test." metnindeki
@@ -50,6 +51,10 @@ public class MappingRepository(IMongoDbContext context) : IMappingRepository
         if (!string.IsNullOrWhiteSpace(kurumId))
         {
             filters.Add(Builders<Mapping>.Filter.AnyEq(m => m.KurumIds, kurumId));
+        }
+        if (!string.IsNullOrWhiteSpace(createdBy))
+        {
+            filters.Add(Builders<Mapping>.Filter.Eq(m => m.CreatedBy, createdBy));
         }
         var filter = filters.Count == 0 ? FilterDefinition<Mapping>.Empty : Builders<Mapping>.Filter.And(filters);
 

@@ -39,6 +39,83 @@
     </a>
   }
 
+  @if (myApprovedMappings().length > 0) {
+    <button type="button" class="approved-banner" (click)="toggleApprovedModal()">
+      <span class="approved-banner-icon">
+        <mat-icon>check</mat-icon>
+      </span>
+      <span class="approved-banner-text">
+        <span class="approved-banner-title"><strong>{{ myApprovedMappings().length }} mapping'iniz</strong> onaylandı</span>
+        <span class="approved-banner-subtitle">Görmek için tıklayın</span>
+      </span>
+      <svg class="approved-banner-chevron" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+      </svg>
+    </button>
+  }
+
+  @if (showApprovedModal()) {
+    <div class="modal-backdrop" (click)="toggleApprovedModal()">
+      <div class="modal-box rejected-modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Onaylanan Mapping'leriniz</h3>
+          <button type="button" mat-icon-button aria-label="Kapat" (click)="toggleApprovedModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <ul class="rejected-list approved-list">
+          @for (mapping of myApprovedMappings(); track mapping.id) {
+            <li>
+              <a [routerLink]="['/mapping/edit', mapping.id]" (click)="toggleApprovedModal()">
+                <span class="rejected-item-name">{{ mapping.name }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+  }
+
+  @if (myRejectedMappings().length > 0) {
+    <button type="button" class="rejection-banner" (click)="toggleRejectedModal()">
+      <span class="rejection-banner-icon">
+        <mat-icon>close</mat-icon>
+      </span>
+      <span class="rejection-banner-text">
+        <span class="rejection-banner-title"><strong>{{ myRejectedMappings().length }} mapping'iniz</strong> reddedildi</span>
+        <span class="rejection-banner-subtitle">Gerekçeyi görmek için tıklayın</span>
+      </span>
+      <svg class="rejection-banner-chevron" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+      </svg>
+    </button>
+  }
+
+  @if (showRejectedModal()) {
+    <div class="modal-backdrop" (click)="toggleRejectedModal()">
+      <div class="modal-box rejected-modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Reddedilen Mapping'leriniz</h3>
+          <button type="button" mat-icon-button aria-label="Kapat" (click)="toggleRejectedModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <ul class="rejected-list">
+          @for (mapping of myRejectedMappings(); track mapping.id) {
+            <li>
+              <a [routerLink]="['/mapping/edit', mapping.id]" (click)="toggleRejectedModal()">
+                <span class="rejected-item-name">{{ mapping.name }}</span>
+                @if (mapping.rejectionReason) {
+                  <span class="rejected-item-reason">{{ mapping.rejectionReason }}</span>
+                }
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+  }
+
   <div class="stat-grid">
     <div class="stat-tile">
       <span class="stat-label">Mapping</span>
@@ -149,7 +226,7 @@
                   {{ statusLabel(mapping.status) }}
                 </span>
               </td>
-              <td class="recent-date">{{ mapping.updatedAt | date: 'dd.MM.yyyy, HH:mm' }}</td>
+              <td class="recent-date">{{ mapping.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</td>
               <td class="chevron-cell">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />

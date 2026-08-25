@@ -31,9 +31,10 @@ public class MappingsController(IMappingService mappingService) : ControllerBase
     [HttpGet("page")]
     public async Task<ActionResult<PagedResult<MappingDto>>> GetPage(
         [FromQuery] int pageIndex = 0, [FromQuery] int pageSize = 10, [FromQuery] SortOption sort = SortOption.RecentFirst,
-        [FromQuery] string? search = null, [FromQuery] MappingStatus? status = null, [FromQuery] string? kurumId = null)
+        [FromQuery] string? search = null, [FromQuery] MappingStatus? status = null, [FromQuery] string? kurumId = null,
+        [FromQuery] string? createdBy = null)
     {
-        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search, status, kurumId);
+        var result = await mappingService.GetPagedAsync(pageIndex, pageSize, sort, search, status, kurumId, createdBy);
         return Ok(result);
     }
 

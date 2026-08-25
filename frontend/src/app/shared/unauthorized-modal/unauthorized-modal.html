@@ -1,0 +1,10 @@
+@if (pageAccessService.denied()) {
+  <div class="modal-backdrop" (click)="dismiss()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <p class="unauthorized-message">Bu sayfa için yetkiniz yok.</p>
+      <div class="unauthorized-actions">
+        <button type="button" mat-flat-button (click)="dismiss()">Tamam</button>
+      </div>
+    </div>
+  </div>
+}

@@ -8,6 +8,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MappingService } from '../../../core/services/mapping.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { PageAccessService } from '../../../core/services/page-access.service';
 import { Mapping, MappingStatus } from '../../../core/models/mapping.model';
 import { SortOption } from '../../../core/models/paged-result.model';
 
@@ -20,6 +21,7 @@ import { SortOption } from '../../../core/models/paged-result.model';
 export class ApprovalQueue implements OnInit, OnDestroy {
   private readonly mappingService = inject(MappingService);
   private readonly toastService = inject(ToastService);
+  private readonly pageAccessService = inject(PageAccessService);
 
   // Ece'nin karari (2026-08-19): tek bir kuyruk yerine uc sekme - Bekleyenler
   // (varsayilan, aksiyon alinabilir), Onaylanan, Reddedilen (ikisi de salt
@@ -66,7 +68,13 @@ export class ApprovalQueue implements OnInit, OnDestroy {
   );
   private readonly onScroll = () => this.hideReasonTooltip();
 
+  // role.guard.ts/PageAccessService ile ayni gerekce (bkz. user-list.ts'teki
+  // ayni yorum) - yetkisiz erisimde veri cekmeyi hic denemiyoruz.
   ngOnInit(): void {
+    if (this.pageAccessService.denied()) {
+      this.loading.set(false);
+      return;
+    }
     this.loadMappings();
     window.addEventListener('scroll', this.onScroll, true);
   }

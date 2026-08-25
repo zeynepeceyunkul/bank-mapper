@@ -144,6 +144,257 @@
     color: #ffc72c;
   }
 
+  // .approval-banner ile ayni desen, kirmizi/reddedilen palete (Ece'nin
+  // karari, 2026-08-22: mapping tanimlayan kisi reddedilen mapping'ini
+  // Panel'e girer girmez gormeli, "Kayitli Mapping'ler"e gidip filtre
+  // uygulamasini beklemek pasif kaliyordu).
+  // <a routerLink> yerine artik <button> (bkz. dashboard.ts'teki
+  // toggleRejectedModal) - bir sayfaya gitmiyor, pop-up aciyor. Genislik/
+  // hizalama/font sifirlamalari (width, text-align, font-family) butonun
+  // <a>'nin varsayilan davranisini taklit etmesi icin; hover'daki
+  // !important, styles.scss'teki genel button:hover kuralinin ozgullukte
+  // daha guclu olup ustune binmesini engelliyor (ayni sorun profil menusu
+  // butonlarinda da vardi, bkz. app.scss).
+  .rejection-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #fdecea;
+    border: 1px solid #f5c6c2;
+    border-radius: 1rem;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms;
+
+    &:hover {
+      background: #fbdcda !important;
+    }
+  }
+
+  .rejection-banner-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: #b3261e;
+    color: #fff;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .rejection-banner-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .rejection-banner-title {
+    font-size: 0.875rem;
+    color: #b3261e;
+
+    strong {
+      color: #8f1e18;
+    }
+  }
+
+  .rejection-banner-subtitle {
+    font-size: 0.75rem;
+    color: rgba(179, 38, 30, 0.7);
+  }
+
+  .rejection-banner-chevron {
+    flex-shrink: 0;
+    color: #b3261e;
+  }
+
+  // .rejection-banner ile ayni desen, yesil/onaylanan palete (Ece'nin
+  // karari, 2026-08-22: red icin yapilanin ayni sekilde onay icin de
+  // olmasi, ama gerekce olmadan - onayin bir aciklamasi yok).
+  .approved-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 1rem;
+    font-family: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms;
+
+    &:hover {
+      background: #d5ecd7 !important;
+    }
+  }
+
+  .approved-banner-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: #2e7d32;
+    color: #fff;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .approved-banner-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .approved-banner-title {
+    font-size: 0.875rem;
+    color: #2e7d32;
+
+    strong {
+      color: #1e5f22;
+    }
+  }
+
+  .approved-banner-subtitle {
+    font-size: 0.75rem;
+    color: rgba(46, 125, 50, 0.7);
+  }
+
+  .approved-banner-chevron {
+    flex-shrink: 0;
+    color: #2e7d32;
+  }
+
+  // confirm-dialog.scss/mapping-editor.scss'teki ayni modal-backdrop/modal-box
+  // deseni (kasitli tekrar, bu uygulamada ortak bir modal bilesenine
+  // cikarilmiyor).
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4rem 1rem;
+    z-index: 40;
+    animation: modal-backdrop-fade-in 150ms ease;
+  }
+
+  .modal-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.25rem;
+    max-width: 480px;
+    width: 100%;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.2),
+      0 2px 8px rgba(0, 0, 0, 0.12);
+    animation: modal-box-scale-in 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  @keyframes modal-backdrop-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modal-box-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+
+    h3 {
+      margin: 0;
+      font-size: 1.0625rem;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+  }
+
+  .rejected-modal-box {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .rejected-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    a {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0.75rem 0.25rem;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: background-color 150ms;
+
+      &:hover {
+        background: #fdecea;
+      }
+    }
+  }
+
+  .rejected-item-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  .rejected-item-reason {
+    font-size: 0.8125rem;
+    color: #b3261e;
+  }
+
   .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

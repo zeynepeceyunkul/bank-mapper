@@ -10,6 +10,12 @@ public class AuthService(
     IEmailSender emailSender) : IAuthService
 {
     private const int VerificationTokenValidHours = 24;
+
+    // Dogrulama linkinden (24 saat) BILEREK daha kisa - bu token sadece
+    // e-posta sahipligini degil, dogrudan hesaba TAM ERISIMI (yeni sifre
+    // belirleme, dolayisiyla hesabi ele gecirme) veriyor, bu yuzden acik
+    // kalma penceresi daha dar tutulmali.
+    private const int PasswordResetTokenValidHours = 1;
     private readonly PasswordHasher<User> _passwordHasher = new();
 
     public async Task RegisterAsync(RegisterRequest request)
@@ -115,11 +121,68 @@ public class AuthService(
         await emailSender.SendVerificationEmailAsync(user.Email, user.EmailVerificationToken!);
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var email = NormalizeEmail(request.Email);
+        var user = await userRepository.GetByEmailAsync(email);
+
+        // ResendVerificationAsync'teki ayni enumeration-onlemi deseni: hesabin
+        // var olup olmadigini disariya sizdirmiyoruz, bu metod her zaman ayni
+        // sekilde "basarili" davranir (controller de her zaman ayni yaniti
+        // doner), gercek gonderim sadece var olan bir hesap icin olur.
+        // EmailVerified sarti YOK (ResendVerification'in aksine) - dogrulanmamis
+        // bir hesabin da sifresi "unutulmus" olabilir, sifre sifirlama e-posta
+        // dogrulamayla ilgisiz bagimsiz bir islem.
+        if (user is null)
+        {
+            return;
+        }
+
+        SetNewPasswordResetToken(user);
+        await userRepository.UpdateAsync(user);
+        await emailSender.SendPasswordResetEmailAsync(user.Email, user.PasswordResetToken!);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        var email = NormalizeEmail(request.Email);
+        var user = await userRepository.GetByEmailAsync(email);
+
+        if (user is null
+            || user.PasswordResetToken != request.Token
+            || user.PasswordResetTokenExpiresAt is null
+            || user.PasswordResetTokenExpiresAt < DateTime.UtcNow)
+        {
+            throw new ArgumentException("Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.");
+        }
+
+        if (request.Password.Length < 8)
+        {
+            throw new ArgumentException("Şifre en az 8 karakter olmalı.");
+        }
+
+        if (request.Password != request.PasswordConfirm)
+        {
+            throw new ArgumentException("Şifreler eşleşmiyor.");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        user.PasswordResetToken = null;
+        user.PasswordResetTokenExpiresAt = null;
+        await userRepository.UpdateAsync(user);
+    }
+
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
     private static void SetNewVerificationToken(User user)
     {
         user.EmailVerificationToken = Guid.NewGuid().ToString("N");
         user.EmailVerificationTokenExpiresAt = DateTime.UtcNow.AddHours(VerificationTokenValidHours);
+    }
+
+    private static void SetNewPasswordResetToken(User user)
+    {
+        user.PasswordResetToken = Guid.NewGuid().ToString("N");
+        user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(PasswordResetTokenValidHours);
     }
 }

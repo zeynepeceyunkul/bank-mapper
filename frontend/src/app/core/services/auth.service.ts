@@ -3,10 +3,12 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  ForgotPasswordRequest,
   LoginRequest,
   LoginResult,
   RegisterRequest,
   ResendVerificationRequest,
+  ResetPasswordRequest,
   VerifyEmailRequest,
 } from '../models/auth.model';
 
@@ -49,6 +51,14 @@ export class AuthService {
 
   resendVerification(request: ResendVerificationRequest): Observable<void> {
     return this.http.post<void>(`${environment.apiUrl}/auth/resend-verification`, request);
+  }
+
+  forgotPassword(request: ForgotPasswordRequest): Observable<void> {
+    return this.http.post<void>(`${environment.apiUrl}/auth/forgot-password`, request);
+  }
+
+  resetPassword(request: ResetPasswordRequest): Observable<void> {
+    return this.http.post<void>(`${environment.apiUrl}/auth/reset-password`, request);
   }
 
   logout(): void {

@@ -9,4 +9,8 @@ public interface IAuthService
     Task VerifyEmailAsync(VerifyEmailRequest request);
 
     Task ResendVerificationAsync(ResendVerificationRequest request);
+
+    Task ForgotPasswordAsync(ForgotPasswordRequest request);
+
+    Task ResetPasswordAsync(ResetPasswordRequest request);
 }

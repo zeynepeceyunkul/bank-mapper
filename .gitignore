@@ -4,6 +4,11 @@ backend/**/obj/
 backend/*.user
 backend/**/logs/
 
+# Cloud Run'a deploy icin kullanilan, duz metin sirlar (Mongo/JWT/SMTP/Gemini)
+# iceren dosya - asla commit edilmemeli (bkz. 2026-08-24 deploy oturumu).
+backend/env-vars.yaml
+backend/build-log.txt
+
 # Angular / Node
 frontend/node_modules/
 frontend/dist/
@@ -11,6 +16,9 @@ frontend/.angular/
 frontend/out-tsc/
 frontend/coverage/
 npm-debug.log*
+
+# Firebase CLI'nin yerel deploy onbellegi - makineye ozel, commit edilmemeli.
+frontend/.firebase/
 
 # IDE
 .vs/

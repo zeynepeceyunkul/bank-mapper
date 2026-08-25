@@ -150,6 +150,14 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   @Output() readonly graphChanged = new EventEmitter<void>();
+  // Bagalanti listesinden (mapping-editor.html'deki .connection-list) hangi
+  // baglantinin secili oldugunu bulmak zordu - Ece'nin istegi (2026-08-24):
+  // canvas'ta bir baglanti cizgisine tiklayinca listede karsiligi
+  // vurgulansin. Bu output sadece tiklanan edge'in id'sini (ya da bos alana
+  // tiklaninca secim kalktigi icin null) disari veriyor, secimin GORSEL
+  // (kalin/renkli cizgi) hali burada kaliyor - liste tarafi sadece hangi
+  // satirin vurgulanacagini biliyor.
+  @Output() readonly edgeSelected = new EventEmitter<string | null>();
 
   @ViewChild('canvasHost', { static: true }) canvasHostRef!: ElementRef<HTMLDivElement>;
 
@@ -168,6 +176,11 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // node'larda calismasi gereken bu kisayolu, bizim kendi programatik
   // addNode cagrilarimiz sirasinda devre disi birakiyor.
   private suppressAutoAttach = false;
+  // edgeSelected/onEdgeClick ile ayni ozellik - secili edge'in cizgisini
+  // kalinlastirip renklendirmek icin id'sini tutuyoruz, boylece baska bir
+  // edge'e tiklaninca ya da bos alana tiklaninca eskisini varsayilan
+  // renge/kaline geri dondurebiliyoruz.
+  private highlightedEdgeId: string | null = null;
   private canvasWidth = CANVAS_WIDTH;
   private canvasHeight = CANVAS_HEIGHT;
   private readonly onWindowResize = (): void => this.handleWindowResize();
@@ -219,7 +232,14 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       this.dedupeIncomingEdges(edge);
       this.emitGraphChanged();
     });
-    this.graph.on('edge:removed', () => this.emitGraphChanged());
+    this.graph.on('edge:removed', ({ edge }) => {
+      if (this.highlightedEdgeId === edge.id) {
+        this.highlightedEdgeId = null;
+        this.edgeSelected.emit(null);
+      }
+      this.emitGraphChanged();
+    });
+    this.graph.on('edge:click', ({ edge }) => this.onEdgeClick(edge));
     this.graph.on('node:added', ({ node }) => {
       if (!this.suppress && !this.suppressAutoAttach) {
         this.tryAttachToNearbyConnection(node);
@@ -248,6 +268,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.graph.on('blank:click', () => {
       this.paramPanel.set(null);
       this.constantEdit.set(null);
+      this.setHighlightedEdge(null);
+      this.edgeSelected.emit(null);
     });
 
     this.rebuildTargetNode();
@@ -1272,6 +1294,35 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.graph.removeCell(id);
   }
 
+  private onEdgeClick(edge: Edge): void {
+    this.setHighlightedEdge(edge.id);
+    this.edgeSelected.emit(edge.id);
+  }
+
+  // Butun edge'ler ayni varsayilan renk/kalinlikla olusturuluyor
+  // (bkz. createEdge/attachEdge cagrilari, '#56708a' / strokeWidth 2), o
+  // yuzden eski secimi bu sabit degerlere geri dondurmek guvenli.
+  private setHighlightedEdge(id: string | null): void {
+    if (this.highlightedEdgeId) {
+      const prev = this.graph.getCellById(this.highlightedEdgeId);
+      if (prev) {
+        prev.attr('line/stroke', '#56708a');
+        prev.attr('line/strokeWidth', 2);
+      }
+    }
+    this.highlightedEdgeId = id;
+    if (id) {
+      const next = this.graph.getCellById(id);
+      if (next) {
+        // styles.scss'teki --mat-sys-tertiary (VakifBank altin rengi) ile ayni
+        // ton - X6 SVG'ye dogrudan attr basiyor, CSS custom property'yi burada
+        // kullanamiyoruz.
+        next.attr('line/stroke', '#ffc72c');
+        next.attr('line/strokeWidth', 3);
+      }
+    }
+  }
+
   getSourceSchemaIds(): string[] {
     return this.graph
       .getNodes()
@@ -1361,7 +1412,17 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     return { sourceSchemas, functoidNodes, constantNodes, edges: this.graph.getEdges().map((e) => this.edgeCellToGraphEdge(e)) };
   }
 
-  private loadSnapshot(snapshot: MappingCanvasSnapshot): void {
+  // Hedef kutusu disindaki HER SEYI (kaynak sema kutulari, functoid/sabit
+  // deger node'lari, tum baglantilar) temizliyor - loadSnapshot()'in zaten
+  // yaptigi ilk adimin disari cikarilmis hali (asagida onu da kullanir).
+  // mapping-editor.ts'teki confirmHedef() de bunu Urun/Dosya Tipi
+  // DEGISTIRILDIGINDE (var olan bir hedef zaten varken) kullaniyor - eskiden
+  // sadece MappingEditor'un KENDI usedSourceSchemaIds/connections sinyalleri
+  // sifirlaniyordu, canvas'taki gercek X6 node'lari yerinde kalip yeni hedefe
+  // "yetim" olarak asili kaliyordu (Ece'nin istegiyle yapilan kapsamli
+  // taramada bulunan pre-existing bug, bkz. [[project_known_minor_issues]]
+  // madde 5 - 2026-07-21'den beri bilinen bir rahatsizlikti).
+  clearSourceContent(): void {
     const previousSuppress = this.suppress;
     this.suppress = true;
 
@@ -1373,6 +1434,19 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
     this.paramPanel.set(null);
     this.constantEdit.set(null);
     this.suggestions.set([]);
+    this.setHighlightedEdge(null);
+
+    this.suppress = previousSuppress;
+    if (!this.suppress) {
+      this.emitGraphChanged();
+    }
+  }
+
+  private loadSnapshot(snapshot: MappingCanvasSnapshot): void {
+    const previousSuppress = this.suppress;
+    this.suppress = true;
+
+    this.clearSourceContent();
 
     for (const ref of snapshot.sourceSchemas) {
       const schema = this.allSourceSchemas.find((s) => s.id === ref.sourceSchemaId);

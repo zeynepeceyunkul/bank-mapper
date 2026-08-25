@@ -203,6 +203,135 @@ public class AuthServiceTests
         Assert.Empty(emailSender.SentTo);
     }
 
+    [Fact]
+    public async Task ForgotPasswordAsync_sends_a_reset_email_for_an_existing_user()
+    {
+        var repository = new FakeUserRepository();
+        var emailSender = new FakeEmailSender();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), emailSender);
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+
+        var user = await repository.GetByEmailAsync("ece@vakifbank.com.tr");
+        Assert.NotNull(user!.PasswordResetToken);
+        Assert.Equal(2, emailSender.SentTo.Count);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_silently_does_nothing_for_an_unknown_email()
+    {
+        var emailSender = new FakeEmailSender();
+        var service = new AuthService(new FakeUserRepository(), new FakeJwtTokenGenerator(), emailSender);
+
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "yok@vakifbank.com.tr" });
+
+        Assert.Empty(emailSender.SentTo);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_works_for_an_unverified_user_too()
+    {
+        // Sifre sifirlama e-posta dogrulamayla ilgisiz bagimsiz bir islem -
+        // henuz dogrulanmamis bir hesabin da sifresi "unutulmus" olabilir.
+        var repository = new FakeUserRepository();
+        var emailSender = new FakeEmailSender();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), emailSender);
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+        emailSender.SentTo.Clear();
+
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+
+        Assert.Single(emailSender.SentTo);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_changes_the_password_with_a_valid_token_and_consumes_it()
+    {
+        var repository = new FakeUserRepository();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), new FakeEmailSender());
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "eskiSifre1", PasswordConfirm = "eskiSifre1" });
+        await VerifyDirectlyAsync(repository, "ece@vakifbank.com.tr");
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+        var token = (await repository.GetByEmailAsync("ece@vakifbank.com.tr"))!.PasswordResetToken!;
+
+        await service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = token, Password = "yeniSifre1", PasswordConfirm = "yeniSifre1" });
+
+        var user = await repository.GetByEmailAsync("ece@vakifbank.com.tr");
+        Assert.Null(user!.PasswordResetToken);
+        var loginResult = await service.LoginAsync(new LoginRequest { Email = "ece@vakifbank.com.tr", Password = "yeniSifre1" });
+        Assert.Equal("ece@vakifbank.com.tr", loginResult.Email);
+
+        // Token tek kullanimlik - ayni token'i tekrar kullanmaya calismak
+        // artik "gecersiz" hatasi vermeli (VerifyEmailAsync'teki ayni tek-
+        // kullanimlik desen).
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = token, Password = "baskaSifre1", PasswordConfirm = "baskaSifre1" }));
+        Assert.Contains("geçersiz", ex.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_rejects_a_wrong_token()
+    {
+        var repository = new FakeUserRepository();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), new FakeEmailSender());
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = "yanlis-token", Password = "yeniSifre1", PasswordConfirm = "yeniSifre1" }));
+
+        Assert.Contains("geçersiz", ex.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_rejects_an_expired_token()
+    {
+        var repository = new FakeUserRepository();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), new FakeEmailSender());
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+        var user = (await repository.GetByEmailAsync("ece@vakifbank.com.tr"))!;
+        var token = user.PasswordResetToken!;
+        user.PasswordResetTokenExpiresAt = DateTime.UtcNow.AddHours(-1);
+        await repository.UpdateAsync(user);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = token, Password = "yeniSifre1", PasswordConfirm = "yeniSifre1" }));
+
+        Assert.Contains("süresi dolmuş", ex.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_rejects_a_password_shorter_than_8_characters()
+    {
+        var repository = new FakeUserRepository();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), new FakeEmailSender());
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+        var token = (await repository.GetByEmailAsync("ece@vakifbank.com.tr"))!.PasswordResetToken!;
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = token, Password = "kisa1", PasswordConfirm = "kisa1" }));
+
+        Assert.Contains("en az 8", ex.Message);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_rejects_mismatched_password_confirmation()
+    {
+        var repository = new FakeUserRepository();
+        var service = new AuthService(repository, new FakeJwtTokenGenerator(), new FakeEmailSender());
+        await service.RegisterAsync(new RegisterRequest { Email = "ece@vakifbank.com.tr", Password = "gecerliSifre1", PasswordConfirm = "gecerliSifre1" });
+        await service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "ece@vakifbank.com.tr" });
+        var token = (await repository.GetByEmailAsync("ece@vakifbank.com.tr"))!.PasswordResetToken!;
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest { Email = "ece@vakifbank.com.tr", Token = token, Password = "yeniSifre1", PasswordConfirm = "farkliSifre1" }));
+
+        Assert.Contains("eşleşmiyor", ex.Message);
+    }
+
     private static async Task VerifyDirectlyAsync(FakeUserRepository repository, string email)
     {
         var user = (await repository.GetByEmailAsync(email))!;
@@ -252,6 +381,12 @@ public class AuthServiceTests
         public List<string> SentTo { get; } = [];
 
         public Task SendVerificationEmailAsync(string toEmail, string token)
+        {
+            SentTo.Add(toEmail);
+            return Task.CompletedTask;
+        }
+
+        public Task SendPasswordResetEmailAsync(string toEmail, string token)
         {
             SentTo.Add(toEmail);
             return Task.CompletedTask;

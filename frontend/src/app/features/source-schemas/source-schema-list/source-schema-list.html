@@ -145,14 +145,17 @@
     <div class="list-header">
       <h3>Kayıtlı Source Şemalar</h3>
       <div class="list-header-actions">
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Ada göre ara..."
-          aria-label="Şema ara"
-          [value]="search()"
-          (input)="onSearchChange($any($event.target).value)"
-        />
+        <div class="search-field">
+          <mat-icon>search</mat-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Ada göre ara..."
+            aria-label="Şema ara"
+            [value]="search()"
+            (input)="onSearchChange($any($event.target).value)"
+          />
+        </div>
         <select class="sort-select" aria-label="Sırala" (change)="onSortChange($any($event.target).value)">
           <option value="NameAscending" [selected]="sort() === 'NameAscending'">Ad (A→Z)</option>
           <option value="NameDescending" [selected]="sort() === 'NameDescending'">Ad (Z→A)</option>

@@ -125,7 +125,7 @@
             <th>Mapping</th>
             <th>İşlem</th>
             <th>Durum</th>
-            <th>Ne Zaman</th>
+            <th>Tarih ve Saat</th>
           </tr>
         </thead>
         <tbody>
@@ -174,7 +174,7 @@
                   }
                 </div>
               </td>
-              <td class="run-date">{{ relativeTime(run.runAt) }}</td>
+              <td class="run-date">{{ run.runAt | date: 'dd.MM.yyyy HH:mm' }}</td>
             </tr>
           }
         </tbody>

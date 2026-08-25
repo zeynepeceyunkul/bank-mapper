@@ -42,26 +42,69 @@
       border: 1.5px solid #c4c4c4;
       border-radius: 50%;
       flex-shrink: 0;
+
+      // "Sadece Benim" ikon-butonu bu sinifi paylasiyor - aktifken (Ece'nin
+      // karari, 2026-08-22: metin+checkbox yerine ikon-buton, dar 640px'lik
+      // modalda "+ Yeni Mapping"i kaydiran eski coz umden daha az yer kapliyor)
+      // altin dolgu ile secili oldugu belli oluyor.
+      &.active {
+        background: var(--mat-sys-tertiary);
+        color: #1a1a1a;
+        border-color: var(--mat-sys-tertiary);
+      }
     }
   }
 
+  // institution-list.scss/user-list.scss'teki kanonik arama/dropdown stili -
+  // Ece'nin karari (2026-08-22): daha eski sayfalarda kalan sade stil
+  // (6px köşe, ikonsuz) yerine daha sonraki Figma Make yenilemesinden gelen
+  // bu stile (10px/14px dolgu, 12px köşe, odak halkasi, arama ikonu)
+  // gectirildi - genel bir tasarim tutarliligi karari, sadece bu sayfaya
+  // ozgu degil.
   .sort-select,
   .status-filter-select,
   .search-input {
-    padding: 6px 8px;
+    padding: 10px 14px;
     border: 1px solid var(--mat-sys-outline, #c4c4c4);
-    border-radius: 6px;
-    font-size: 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8125rem;
     color: #1a1a1a;
     background: #fff;
+
+    &::placeholder {
+      color: #b0b0b0;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mat-sys-tertiary);
+      box-shadow: 0 0 0 2px rgba(255, 199, 44, 0.3);
+    }
   }
 
   // Kontroller artik kendi satirinda (bkz. .header flex-wrap), baslikla yer
   // paylasmiyor - onceki dar genislikler (84/118/92px, ellipsis'e dusen
   // metinlerle) modal tek satira sigdirmaya calisirken gerekliydi, artik
   // gerek yok.
-  .search-input {
+  .search-field {
+    position: relative;
     width: 160px;
+    display: flex;
+    align-items: center;
+
+    mat-icon {
+      position: absolute;
+      left: 10px;
+      color: #9e9e9e;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding-left: 34px;
+    }
   }
 
   .sort-select {
@@ -74,6 +117,7 @@
 
   .status-filter-select {
     width: 130px;
+    cursor: pointer;
   }
 
   table {
@@ -167,5 +211,16 @@
     background: #fdecea;
     color: #b3261e;
     border: 1px solid #ffcdd2;
+  }
+
+  // Red gerekcesi eskiden sadece rozetin native title tooltip'indeydi -
+  // Ece'nin canli bulgusu: hover'a bagimli oldugu icin gorunmuyordu, dogrudan
+  // Durum hucresinin altina yaziliyor (2026-08-22).
+  .rejection-reason {
+    margin: 4px 0 0;
+    font-size: 0.75rem;
+    color: #b3261e;
+    white-space: normal;
+    max-width: 180px;
   }
 }

@@ -65,18 +65,23 @@
               <td class="role-cell">
                 <!-- Tek bir SuperAdmin olacak, kimseye bu rol UYGULAMA UZERINDEN
                      atanamaz (Ece'nin karari, 2026-08-25; backend UserService.
-                     UpdateRoleAsync ayni kisitlamayi zorluyor) - o yuzden
-                     secenek listede duruyor ama secilemez durumda (disabled).
-                     SuperAdmin'in KENDI satirinda ise zaten tum select disabled
-                     (isCurrentUser), o yuzden burada mevcut degerin dogru
-                     gorunmesi icin secenek listeden tamamen CIKARILMIYOR. -->
+                     UpdateRoleAsync ayni kisitlamayi zorluyor). Duzeltme
+                     (2026-08-25): secenek eskiden HERKESIN listesinde
+                     duruyordu (sadece disabled) - Ece'nin fark ettigi gibi hic
+                     kimsenin secemeyecegi bir secenegi baskalarinin listesinde
+                     gostermenin anlami yok. Artik sadece SuperAdmin'in KENDI
+                     satirinda goruniyor (zaten o satirda tum select
+                     isCurrentUser ile disabled, mevcut degeri dogru gostermek
+                     icin var) - digerlerinin listesinden tamamen cikarildi. -->
                 <select
                   class="role-select"
                   [disabled]="isCurrentUser(user)"
                   (change)="onRoleChange(user, $any($event.target))"
                 >
                   @for (role of roles; track role) {
-                    <option [value]="role" [selected]="user.role === role" [disabled]="role === 'SuperAdmin'">{{ role }}</option>
+                    @if (role !== 'SuperAdmin' || user.role === 'SuperAdmin') {
+                      <option [value]="role" [selected]="user.role === role" [disabled]="role === 'SuperAdmin'">{{ role }}</option>
+                    }
                   }
                 </select>
               </td>

@@ -8,7 +8,8 @@ public interface IMappingService
     Task<List<MappingDto>> GetAllAsync(MappingStatus? status = null, string? kurumId = null);
 
     Task<PagedResult<MappingDto>> GetPagedAsync(
-        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null, string? kurumId = null);
+        int pageIndex, int pageSize, SortOption sort, string? search = null, MappingStatus? status = null,
+        string? kurumId = null, string? createdBy = null);
 
     Task<MappingDto?> GetByIdAsync(string id);
 

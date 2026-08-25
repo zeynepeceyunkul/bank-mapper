@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,7 +29,7 @@ import { SortOption } from '../../../core/models/paged-result.model';
   templateUrl: './mapping-list.html',
   styleUrl: './mapping-list.scss',
 })
-export class MappingList implements OnInit {
+export class MappingList implements OnInit, OnDestroy {
   private readonly mappingService = inject(MappingService);
   private readonly toastService = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
@@ -66,6 +66,16 @@ export class MappingList implements OnInit {
   // bile) Onaylar'a hic girmeden bulabilmesini sagliyor.
   readonly onlyMine = signal(false);
 
+  // approval-queue.ts'teki reasonTooltip ile ayni desen: red gerekcesi tek
+  // satira sigmiyorsa satirin kendisini genisletmek/coklu satira sarmak
+  // yerine (eskiden .rejection-reason'da white-space:normal ile boyleydi -
+  // Ece'nin fark ettigi gibi tabloyu bozuyordu), tek satira kesilip hover'da
+  // bu balonla tam metin gosteriliyor.
+  readonly reasonTooltip = signal<{ text: string; left: number; top: number | null; bottom: number | null } | null>(
+    null,
+  );
+  private readonly onScroll = () => this.hideReasonTooltip();
+
   @Output() readonly newMapping = new EventEmitter<void>();
   @Output() readonly mappingDeleted = new EventEmitter<string>();
   // mapping-editor.html'de bu liste "Kayıtlı Mapping'ler" modalı icinde
@@ -86,6 +96,39 @@ export class MappingList implements OnInit {
       next: (institutions) => this.institutions.set(institutions),
       error: () => {}, // sessiz gec - preview-execute.ts'teki ayni desen, Kurum sutunu ikincil bir bilgi
     });
+
+    window.addEventListener('scroll', this.onScroll, true);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('scroll', this.onScroll, true);
+  }
+
+  // approval-queue.ts'teki showReasonTooltip ile ayni mantik: metin zaten
+  // tek satira sigiyorsa (kisa bir gerekceyse) balon hic gosterilmiyor.
+  showReasonTooltip(event: MouseEvent, text: string): void {
+    const el = event.currentTarget as HTMLElement;
+    if (el.scrollWidth <= el.clientWidth) {
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const tooltipWidth = 360;
+    const margin = 6;
+
+    const showAbove = window.innerHeight - rect.bottom < 120;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - tooltipWidth - 16));
+
+    this.reasonTooltip.set({
+      text,
+      left,
+      top: showAbove ? null : rect.bottom + margin,
+      bottom: showAbove ? window.innerHeight - rect.top + margin : null,
+    });
+  }
+
+  hideReasonTooltip(): void {
+    this.reasonTooltip.set(null);
   }
 
   loadMappings(): void {
@@ -156,7 +199,7 @@ export class MappingList implements OnInit {
   // deleteMapping()'in basinda yapiliyor. Backend'de de ayni kisitlama var
   // (MappingsController).
   canManageMappings(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner');
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner');
   }
 
   // /mapping/edit/:id'ye giris yapabilecek rol seti (app.routes.ts'teki ayni
@@ -166,7 +209,7 @@ export class MappingList implements OnInit {
   // roleGuard'in actigi tam sayfa modaline birakiyordu - ayni satirdaki Sil
   // butonuyla tutarsizdi (biri toast, digeri sayfa degisip modal).
   canOpenMapping(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner', 'Approver');
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner', 'Approver');
   }
 
   openMapping(mapping: Mapping): void {

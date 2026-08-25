@@ -1,21 +1,40 @@
 <section class="institution-list">
+  @if (showAddPermissionNotice()) {
+    <div class="modal-backdrop" (click)="dismissAddPermissionNotice()">
+      <div class="modal-box notice-modal-box" (click)="$event.stopPropagation()">
+        <p class="unauthorized-message">
+          Yeni kurum ekleme yetkiniz yok. Bu sayfayı sadece kayıtlı kurumları görüntülemek için kullanabilirsiniz.
+        </p>
+        <div class="unauthorized-actions">
+          <button type="button" mat-flat-button (click)="dismissAddPermissionNotice()">Tamam</button>
+        </div>
+      </div>
+    </div>
+  }
+
   <div class="page-header">
     <h2>Kurumlar</h2>
     <p class="page-subtitle">Mapping'lere etiketlenecek banka ve finans kurumlarını yönetin.</p>
   </div>
 
-  <div class="add-card">
-    <p class="add-card-label">Yeni Kurum Ekle</p>
+  <div class="add-card" [class.locked]="!canManageInstitutions()">
+    <p class="add-card-label">
+      Yeni Kurum Ekle
+      @if (!canManageInstitutions()) {
+        <mat-icon class="add-card-lock-icon" aria-hidden="true">lock</mat-icon>
+      }
+    </p>
     <div class="add-card-row">
       <input
         type="text"
         class="new-institution-input"
         placeholder="Kurum adı girin"
         aria-label="Yeni kurum adı"
+        [disabled]="!canManageInstitutions()"
         [(ngModel)]="newInstitutionName"
         (keydown.enter)="createInstitution()"
       />
-      <button type="button" mat-flat-button [disabled]="creating() || !newInstitutionName.trim()" (click)="createInstitution()">
+      <button type="button" mat-flat-button [disabled]="creating() || !newInstitutionName.trim() || !canManageInstitutions()" (click)="createInstitution()">
         Ekle
       </button>
     </div>

@@ -43,8 +43,21 @@ export class InstitutionList implements OnInit {
   newInstitutionName = '';
   readonly creating = signal(false);
 
+  // mapping-editor.ts'teki showCreatePermissionNotice ile ayni desen
+  // (Ece'nin istegi, 2026-08-25): kurum ekleme yetkisi olmayan (Viewer/
+  // Approver) bir rol bu sayfaya ilk girdiginde, sadece goruntuleyebildigini
+  // aciklayan bir uyari cikiyor.
+  readonly showAddPermissionNotice = signal(false);
+
   ngOnInit(): void {
+    if (!this.canManageInstitutions()) {
+      this.showAddPermissionNotice.set(true);
+    }
     this.loadInstitutions();
+  }
+
+  dismissAddPermissionNotice(): void {
+    this.showAddPermissionNotice.set(false);
   }
 
   // "Ekle" formu/Sil butonu gizlenmiyor (bu oturumda kurdugumuz "gizle degil
@@ -52,7 +65,7 @@ export class InstitutionList implements OnInit {
   // gercek kisitlama burada ve createInstitution/deleteInstitution'in
   // basinda yapiliyor.
   canManageInstitutions(): boolean {
-    return this.authService.hasRole('Admin', 'MappingDefiner');
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner');
   }
 
   loadInstitutions(): void {

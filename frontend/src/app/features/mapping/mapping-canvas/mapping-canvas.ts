@@ -384,13 +384,26 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // silinmiyordu - sadece hedef node'a bagli olanlar gidiyordu). position()
   // ile tasima, X6'nin edge'leri portlarina gore otomatik takip etmesini
   // saglar, hicbir edge kopmaz.
+  // node:change:position handler'i her tasimada emitGraphChanged() cagiriyor
+  // (bkz. ngAfterViewInit) - bu, GERCEK bir kullanici surukleme'siyle aymi
+  // kod yolunu paylasiyor. Hedef kutusunun x/y'si zaten kaydedilen snapshot'in
+  // (getSnapshot()) bir parcasi DEGIL - sadece pencere genisligine gore
+  // hesaplanan gorsel bir konumlandirma. Bu yuzden burada suppress ile
+  // sarmalamazsak, salt REVIEW icin bir mapping'i acmis biri (canvas'a hic
+  // dokunmadan) pencere/DevTools boyutu degisince mapping-editor.ts'te
+  // isDirty=true'ya dusuyordu - Onayla/Reddet sonrasi "kaydedilmemis
+  // degisiklikleriniz var" diye gercek disi bir uyari cikip navigasyonu
+  // engelliyordu (Ece'nin sunum sirasinda canli yasadigi bug, 2026-08-24).
   private repositionTargetNode(): void {
     const existing = this.graph.getCellById(TARGET_NODE_ID) as Node | undefined;
     if (!existing) {
       return;
     }
+    const previousSuppress = this.suppress;
+    this.suppress = true;
     const x = this.canvasWidth - SCHEMA_BOX_WIDTH - 60;
     existing.position(x, 20);
+    this.suppress = previousSuppress;
   }
 
   // --- Node config üreticileri ---

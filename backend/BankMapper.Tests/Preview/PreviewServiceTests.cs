@@ -156,6 +156,8 @@ public class PreviewServiceTests
 
         public Task<Mapping?> UpdateAsync(Mapping m) => Task.FromResult<Mapping?>(m);
 
+        public Task<Mapping?> UpdateIfStatusAsync(Mapping m, MappingStatus expectedCurrentStatus) => Task.FromResult<Mapping?>(m);
+
         public Task<bool> DeleteAsync(string id) => Task.FromResult(true);
     }
 

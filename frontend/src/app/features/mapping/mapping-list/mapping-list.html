@@ -90,8 +90,14 @@
           <span class="status-badge" [class]="'status-' + mapping.status.toLowerCase()">
             {{ statusLabel(mapping.status) }}
           </span>
-          @if (mapping.status === 'Rejected' && mapping.rejectionReason) {
-            <p class="rejection-reason">{{ mapping.rejectionReason }}</p>
+          @if (mapping.status === 'Rejected' && mapping.rejectionReason; as reason) {
+            <p
+              class="rejection-reason"
+              (mouseenter)="showReasonTooltip($event, reason)"
+              (mouseleave)="hideReasonTooltip()"
+            >
+              {{ reason }}
+            </p>
           }
         </td>
       </ng-container>
@@ -122,5 +128,16 @@
       [pageSizeOptions]="pageSizeOptions"
       (page)="onPageChange($event)"
     />
+  }
+
+  @if (reasonTooltip(); as tooltip) {
+    <div
+      class="reason-tooltip"
+      [style.left.px]="tooltip.left"
+      [style.top.px]="tooltip.top"
+      [style.bottom.px]="tooltip.bottom"
+    >
+      {{ tooltip.text }}
+    </div>
   }
 </section>

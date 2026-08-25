@@ -18,5 +18,15 @@ public interface IMappingRepository
 
     Task<Mapping?> UpdateAsync(Mapping mapping);
 
+    // ApproveAsync/RejectAsync icin - normal UpdateAsync sadece Id'ye gore
+    // yaziyor, iki kisi ayni mapping'i NEREDEYSE AYNI ANDA onaylayip/reddedip
+    // ikisi de C# tarafindaki "Status hala PendingApproval mi" kontrolunu
+    // (okuma anindaki eski veriyle) gecebiliyordu - kim son yazarsa o
+    // kazanip digerinin karari sessizce siliniyordu. Bu metod, filtreye
+    // Status'u da ekleyip Mongo'nun kendisine "sadece hala beklenen durumdaysa
+    // yaz" dedirtiyor - MatchedCount 0 donerse, aradaki sirada baskasi zaten
+    // karara baglamis demektir.
+    Task<Mapping?> UpdateIfStatusAsync(Mapping mapping, MappingStatus expectedCurrentStatus);
+
     Task<bool> DeleteAsync(string id);
 }

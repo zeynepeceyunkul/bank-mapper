@@ -68,7 +68,7 @@ export const routes: Routes = [
         // "Duzenle"ye basinca yetkisiz modali cikmasi gerekiyordu.
         path: 'mapping/edit/:id',
         canActivate: [roleGuard],
-        data: { roles: ['Admin', 'MappingDefiner', 'Approver'] },
+        data: { roles: ['SuperAdmin', 'MappingDefiner', 'Approver'] },
         loadComponent: () =>
           import('./features/mapping/mapping-editor/mapping-editor').then((m) => m.MappingEditor),
         canDeactivate: [unsavedChangesGuard],
@@ -81,7 +81,7 @@ export const routes: Routes = [
         // sekilde genisletildi (bkz. Program.cs).
         path: 'preview',
         canActivate: [roleGuard],
-        data: { roles: ['Admin', 'MappingDefiner', 'Approver'] },
+        data: { roles: ['SuperAdmin', 'MappingDefiner', 'Approver'] },
         loadComponent: () =>
           import('./features/preview/preview-execute/preview-execute').then((m) => m.PreviewExecute),
       },
@@ -93,7 +93,7 @@ export const routes: Routes = [
       {
         path: 'approvals',
         canActivate: [roleGuard],
-        data: { roles: ['Admin', 'Approver'] },
+        data: { roles: ['SuperAdmin', 'Approver'] },
         loadComponent: () =>
           import('./features/approvals/approval-queue/approval-queue').then((m) => m.ApprovalQueue),
       },
@@ -112,7 +112,7 @@ export const routes: Routes = [
       {
         path: 'users',
         canActivate: [roleGuard],
-        data: { roles: ['Admin'] },
+        data: { roles: ['SuperAdmin'] },
         loadComponent: () => import('./features/users/user-list/user-list').then((m) => m.UserList),
       },
     ],

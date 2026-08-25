@@ -178,6 +178,7 @@ public class SourceSchemaServiceTests
         public Task<Mapping?> GetByIdAsync(string id) => Task.FromResult<Mapping?>(null);
         public Task<Mapping> CreateAsync(Mapping mapping) => Task.FromResult(mapping);
         public Task<Mapping?> UpdateAsync(Mapping mapping) => Task.FromResult<Mapping?>(null);
+        public Task<Mapping?> UpdateIfStatusAsync(Mapping mapping, MappingStatus expectedCurrentStatus) => Task.FromResult<Mapping?>(null);
         public Task<bool> DeleteAsync(string id) => Task.FromResult(true);
     }
 }

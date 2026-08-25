@@ -71,13 +71,16 @@
     <mat-expansion-panel
       class="wizard-panel"
       [expanded]="hedefExpanded()"
+      [disabled]="!canEditMapping()"
       (opened)="hedefExpanded.set(true)"
       (closed)="hedefExpanded.set(false)"
     >
       <mat-expansion-panel-header>
         <mat-panel-title>
           <span class="step-badge" [class.done]="hedefConfirmedOnce()">
-            @if (hedefConfirmedOnce()) {
+            @if (!canEditMapping()) {
+              <mat-icon aria-hidden="true">lock</mat-icon>
+            } @else if (hedefConfirmedOnce()) {
               <mat-icon>check</mat-icon>
             } @else {
               1
@@ -87,6 +90,8 @@
         </mat-panel-title>
         @if (!hedefExpanded() && selectedFileType) {
           <mat-panel-description class="breadcrumb">{{ selectedProduct?.name }} › {{ selectedFileType?.name }}</mat-panel-description>
+        } @else if (!canEditMapping()) {
+          <mat-panel-description class="locked-text">Düzenleme yetkiniz yok.</mat-panel-description>
         }
       </mat-expansion-panel-header>
 
@@ -190,18 +195,23 @@
     <div class="kurum-section-header">
       <mat-icon class="kurum-section-icon">account_balance</mat-icon>
       <span class="kurum-section-title">Kurumlar</span>
-      <span class="optional-tag">(opsiyonel)</span>
+      @if (!canEditMapping()) {
+        <mat-icon class="kurum-lock-icon" aria-hidden="true">lock</mat-icon>
+        <span class="locked-text">Düzenleme yetkiniz yok.</span>
+      } @else {
+        <span class="optional-tag">(opsiyonel)</span>
+      }
     </div>
     <div class="kurum-picker">
       <mat-form-field appearance="outline" class="field">
-        <select matNativeControl id="kurumSelect" aria-label="Kurum seçin" [(ngModel)]="newKurumId">
+        <select matNativeControl id="kurumSelect" aria-label="Kurum seçin" [disabled]="!canEditMapping()" [(ngModel)]="newKurumId">
           <option value="" selected>Kurum seçin</option>
           @for (kurum of availableKurumsToAdd; track kurum.id) {
             <option [value]="kurum.id">{{ kurum.name }}</option>
           }
         </select>
       </mat-form-field>
-      <button type="button" mat-flat-button [disabled]="!newKurumId" (click)="addKurum()">Ekle</button>
+      <button type="button" mat-flat-button [disabled]="!newKurumId || !canEditMapping()" (click)="addKurum()">Ekle</button>
     </div>
     @if (usedKurumIds().length > 0) {
       <div class="kurum-pills">

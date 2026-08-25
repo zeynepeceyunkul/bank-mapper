@@ -1,4 +1,4 @@
-export type UserRole = 'Viewer' | 'MappingDefiner' | 'Approver' | 'Admin';
+export type UserRole = 'Viewer' | 'MappingDefiner' | 'Approver' | 'SuperAdmin';
 
 export interface User {
   id: string;

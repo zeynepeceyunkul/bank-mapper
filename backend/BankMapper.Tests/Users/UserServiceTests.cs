@@ -17,14 +17,14 @@ public class UserServiceTests
     {
         var repository = new FakeUserRepository();
         repository.Add(new User { Id = "u-1", Email = "a@example.com", Role = UserRole.Viewer, EmailVerified = true });
-        repository.Add(new User { Id = "u-2", Email = "b@example.com", Role = UserRole.Admin, EmailVerified = false });
+        repository.Add(new User { Id = "u-2", Email = "b@example.com", Role = UserRole.SuperAdmin, EmailVerified = false });
         var service = CreateService(repository);
 
         var users = await service.GetAllAsync();
 
         Assert.Equal(2, users.Count);
         Assert.Contains(users, u => u.Email == "a@example.com" && u.Role == UserRole.Viewer && u.EmailVerified);
-        Assert.Contains(users, u => u.Email == "b@example.com" && u.Role == UserRole.Admin && !u.EmailVerified);
+        Assert.Contains(users, u => u.Email == "b@example.com" && u.Role == UserRole.SuperAdmin && !u.EmailVerified);
     }
 
     [Fact]
@@ -61,11 +61,11 @@ public class UserServiceTests
     public async Task GetPagedAsync_filters_by_role()
     {
         var repository = new FakeUserRepository();
-        repository.Add(new User { Id = "u-1", Email = "admin@banka.com", Role = UserRole.Admin });
+        repository.Add(new User { Id = "u-1", Email = "admin@banka.com", Role = UserRole.SuperAdmin });
         repository.Add(new User { Id = "u-2", Email = "viewer@banka.com", Role = UserRole.Viewer });
         var service = CreateService(repository);
 
-        var page = await service.GetPagedAsync(pageIndex: 0, pageSize: 10, SortOption.NameAscending, role: UserRole.Admin);
+        var page = await service.GetPagedAsync(pageIndex: 0, pageSize: 10, SortOption.NameAscending, role: UserRole.SuperAdmin);
 
         Assert.Equal(1, page.TotalCount);
         Assert.Equal("admin@banka.com", page.Items[0].Email);
@@ -104,7 +104,7 @@ public class UserServiceTests
     public async Task UpdateRoleAsync_is_blocked_when_changing_your_own_role()
     {
         var repository = new FakeUserRepository();
-        repository.Add(new User { Id = "u-admin", Email = "admin@example.com", Role = UserRole.Admin });
+        repository.Add(new User { Id = "u-admin", Email = "admin@example.com", Role = UserRole.SuperAdmin });
         var service = CreateService(repository);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(
@@ -113,11 +113,28 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task UpdateRoleAsync_rejects_assigning_super_admin()
+    {
+        // Ece'nin karari (2026-08-25): tek bir SuperAdmin olacak, bu rol
+        // uygulama uzerinden baskasina atanamaz.
+        var repository = new FakeUserRepository();
+        repository.Add(new User { Id = "u-1", Email = "a@example.com", Role = UserRole.Viewer });
+        var service = CreateService(repository);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => service.UpdateRoleAsync("u-1", UserRole.SuperAdmin, currentUserId: "u-admin"));
+        Assert.Contains("Süper Admin rolü uygulama üzerinden atanamaz", ex.Message);
+
+        var unchanged = await repository.GetByIdAsync("u-1");
+        Assert.Equal(UserRole.Viewer, unchanged!.Role);
+    }
+
+    [Fact]
     public async Task UpdateRoleAsync_for_a_nonexistent_id_returns_null()
     {
         var service = CreateService();
 
-        var updated = await service.UpdateRoleAsync("does-not-exist", UserRole.Admin, currentUserId: "u-admin");
+        var updated = await service.UpdateRoleAsync("does-not-exist", UserRole.SuperAdmin, currentUserId: "u-admin");
 
         Assert.Null(updated);
     }

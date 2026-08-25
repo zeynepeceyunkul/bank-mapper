@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,6 +8,7 @@ import { MappingService } from '../../core/services/mapping.service';
 import { SourceSchemaService } from '../../core/services/source-schema.service';
 import { AuthService } from '../../core/services/auth.service';
 import { InstitutionService } from '../../core/services/institution.service';
+import { ToastService } from '../../core/services/toast.service';
 import { Mapping, MappingStatus } from '../../core/models/mapping.model';
 import { Institution } from '../../core/models/institution.model';
 import { relativeTime } from '../../core/utils/relative-time';
@@ -35,6 +36,8 @@ export class Dashboard implements OnInit {
   private readonly sourceSchemaService = inject(SourceSchemaService);
   private readonly authService = inject(AuthService);
   private readonly institutionService = inject(InstitutionService);
+  private readonly toastService = inject(ToastService);
+  private readonly router = inject(Router);
 
   readonly mappingCount = signal<number | null>(null);
   readonly schemaCount = signal<number | null>(null);
@@ -181,7 +184,24 @@ export class Dashboard implements OnInit {
 
   // mapping-list.ts'teki canApprove ile ayni gerekce/rol seti.
   canApprove(): boolean {
-    return this.authService.hasRole('Admin', 'Approver');
+    return this.authService.hasRole('SuperAdmin', 'Approver');
+  }
+
+  // Ece'nin karari (2026-08-25): kutuyu tamamen gizlemek grid'i bozuyordu,
+  // ama /preview'a gidip roleGuard'in orada modal gostermesi de kafa
+  // karistirici ("neden once sayfa degisti") - bu yuzden kutu her zaman
+  // gorunur kaliyor, tiklaninca hic navigasyon olmadan burada uyariyor
+  // (mapping-list.ts'teki openMapping() ile ayni desen).
+  canSeePreview(): boolean {
+    return this.authService.hasRole('SuperAdmin', 'MappingDefiner', 'Approver');
+  }
+
+  onPreviewTileClick(): void {
+    if (!this.canSeePreview()) {
+      this.toastService.error('Önizleme sayfasına erişim yetkiniz yok.');
+      return;
+    }
+    this.router.navigate(['/preview']);
   }
 
   toggleRejectedModal(): void {

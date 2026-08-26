@@ -113,14 +113,13 @@
     --mat-fab-small-foreground-color: var(--mat-sys-on-primary);
   }
 
-  // Onay Bekleyenler'den gelindiginde gorunen Onayla/Reddet bolumu -
+  // Onay bekleyen mapping'lerde gorunen Onayla/Reddet bolumu -
   // approval-queue.scss'teki .approve-btn/.reject-btn renk paleti/boyutuyla
   // birebir ayni (kasitli tekrar, ayni gerekce: iki ayri feature dosyasi
   // icin ortak bilesene cikarmak bu kadar kucuk bir parca icin gereksiz).
   // .approval-section ile ayni desen (kirmizi/reddedilen palete), reddedilme
   // gerekcesini mapping'i tanimlayana gostermek icin (Ece'nin karari,
-  // 2026-08-22) - onay bolumunden farkli olarak hangi yoldan gelinirse
-  // gelinsin gorunuyor (fromApproval sartina bagli degil).
+  // 2026-08-22) - hangi yoldan gelinirse gelinsin gorunuyor.
   .rejection-section {
     display: flex;
     align-items: center;

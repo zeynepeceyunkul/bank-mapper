@@ -88,29 +88,24 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   mappingId: string | null = null;
   readonly loadingExisting = signal(false);
 
-  // Onay Bekleyenler tablosundan gelindiginde (bkz. approval-queue.html'deki
-  // routerLink [queryParams]="{fromApproval:1}") mapping'in kendi ekraninda
-  // da Onayla/Reddet gorunsun diye - Ece'nin acik karari: bu SADECE bu
-  // senaryo icin, mapping-editor'e genel bir onay bolumu eklenmiyor. Route
-  // paramMap'teki mappingId gibi bu da paramMap subscription'i icinde
-  // okunuyor (ngOnInit, asagida) - snapshot degil, cunku /mapping/edit/:id
-  // -> /mapping/edit/:baska-id gecisinde Angular ayni component instance'ini
-  // yeniden kullaniyor.
-  readonly fromApproval = signal(false);
+  // Onayla/Reddet, onay bekleyen bir mapping'i HANGI yoldan acarsa acsin
+  // (Onaylar, Kayitli Mapping'ler, arama, dogrudan link) gorunuyor - Ece'nin
+  // karari (2026-08-25), onceki "sadece Onaylar'dan gelince goster"
+  // (fromApproval) kisitlamasinin yerine gecti: zaten sadece canApprove()
+  // olan biri gorebiliyor, giris yoluna gore ayrica kisitlamanin bir anlami
+  // kalmamisti - ozellikle artik Approver canvas'i (parametreler dahil) her
+  // yoldan tam gorebiliyor (bkz. mapping-canvas.ts'teki viewOnly yorumu).
   readonly mappingStatus = signal<MappingStatus | null>(null);
-  readonly showApprovalSection = computed(
-    () => this.fromApproval() && this.mappingStatus() === 'PendingApproval' && this.canApprove()
-  );
+  readonly showApprovalSection = computed(() => this.mappingStatus() === 'PendingApproval' && this.canApprove());
   readonly approving = signal(false);
   readonly showRejectPopup = signal(false);
   rejectReason = '';
 
   // Ece'nin karari (2026-08-22): reddedilme gerekcesi eskiden sadece Onaylar
   // ekraninda gorunuyordu, ama mapping'i tanimlayan (MappingDefiner) rolu o
-  // ekrana erisemiyor. Bu banner - fromApproval'dan farkli olarak - HANGI
-  // yoldan gelinirse gelinsin (dogrudan link, Kayitli Mapping'ler, arama)
-  // her zaman gosteriliyor, cunku amac tanimlayanin BULMASI, ozel bir rota
-  // degil.
+  // ekrana erisemiyor. Bu banner HANGI yoldan gelinirse gelinsin (dogrudan
+  // link, Kayitli Mapping'ler, arama) her zaman gosteriliyor, cunku amac
+  // tanimlayanin BULMASI, ozel bir rota degil.
   readonly rejectionReason = signal<string | null>(null);
   readonly showRejectionSection = computed(() => this.mappingStatus() === 'Rejected');
 
@@ -288,14 +283,6 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
           this.showCreatePermissionNotice.set(true);
         }
       }
-    });
-
-    // route.paramMap ile ayni gerekce: snapshot degil subscribe, çünkü Onay
-    // Bekleyenler'den bir mapping'e, oradan "Kayıtlı Mapping'ler" panelinden
-    // baska (query param'siz) bir mapping'e gecilirse fromApproval eski
-    // deger uzerinde takili kalmamali.
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.fromApproval.set(params.get('fromApproval') === '1');
     });
 
     // Panel'deki "Tumunu gor" linki buraya ?list=1 ile geliyor - kullanici
@@ -486,7 +473,13 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // ConfirmService (app-confirm-dialog) native confirm() yerine uygulamanin
   // kendi gorunumune uyan bir pencere gosteriyor - Promise donduruyor.
   private confirmDiscardIfDirty(): Promise<boolean> {
-    return !this.isDirty()
+    // canEditMapping() false ise (Approver'in onay bekleyen bir mapping'i
+    // incelemesi - bkz. mapping-canvas.ts'teki viewOnly yorumu, Ece'nin
+    // karari 2026-08-25) canvas'ta node tasimak/baglanti cizmek isDirty'i
+    // hala tetikliyor ama Kaydet zaten kapali - "kaydedilmemis degisiklik"
+    // uyarisi bu durumda anlamsiz, hicbir sekilde kaydedemeyecegi bir seyi
+    // "kaybetmek" uzere oldugu soylenmis oluyor.
+    return !this.isDirty() || !this.canEditMapping()
       ? Promise.resolve(true)
       : this.confirmService.confirm('Kaydedilmemiş değişiklikleriniz var. Devam ederseniz kaybolacaklar. Emin misiniz?');
   }
@@ -506,7 +499,8 @@ export class MappingEditor implements OnInit, HasUnsavedChanges {
   // degisiklikler olabilir" uyarisini gosteriyor.
   @HostListener('window:beforeunload', ['$event'])
   handleBeforeUnload(event: BeforeUnloadEvent): void {
-    if (this.isDirty()) {
+    // confirmDiscardIfDirty()'deki ayni gerekce.
+    if (this.isDirty() && this.canEditMapping()) {
       event.preventDefault();
     }
   }

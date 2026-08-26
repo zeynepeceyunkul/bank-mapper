@@ -181,6 +181,16 @@
 
     input {
       padding: 0.2rem;
+
+      // Approver'in onay bekleyen mapping'i incelerken parametreleri
+      // GOREBILMESI ama degistirememesi gerekiyor (Ece'nin karari,
+      // 2026-08-25) - readonly attribute'u zaten yazmayi engelliyor, bu
+      // sadece goz ile de "kilitli" oldugunu belli ediyor.
+      &:read-only {
+        background: #f0f0f0;
+        color: #666;
+        cursor: not-allowed;
+      }
     }
   }
 

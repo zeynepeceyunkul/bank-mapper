@@ -1,19 +1,22 @@
 <div class="mapping-canvas">
-  @if (!viewOnly) {
-    <div class="functoid-palette">
-      <h3>Functoid'ler</h3>
-      <p class="hint">Canvas'a sürükleyip bırak.</p>
-      @for (def of functoidDefinitions; track def.code) {
-        <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
-          {{ def.name }}
-        </div>
-      }
+  <!-- Approver'in onay bekleyen bir mapping'i acmasinda (viewOnly) palet
+       eskiden tamamen gizleniyordu - Ece'nin karari (2026-08-25): bu, canvas'in
+       geri kalaniyla ayni sekilde her zaman gorunur kalsin, arayuz normal
+       MappingDefiner gorunumunden farkli olmasin. Tek gercek kisitlama
+       parametre/sabit-deger DEGERLERI (asagidaki floating-panel input'lari). -->
+  <div class="functoid-palette">
+    <h3>Functoid'ler</h3>
+    <p class="hint">Canvas'a sürükleyip bırak.</p>
+    @for (def of functoidDefinitions; track def.code) {
+      <div class="functoid-chip" (mousedown)="onPaletteMouseDown($event, def.code)">
+        {{ def.name }}
+      </div>
+    }
 
-      <div class="palette-divider"></div>
+    <div class="palette-divider"></div>
 
-      <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
-    </div>
-  }
+    <button type="button" class="constant-chip" (click)="addConstant(260, 240)">+ Sabit Değer Ekle</button>
+  </div>
 
   <div class="canvas-host-wrapper">
     <div class="canvas-host" #canvasHost></div>
@@ -88,6 +91,7 @@
             <input
               [type]="param.type === 'number' ? 'number' : 'text'"
               [value]="paramValue(param.key)"
+              [readonly]="viewOnly"
               (input)="setParamValue(param, $any($event.target).value)"
             />
           </label>
@@ -100,7 +104,12 @@
         <button type="button" class="floating-panel-close" title="Kapat" (click)="closeConstantEdit()">×</button>
         <label>
           Sabit değer
-          <input type="text" [value]="edit.value" (input)="setConstantValue($any($event.target).value)" />
+          <input
+            type="text"
+            [value]="edit.value"
+            [readonly]="viewOnly"
+            (input)="setConstantValue($any($event.target).value)"
+          />
         </label>
       </div>
     }

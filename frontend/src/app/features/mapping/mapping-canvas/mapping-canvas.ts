@@ -205,14 +205,22 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
       height: this.canvasHeight,
       panning: false,
       mousewheel: false,
-      interacting: !this.viewOnly,
+      // viewOnly (Ece'nin karari, 2026-08-25): Approver'in onay bekleyen bir
+      // mapping'i acmasi bu bayragi tetikliyor, ama artik SADECE parametre/
+      // sabit-deger DEGERLERINI kilitliyor (asagida, floating-panel input'lari)
+      // - node tasima, yeni baglanti cizme, palet vs. normal MappingDefiner
+      // gorunumuyle ayni. Zaten Kaydet butonu canEditMapping() ile kapali
+      // oldugu icin buradaki hicbir etkilesim sunucuya yazilmiyor, o yuzden
+      // serbest birakmanin riski yok - eskiden butun canvas interacting=false
+      // ile kilitleniyordu, bu da Approver'in functoid parametrelerini (orn.
+      // Concat'in ayirici karakteri) goremeden onay/red vermesine yol aciyordu.
+      interacting: true,
       connecting: {
         allowBlank: false,
         allowLoop: false,
         allowNode: false,
         snap: true,
         validateConnection: ({ sourceMagnet, targetMagnet, sourceCell, targetCell }) => {
-          if (this.viewOnly) return false;
           if (!sourceMagnet || !targetMagnet) return false;
           if (sourceCell === targetCell) return false;
           return sourceMagnet.getAttribute('port-group') === 'out' && targetMagnet.getAttribute('port-group') === 'in';
@@ -469,7 +477,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           args: { x: SCHEMA_BOX_WIDTH, y: TITLE_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2 },
         })),
       },
-      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: 8 } } }],
+      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: 8 } } }],
     };
   }
 
@@ -598,7 +606,7 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
           { id: 'out', group: 'out', args: { x: width, y: height / 2 } },
         ],
       },
-      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
+      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
     };
   }
 
@@ -636,14 +644,13 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
         },
         items: [{ id: 'out', group: 'out', args: { x: NODE_WIDTH, y: NODE_HEIGHT / 2 } }],
       },
-      tools: this.viewOnly ? [] : [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
+      tools: [{ name: 'button-remove', args: { x: '100%', y: 0, offset: { x: -8, y: -8 } } }],
     };
   }
 
   // --- Palet sürükle-bırak ---
 
   onPaletteMouseDown(event: MouseEvent, code: string): void {
-    if (this.viewOnly) return;
     event.preventDefault();
     const node = this.graph.createNode(this.functoidNodeConfig(randomId(), code, 0, 0, null));
     this.dnd.start(node, event);
@@ -652,7 +659,6 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   // --- Node tıklama: parametre / sabit değer paneli ---
 
   private onNodeClick(node: Node): void {
-    if (this.viewOnly) return;
     const data = node.getData<Record<string, unknown>>();
     if (data?.['kind'] === 'functoid') {
       if (this.paramPanel()?.nodeId === node.id) {
@@ -713,6 +719,9 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   setParamValue(param: FunctoidParameterDefinition, raw: string): void {
+    // Input alani zaten [readonly]="viewOnly" (bkz. mapping-canvas.html), bu
+    // sadece savunma amacli tekrar.
+    if (this.viewOnly) return;
     const panel = this.paramPanel();
     if (!panel) return;
     const node = this.graph.getCellById(panel.nodeId) as Node | undefined;
@@ -730,6 +739,8 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   setConstantValue(raw: string): void {
+    // setParamValue'daki ayni gerekce.
+    if (this.viewOnly) return;
     const edit = this.constantEdit();
     if (!edit) return;
     const node = this.graph.getCellById(edit.nodeId) as Node | undefined;
@@ -1298,12 +1309,10 @@ export class MappingCanvas implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   addConstant(x: number, y: number): void {
-    if (this.viewOnly) return;
     this.graph.addNode(this.constantNodeConfig(randomId(), '', x, y));
   }
 
   removeEdge(id: string): void {
-    if (this.viewOnly) return;
     this.graph.removeCell(id);
   }
 
